@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title }}</title>
+</head>
+<body>
+    <a href="{% url 'index' %}">Go Back</a><br>
+    <form action="{% url 'update' %}" method="post">
+        {% csrf_token %}
+        Student No.: <input type="number" name="student_no" value="{{ student.student_no }}"/><br>
+        First Name: <input type="text" name="firstname" value="{{ student.firstname }}"><br>
+        Last Name: <input type="text" name="lastname" value="{{ student.lastname }}"><br>
+        <input type="hidden" name="id" value="{{ student.id }}">
+        <input type="submit" value="Save">
+    </form>
+</body>
+</html>

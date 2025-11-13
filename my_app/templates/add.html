@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+    <a href="{% url 'index' %}">Go Back</a><br>
+    <form action="{% url 'saveStudent' %}" method="post">
+        {% csrf_token %}
+        Student No.: <input type="number" name="student_no"/><br>
+        First Name: <input type="text" name="firstname"><br>
+        Last Name: <input type="text" name="lastname"><br>
+        <input type="submit" value="Save">
+    </form>
+</body>
+</html>
