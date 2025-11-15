@@ -1,0 +1,122 @@
+{% extends 'student/base_student.html' %}
+
+{% block title %}{{ course.code }} - Course Details - sixsayvensurvey.io{% endblock %}
+
+{% block student_content %}
+<!-- Back Navigation -->
+<a href="{% url 'student-courses' %}" class="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-6">
+    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+    </svg>
+    Back to Courses
+</a>
+
+<!-- Header -->
+<div class="mb-6 pb-4 border-b border-gray-300">
+    <h1 class="text-2xl font-bold text-indigo-900 mb-2">Course</h1>
+    <p class="text-sm text-gray-500">You're in this course. Access your surveys, responses, and updates below.</p>
+</div>
+
+<!-- Course Info Card -->
+<div class="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg p-8 mb-8 border border-indigo-100">
+    <div class="flex items-start justify-between">
+        <div class="flex-1">
+            <h2 class="text-3xl font-bold text-indigo-900 mb-3">{{ course.code }}</h2>
+            <p class="text-indigo-700 mb-4">
+                Course details are coming soon. In the meantime, you can answer the available surveys to share your feedback and insights.
+            </p>
+            <div class="inline-block">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+                    Instructor: {{ course.instructor|default:"TBA" }}
+                </span>
+            </div>
+        </div>
+        <div class="hidden lg:block ml-8">
+            <img 
+                src="data:image/svg+xml,%3Csvg width='180' height='140' viewBox='0 0 180 140' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M60 50C60 50 70 30 90 30C110 30 120 50 120 50' stroke='%234F46E5' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='75' cy='45' r='8' fill='%234F46E5'/%3E%3Ccircle cx='105' cy='45' r='8' fill='%234F46E5'/%3E%3Cpath d='M70 70C70 70 75 80 90 80C105 80 110 70 110 70' stroke='%234F46E5' stroke-width='3' stroke-linecap='round'/%3E%3Cpath d='M40 100L50 90L60 95L70 85' stroke='%236366F1' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M110 85L120 95L130 90L140 100' stroke='%236366F1' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E"
+                alt="Course illustration" 
+                class="w-44 h-36"
+            />
+        </div>
+    </div>
+</div>
+
+<!-- Survey Board Section -->
+<div class="mb-6">
+    <div class="flex items-center justify-between mb-4 pb-4 border-b border-gray-300">
+        <div class="flex items-center gap-2">
+            <svg class="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/>
+            </svg>
+            <h2 class="text-lg font-semibold text-gray-900">Survey Board</h2>
+        </div>
+        <a href="{% url 'student-survey-board' %}" class="text-indigo-600 font-semibold text-sm hover:text-indigo-700 flex items-center">
+            View All
+            <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+        </a>
+    </div>
+
+    <!-- Tabs -->
+    <div class="mb-6">
+        <div class="border-b border-gray-200">
+            <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                <button 
+                    onclick="switchTab('active')" 
+                    id="tab-active"
+                    class="tab-button border-b-2 border-indigo-500 py-4 px-1 text-center border-b-2 font-medium text-sm text-indigo-600"
+                >
+                    Active
+                </button>
+                <button 
+                    onclick="switchTab('closed')" 
+                    id="tab-closed"
+                    class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 py-4 px-1 text-center border-b-2 font-medium text-sm"
+                >
+                    Closed
+                </button>
+                <button 
+                    onclick="switchTab('completed')" 
+                    id="tab-completed"
+                    class="tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 py-4 px-1 text-center border-b-2 font-medium text-sm"
+                >
+                    Completed
+                </button>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Tab Content -->
+    <div id="tab-content-active" class="tab-content">
+        {% include 'student/includes/survey_table.html' with surveys=active_surveys %}
+    </div>
+
+    <div id="tab-content-closed" class="tab-content hidden">
+        {% include 'student/includes/survey_table.html' with surveys=closed_surveys %}
+    </div>
+
+    <div id="tab-content-completed" class="tab-content hidden">
+        {% include 'student/includes/survey_table.html' with surveys=completed_surveys %}
+    </div>
+</div>
+
+<script>
+function switchTab(tabName) {
+    // Update tab buttons
+    const tabs = ['active', 'closed', 'completed'];
+    tabs.forEach(tab => {
+        const button = document.getElementById('tab-' + tab);
+        const content = document.getElementById('tab-content-' + tab);
+        
+        if (tab === tabName) {
+            button.className = 'tab-button border-b-2 border-indigo-500 py-4 px-1 text-center font-medium text-sm text-indigo-600';
+            content.classList.remove('hidden');
+        } else {
+            button.className = 'tab-button border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 py-4 px-1 text-center border-b-2 font-medium text-sm';
+            content.classList.add('hidden');
+        }
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,204 @@
+{% extends 'student/base_student.html' %}
+
+{% block title %}Survey Board - sixsayvensurvey.io{% endblock %}
+
+{% block student_content %}
+<!-- Header -->
+<div class="mb-8 pb-4 border-b border-gray-300">
+    <h1 class="text-3xl font-bold text-gray-900 mb-2">Survey Board</h1>
+    <p class="text-sm text-gray-500">View and manage all your surveys and submissions in one place.</p>
+</div>
+
+<!-- Tabs and Course Filter -->
+<div class="mb-6 border-b border-gray-200">
+    <div class="flex items-center justify-between mb-4">
+        <ul class="flex flex-wrap -mb-px text-sm font-medium text-center" id="default-tab" data-tabs-toggle="#default-tab-content" role="tablist">
+            <li class="me-2" role="presentation">
+                <button class="inline-block p-4 border-b-2 rounded-t-lg" id="active-tab" data-tabs-target="#active" type="button" role="tab" aria-controls="active" aria-selected="false">Active</button>
+            </li>
+            <li class="me-2" role="presentation">
+                <button class="inline-block p-4 border-b-2 rounded-t-lg hover:text-gray-600 hover:border-gray-300" id="closed-tab" data-tabs-target="#closed" type="button" role="tab" aria-controls="closed" aria-selected="false">Closed</button>
+            </li>
+            <li class="me-2" role="presentation">
+                <button class="inline-block p-4 border-b-2 rounded-t-lg hover:text-gray-600 hover:border-gray-300" id="completed-tab" data-tabs-target="#completed" type="button" role="tab" aria-controls="completed" aria-selected="false">Completed</button>
+            </li>
+        </ul>
+
+        <form method="get" class="flex items-center">
+            <select name="course" onchange="this.form.submit()" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5">
+                <option value="">All Courses</option>
+                {% for course in courses %}
+                <option value="{{ course.id }}" {% if selected_course == course.id|stringformat:"s" %}selected{% endif %}>{{ course.name }}</option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+</div>
+
+<div id="default-tab-content">
+    <!-- Active Tab -->
+    <div class="hidden" id="active" role="tabpanel" aria-labelledby="active-tab">
+        <div class="relative overflow-x-auto shadow-md sm:rounded-lg">
+            <table class="w-full text-sm text-left text-gray-500">
+                <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3">Survey Title</th>
+                        <th scope="col" class="px-6 py-3">Type</th>
+                        <th scope="col" class="px-6 py-3">Status</th>
+                        <th scope="col" class="px-6 py-3">Progress</th>
+                        <th scope="col" class="px-6 py-3">Due Date</th>
+                        <th scope="col" class="px-6 py-3">
+                            <span class="sr-only">Actions</span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for survey in active_surveys %}
+                    <tr class="bg-white border-b hover:bg-gray-50">
+                        <th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{{ survey.title }}</th>
+                        <td class="px-6 py-4">{{ survey.type }}</td>
+                        <td class="px-6 py-4">
+                            {% if survey.status == 'In Progress' %}
+                            <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">In Progress</span>
+                            {% else %}
+                            <span class="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded">Not Started</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4">
+                            {% if survey.progress > 0 %}
+                            <div class="flex items-center gap-2">
+                                <div class="w-24 h-2 bg-gray-200 rounded-full">
+                                    <div class="h-full bg-orange-500 rounded-full" style="width: {{ survey.progress }}%"></div>
+                                </div>
+                                <span class="text-sm text-gray-600 font-medium">{{ survey.progress }}%</span>
+                            </div>
+                            {% else %}
+                            <span class="text-sm text-gray-500">0%</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4">{{ survey.due_date }}</td>
+                        <td class="px-6 py-4 text-right">
+                            <div class="relative inline-block">
+                                <button id="dropdown-button-{{ survey.id }}" data-dropdown-toggle="dropdown-{{ survey.id }}" data-dropdown-placement="bottom-end" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 inline-flex items-center justify-center p-2 text-sm font-medium text-center rounded-lg transition-colors" type="button">
+                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                                    </svg>
+                                </button>
+                                <div id="dropdown-{{ survey.id }}" class="z-50 hidden bg-white border border-gray-200 rounded-lg shadow-lg w-48" data-popper-placement="bottom-end">
+                                    <ul class="py-1 text-sm text-gray-700">
+                                        <li>
+                                            <a href="{% url 'student-survey-detail' survey.id %}" class="flex items-center px-4 py-2.5 hover:bg-gray-50 text-gray-700 hover:text-gray-900 transition-colors">
+                                                <svg class="w-4 h-4 mr-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                                </svg>
+                                                View Details
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">No active surveys found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Closed Tab -->
+    <div class="hidden" id="closed" role="tabpanel" aria-labelledby="closed-tab">
+        <div class="relative overflow-x-auto shadow-md sm:rounded-lg">
+            <table class="w-full text-sm text-left text-gray-500">
+                <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3">Survey Title</th>
+                        <th scope="col" class="px-6 py-3">Type</th>
+                        <th scope="col" class="px-6 py-3">Status</th>
+                        <th scope="col" class="px-6 py-3">Progress</th>
+                        <th scope="col" class="px-6 py-3">Due Date</th>
+                        <th scope="col" class="px-6 py-3">
+                            <span class="sr-only">Actions</span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for survey in closed_surveys %}
+                    <tr class="bg-white border-b hover:bg-gray-50">
+                        <th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{{ survey.title }}</th>
+                        <td class="px-6 py-4">{{ survey.type }}</td>
+                        <td class="px-6 py-4">
+                            <span class="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">Closed</span>
+                        </td>
+                        <td class="px-6 py-4">
+                            {% if survey.progress > 0 %}
+                            <div class="flex items-center gap-2">
+                                <div class="w-24 h-2 bg-gray-200 rounded-full">
+                                    <div class="h-full bg-orange-500 rounded-full" style="width: {{ survey.progress }}%"></div>
+                                </div>
+                                <span class="text-sm text-gray-600 font-medium">{{ survey.progress }}%</span>
+                            </div>
+                            {% else %}
+                            <span class="text-sm text-gray-500">0%</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4">{{ survey.due_date }}</td>
+                        <td class="px-6 py-4 text-right">
+                            <a href="{% url 'student-survey-detail' survey.id %}" class="font-medium text-indigo-600 hover:underline">View</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">No closed surveys found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Completed Tab -->
+    <div class="hidden" id="completed" role="tabpanel" aria-labelledby="completed-tab">
+        <div class="relative overflow-x-auto shadow-md sm:rounded-lg">
+            <table class="w-full text-sm text-left text-gray-500">
+                <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3">Survey Title</th>
+                        <th scope="col" class="px-6 py-3">Type</th>
+                        <th scope="col" class="px-6 py-3">Status</th>
+                        <th scope="col" class="px-6 py-3">Due Date</th>
+                        <th scope="col" class="px-6 py-3">Score</th>
+                        <th scope="col" class="px-6 py-3">
+                            <span class="sr-only">Actions</span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for survey in completed_surveys %}
+                    <tr class="bg-white border-b hover:bg-gray-50">
+                        <th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{{ survey.title }}</th>
+                        <td class="px-6 py-4">{{ survey.type }}</td>
+                        <td class="px-6 py-4">
+                            <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Completed</span>
+                        </td>
+                        <td class="px-6 py-4">{{ survey.due_date }}</td>
+                        <td class="px-6 py-4">{{ survey.score|default:"--" }}</td>
+                        <td class="px-6 py-4 text-right">
+                            <a href="{% url 'student-survey-detail' survey.id %}" class="font-medium text-indigo-600 hover:underline">View</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">No completed surveys found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

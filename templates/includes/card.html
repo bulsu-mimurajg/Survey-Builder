@@ -1,0 +1,12 @@
+<!-- Reusable Card Component -->
+<!-- Usage: {% include 'includes/card.html' with title='Card Title' content='Card content' %} -->
+
+<div class="block p-6 bg-white border border-gray-200 rounded-lg shadow hover:bg-gray-100 {{ extra_classes }}">
+    {% if title %}
+    <h5 class="mb-2 text-2xl font-bold tracking-tight text-gray-900">{{ title }}</h5>
+    {% endif %}
+    {% if content %}
+    <p class="font-normal text-gray-700">{{ content }}</p>
+    {% endif %}
+    {{ body }}
+</div>

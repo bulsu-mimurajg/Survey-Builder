@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}Sign In - sixsayvensurvey.io{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex">
+    <!-- Left side - Form -->
+    <div class="w-full lg:w-1/2 flex flex-col justify-center px-8 lg:px-20 bg-white">
+        <div class="max-w-md w-full mx-auto">
+            <!-- Back to Home Link -->
+            <a href="{% url 'landing' %}" class="inline-flex items-center text-gray-600 hover:text-gray-900 mb-12 text-sm">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                Home
+            </a>
+
+            <!-- Header -->
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">
+                    Sign in to your account
+                </h1>
+                <p class="text-gray-600">
+                    Don't have an account? 
+                    <a href="{% url 'signup' %}" class="text-indigo-600 hover:text-indigo-700 font-medium">
+                        Sign Up
+                    </a>
+                </p>
+            </div>
+
+            <!-- Form -->
+            <form method="post" action="{% url 'signin' %}" class="space-y-6">
+                {% csrf_token %}
+                
+                <!-- Email Field -->
+                <div>
+                    <label for="email" class="block mb-2 text-sm font-medium text-gray-900">Email address</label>
+                    <input type="email" name="email" id="email" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" placeholder="name@company.com" required>
+                </div>
+
+                <!-- Password Field -->
+                <div>
+                    <label for="password" class="block mb-2 text-sm font-medium text-gray-900">Password</label>
+                    <input type="password" name="password" id="password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" placeholder="••••••••" required>
+                </div>
+
+                <!-- Remember Me & Forgot Password -->
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <input id="remember" name="remember" type="checkbox" value="" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-indigo-300">
+                        <label for="remember" class="ml-2 text-sm font-medium text-gray-900">Remember me</label>
+                    </div>
+                    <a href="{% url 'forgot-password' %}" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
+                        Forgot Password?
+                    </a>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="w-full text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:outline-none focus:ring-indigo-300 font-medium rounded-lg text-base px-5 py-3 text-center">
+                    Sign in
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right side - Image -->
+    <div class="hidden lg:block lg:w-1/2 relative">
+        <div class="absolute inset-0 bg-gradient-to-br from-indigo-500/90 to-purple-600/90 mix-blend-multiply"></div>
+        <img src="https://images.unsplash.com/photo-1498050108023-c5249f4df085?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2072&q=80" 
+             alt="Workspace" 
+             class="h-full w-full object-cover">
+    </div>
+</div>
+{% endblock %}

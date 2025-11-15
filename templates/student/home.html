@@ -1,0 +1,217 @@
+{% extends 'student/base_student.html' %}
+
+{% block title %}Home - sixsayvensurvey.io{% endblock %}
+
+{% block student_content %}
+<!-- Header -->
+<div class="flex items-center justify-between mb-8">
+    <div>
+        <h1 class="text-2xl leading-8 font-normal text-gray-600 flex items-center">
+            <span class="mr-2">👋</span> Welcome, {{ user.first_name|default:"Student" }}!
+        </h1>
+    </div>
+    <div class="text-xs leading-4 font-extrabold text-gray-500">
+        {{ current_date|date:"F d, Y, l" }}
+    </div>
+</div>
+
+<!-- Get Started Card -->
+<div class="mb-8 p-8 bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-lg">
+    <div class="flex items-center justify-between">
+        <div class="flex-1">
+            <h2 class="text-xl font-bold text-gray-900 mb-2">Get Started – Join a Course Today!</h2>
+            <p class="text-gray-600 mb-4 max-w-2xl">
+                Discover insights and share your thoughts by participating in one of our class surveys. Whether it's for feedback, research, or engagement, your voice helps shape a better learning experience. Be part of the conversation!
+            </p>
+            <button type="button" data-modal-target="join-course-modal" data-modal-toggle="join-course-modal" class="text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:outline-none focus:ring-indigo-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center inline-flex items-center">
+                Join a Course
+                <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Enrolled Courses -->
+<div class="mb-8">
+    <div class="flex items-center justify-between mb-4 pb-4 border-b border-gray-300">
+        <div class="flex items-center space-x-2">
+            <svg class="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z"/>
+            </svg>
+            <h2 class="text-lg font-semibold text-gray-900">Enrolled Courses</h2>
+        </div>
+        <a href="{% url 'student-courses' %}" class="text-indigo-600 hover:text-indigo-700 font-medium text-sm inline-flex items-center">
+            View All
+            <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+        </a>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {% for course in enrolled_courses %}
+        <div class="bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+            <div class="flex items-center">
+                <div class="w-24 h-20 bg-{{ course.color }}-500 flex items-center justify-center text-white font-bold text-xl flex-shrink-0 rounded-l-lg">
+                    {{ course.code }}
+                </div>
+                <div class="flex-1 px-4 min-w-0">
+                    <h3 class="font-semibold text-gray-900 text-sm truncate mb-1">{{ course.name }}</h3>
+                    <p class="text-xs text-gray-500">{{ course.members }} Members</p>
+                </div>
+                <div class="mr-2 relative">
+                    <button id="course-dropdown-{{ course.id }}" data-dropdown-toggle="dropdown-{{ course.id }}" data-dropdown-placement="bottom-end" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 inline-flex items-center justify-center p-2 text-sm font-medium text-center rounded-lg transition-colors" type="button">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                        </svg>
+                    </button>
+                    <div id="dropdown-{{ course.id }}" class="z-50 hidden bg-white border border-gray-200 rounded-lg shadow-lg w-48" data-popper-placement="bottom-end">
+                        <ul class="py-1 text-sm text-gray-700" aria-labelledby="course-dropdown-{{ course.id }}">
+                            <li>
+                                <a href="{% url 'student-course-detail' course.id %}" class="flex items-center px-4 py-2.5 hover:bg-gray-50 text-gray-700 hover:text-gray-900 transition-colors">
+                                    <svg class="w-4 h-4 mr-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    </svg>
+                                    View Details
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-span-4 text-center py-8 text-gray-500">
+            No enrolled courses yet. Join a course to get started!
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Survey Board -->
+<div>
+    <div class="flex items-center justify-between mb-4 pb-4 border-b border-gray-300">
+        <div class="flex items-center space-x-2">
+            <svg class="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/>
+            </svg>
+            <h2 class="text-lg font-semibold text-gray-900">Survey Board</h2>
+        </div>
+        <a href="{% url 'student-survey-board' %}" class="text-indigo-600 hover:text-indigo-700 font-medium text-sm inline-flex items-center">
+            View All
+            <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+        </a>
+    </div>
+
+    <div class="relative overflow-x-auto shadow-md sm:rounded-lg">
+        <table class="w-full text-sm text-left text-gray-500">
+            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-6 py-3">Survey Title</th>
+                    <th scope="col" class="px-6 py-3">Type</th>
+                    <th scope="col" class="px-6 py-3">Status</th>
+                    <th scope="col" class="px-6 py-3">Progress</th>
+                    <th scope="col" class="px-6 py-3">Due Date</th>
+                    <th scope="col" class="px-6 py-3">
+                        <span class="sr-only">Actions</span>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for survey in recent_surveys %}
+                <tr class="bg-white border-b hover:bg-gray-50">
+                    <th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+                        {{ survey.title }}
+                    </th>
+                    <td class="px-6 py-4">{{ survey.type }}</td>
+                    <td class="px-6 py-4">
+                        {% if survey.status == 'Completed' %}
+                        <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Completed</span>
+                        {% elif survey.status == 'In Progress' %}
+                        <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">In Progress</span>
+                        {% else %}
+                        <span class="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded">Not Started</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4">
+                        {% if survey.progress > 0 %}
+                        <div class="flex items-center gap-2">
+                            <div class="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div class="h-full bg-orange-500 rounded-full" style="width: {{ survey.progress }}%"></div>
+                            </div>
+                            <span class="text-sm text-gray-600 font-medium">{{ survey.progress }}%</span>
+                        </div>
+                        {% else %}
+                        <span class="text-sm text-gray-500">0%</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4">{{ survey.due_date }}</td>
+                    <td class="px-6 py-4 text-right">
+                        <div class="relative inline-block">
+                            <button id="survey-dropdown-{{ survey.id }}" data-dropdown-toggle="survey-dropdown-menu-{{ survey.id }}" data-dropdown-placement="bottom-end" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 inline-flex items-center justify-center p-2 text-sm font-medium text-center rounded-lg transition-colors" type="button">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                                </svg>
+                            </button>
+                            <div id="survey-dropdown-menu-{{ survey.id }}" class="z-50 hidden bg-white border border-gray-200 rounded-lg shadow-lg w-48" data-popper-placement="bottom-end">
+                                <ul class="py-1 text-sm text-gray-700">
+                                    <li>
+                                        <a href="{% url 'student-survey-detail' survey.id %}" class="flex items-center px-4 py-2.5 hover:bg-gray-50 text-gray-700 hover:text-gray-900 transition-colors">
+                                            <svg class="w-4 h-4 mr-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                            </svg>
+                                            View Details
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                        No surveys available
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Join Course Modal -->
+<div id="join-course-modal" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+    <div class="relative p-4 w-full max-w-md max-h-full">
+        <div class="relative bg-white rounded-lg shadow">
+            <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t">
+                <h3 class="text-lg font-semibold text-gray-900">
+                    Join course via invite code
+                </h3>
+                <button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center" data-modal-hide="join-course-modal">
+                    <svg class="w-3 h-3" aria-hidden="true" fill="none" viewBox="0 0 14 14">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                    </svg>
+                    <span class="sr-only">Close modal</span>
+                </button>
+            </div>
+            <form method="post" action="{% url 'student-join-course' %}" class="p-4 md:p-5">
+                {% csrf_token %}
+                <div class="mb-4">
+                    <label for="invite-code" class="block mb-2 text-sm font-medium text-gray-900">Invite code</label>
+                    <input type="text" name="invite_code" id="invite-code" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" placeholder="Enter invite code" required>
+                </div>
+                <button type="submit" class="w-full text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:outline-none focus:ring-indigo-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">
+                    Join Course
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

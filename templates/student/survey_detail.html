@@ -1,0 +1,168 @@
+{% extends 'student/base_student.html' %}
+
+{% block title %}{{ survey.title }} - Survey Details - sixsayvensurvey.io{% endblock %}
+
+{% block student_content %}
+<!-- Back Navigation -->
+<button onclick="history.back()" class="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-6">
+    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+    </svg>
+    Back
+</button>
+
+<!-- Header -->
+<div class="mb-8 pb-4 border-b border-gray-300">
+    <h1 class="text-3xl font-bold text-indigo-900 mb-2">Survey Board</h1>
+    <p class="text-sm text-gray-500">View and manage all your surveys and submissions in one place.</p>
+</div>
+
+<!-- Survey Detail Card -->
+<div class="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-8 mb-6 border border-indigo-100">
+    <div class="flex items-start justify-between mb-6">
+        <div class="flex-1">
+            <div class="flex items-center gap-3 mb-2">
+                <h2 class="text-2xl font-bold text-indigo-900">{{ survey.title }}</h2>
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-white text-gray-700 border border-gray-300">
+                    {{ survey.type }}
+                </span>
+            </div>
+            <div class="flex items-center gap-2 text-indigo-700 mb-6">
+                <span class="font-semibold">{{ survey.course }}</span>
+                <span>•</span>
+                {% if survey.status == 'Not Started' %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                    Not Started
+                </span>
+                {% elif survey.status == 'In Progress' %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    In Progress
+                </span>
+                {% elif survey.status == 'Completed' %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    Completed
+                </span>
+                {% else %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                    {{ survey.status }}
+                </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div>
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-gray-700">Progress</span>
+            <span class="text-sm font-bold text-gray-900">{{ survey.progress }}%</span>
+        </div>
+        <div class="w-full h-3 bg-white rounded-full overflow-hidden border border-indigo-200">
+            <div 
+                class="h-full bg-orange-500 rounded-full transition-all duration-300" 
+                style="width: {{ survey.progress }}%"
+            ></div>
+        </div>
+    </div>
+</div>
+
+<!-- Info Grid -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
+    <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+        </div>
+        <div>
+            <p class="text-xs text-gray-600 mb-1">Due date</p>
+            <p class="text-sm font-semibold text-gray-900">{{ survey.due_date }}</p>
+        </div>
+    </div>
+
+    <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </div>
+        <div>
+            <p class="text-xs text-gray-600 mb-1">Duration</p>
+            <p class="text-sm font-semibold text-gray-900">{{ survey.duration }}</p>
+        </div>
+    </div>
+
+    <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </div>
+        <div>
+            <p class="text-xs text-gray-600 mb-1">Passing Score</p>
+            <p class="text-sm font-semibold text-gray-900">{{ survey.passing_score }}</p>
+        </div>
+    </div>
+
+    <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+        </div>
+        <div>
+            <p class="text-xs text-gray-600 mb-1">Total Questions</p>
+            <p class="text-sm font-semibold text-gray-900">{{ survey.total_questions }}</p>
+        </div>
+    </div>
+</div>
+
+<!-- Description -->
+<div class="bg-white rounded-lg p-6 mb-4 border border-gray-200">
+    <h3 class="text-lg font-semibold text-gray-900 mb-3">Description</h3>
+    <p class="text-gray-600">{{ survey.description }}</p>
+</div>
+
+<!-- Instructions -->
+<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-4">
+    <div class="flex items-start gap-3 mb-4">
+        <svg class="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+        </svg>
+        <div class="flex-1">
+            <h3 class="text-base font-semibold text-yellow-900 mb-3">Please read carefully before starting</h3>
+            <ul class="space-y-2">
+                {% for instruction in survey.instructions %}
+                <li class="text-sm text-yellow-800 flex items-start">
+                    <span class="mr-2">•</span>
+                    <span>{{ instruction }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Attempts Remaining -->
+<div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+    <p class="text-sm text-blue-900">
+        <span class="font-semibold">Note: {{ survey.attempts_remaining }} Attempt</span> remaining
+    </p>
+</div>
+
+<!-- Action Buttons -->
+<div class="flex items-center justify-between">
+    <button 
+        onclick="history.back()" 
+        class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+    >
+        Cancel
+    </button>
+    <button 
+        class="inline-flex items-center px-6 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition-colors"
+        onclick="alert('Survey functionality coming soon!')"
+    >
+        Continue Survey
+    </button>
+</div>
+{% endblock %}

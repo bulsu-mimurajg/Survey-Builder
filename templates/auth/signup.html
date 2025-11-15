@@ -1,0 +1,271 @@
+{% extends 'base.html' %}
+
+{% block title %}Sign Up - sixsayvensurvey.io{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex">
+    <!-- Left side - Form -->
+    <div class="w-full lg:w-1/2 flex flex-col justify-center px-8 lg:px-20 bg-white">
+        <div class="max-w-md w-full mx-auto">
+            <!-- Back to Home Link -->
+            <a href="{% url 'landing' %}" class="inline-flex items-center text-gray-600 hover:text-gray-900 mb-12 text-sm">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                Home
+            </a>
+
+            <!-- Header -->
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">
+                    Create your account
+                </h1>
+                <p class="text-gray-600">
+                    Already have an account? 
+                    <a href="{% url 'signin' %}" class="text-indigo-600 hover:text-indigo-700 font-medium">
+                        Sign In
+                    </a>
+                </p>
+            </div>
+
+            <!-- Form -->
+            <form method="post" action="{% url 'signup' %}" class="space-y-6">
+                {% csrf_token %}
+                
+                <!-- Full Name Field -->
+                <div>
+                    <label for="fullname" class="block mb-2 text-sm font-medium text-gray-900">Full Name</label>
+                    <input type="text" name="fullname" id="fullname" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" placeholder="Juan Dela Cruz" required>
+                </div>
+
+                <!-- Email Field -->
+                <div>
+                    <label for="email" class="block mb-2 text-sm font-medium text-gray-900">Email address</label>
+                    <input type="email" name="email" id="email" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" placeholder="name@company.com" required>
+                </div>
+
+                <!-- Password Field -->
+                <div class="relative">
+                    <label for="password" class="block mb-2 text-sm font-medium text-gray-900">Password</label>
+                    <input type="password" name="password" id="password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" placeholder="••••••••" required minlength="8">
+                    
+                    <!-- Password Strength Indicator (Hidden by default) -->
+                    <div id="password-strength-card" class="hidden absolute z-10 mt-2 p-3 bg-white border border-gray-200 rounded-lg shadow-lg space-y-2 w-full">
+                        <div class="flex items-center gap-2">
+                            <div class="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                <div id="password-strength-bar" class="h-full w-0 transition-all duration-300 rounded-full"></div>
+                            </div>
+                            <span id="password-strength-text" class="text-xs font-medium"></span>
+                        </div>
+                        <ul class="text-xs space-y-1">
+                            <li id="length-check" class="flex items-center gap-1.5 text-gray-500">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="10" stroke-width="2"></circle>
+                                </svg>
+                                At least 8 characters
+                            </li>
+                            <li id="lowercase-check" class="flex items-center gap-1.5 text-gray-500">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="10" stroke-width="2"></circle>
+                                </svg>
+                                Contains lowercase letter
+                            </li>
+                            <li id="uppercase-check" class="flex items-center gap-1.5 text-gray-500">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="10" stroke-width="2"></circle>
+                                </svg>
+                                Contains uppercase letter
+                            </li>
+                            <li id="number-check" class="flex items-center gap-1.5 text-gray-500">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="10" stroke-width="2"></circle>
+                                </svg>
+                                Contains number
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Confirm Password Field -->
+                <div>
+                    <label for="confirm-password" class="block mb-2 text-sm font-medium text-gray-900">Confirm Password</label>
+                    <input type="password" name="confirm_password" id="confirm-password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" placeholder="••••••••" required>
+                    <p id="password-match-message" class="mt-1 text-xs hidden"></p>
+                </div>
+
+                <!-- Terms & Conditions -->
+                <div class="flex items-start">
+                    <div class="flex items-center h-5">
+                        <input id="terms" name="terms" type="checkbox" value="" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-indigo-300" required>
+                    </div>
+                    <label for="terms" class="ml-2 text-sm font-medium text-gray-900">
+                        I agree to the <a href="#" class="text-indigo-600 hover:underline">Terms and Conditions</a>
+                    </label>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" id="submit-btn" class="w-full text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:outline-none focus:ring-indigo-300 font-medium rounded-lg text-base px-5 py-3 text-center disabled:opacity-50 disabled:cursor-not-allowed transition-opacity" disabled>
+                    Create account
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right side - Image -->
+    <div class="hidden lg:block lg:w-1/2 relative">
+        <div class="absolute inset-0 bg-gradient-to-br from-indigo-500/90 to-purple-600/90 mix-blend-multiply"></div>
+        <img src="https://images.unsplash.com/photo-1517694712202-14dd9538aa97?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80" 
+             alt="Workspace" 
+             class="h-full w-full object-cover">
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const passwordInput = document.getElementById('password');
+    const confirmPasswordInput = document.getElementById('confirm-password');
+    const submitBtn = document.getElementById('submit-btn');
+    const strengthBar = document.getElementById('password-strength-bar');
+    const strengthText = document.getElementById('password-strength-text');
+    const matchMessage = document.getElementById('password-match-message');
+    const strengthCard = document.getElementById('password-strength-card');
+    
+    const checks = {
+        length: document.getElementById('length-check'),
+        lowercase: document.getElementById('lowercase-check'),
+        uppercase: document.getElementById('uppercase-check'),
+        number: document.getElementById('number-check')
+    };
+    
+    let hasTyped = false;
+    
+    // Show card when user starts typing
+    passwordInput.addEventListener('input', function() {
+        if (this.value.length > 0 && !hasTyped) {
+            hasTyped = true;
+        }
+        if (this.value.length > 0) {
+            strengthCard.classList.remove('hidden');
+        }
+        validateForm();
+    });
+    
+    // Show card when focused and has content
+    passwordInput.addEventListener('focus', function() {
+        if (hasTyped || this.value.length > 0) {
+            strengthCard.classList.remove('hidden');
+        }
+    });
+    
+    // Hide card when user clicks away (blur)
+    passwordInput.addEventListener('blur', function() {
+        strengthCard.classList.add('hidden');
+    });
+    
+    function updateCheck(element, passed) {
+        if (passed) {
+            element.classList.remove('text-gray-500');
+            element.classList.add('text-green-600');
+            element.querySelector('svg').innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>';
+        } else {
+            element.classList.remove('text-green-600');
+            element.classList.add('text-gray-500');
+            element.querySelector('svg').innerHTML = '<circle cx="12" cy="12" r="10" stroke-width="2"></circle>';
+        }
+    }
+    
+    function checkPasswordStrength(password) {
+        const criteria = {
+            length: password.length >= 8,
+            lowercase: /[a-z]/.test(password),
+            uppercase: /[A-Z]/.test(password),
+            number: /[0-9]/.test(password)
+        };
+        
+        updateCheck(checks.length, criteria.length);
+        updateCheck(checks.lowercase, criteria.lowercase);
+        updateCheck(checks.uppercase, criteria.uppercase);
+        updateCheck(checks.number, criteria.number);
+        
+        const passedCount = Object.values(criteria).filter(Boolean).length;
+        let strength = 0;
+        let strengthLabel = '';
+        let color = '';
+        
+        if (passedCount === 0) {
+            strength = 0;
+            strengthLabel = '';
+            color = '';
+        } else if (passedCount === 1) {
+            strength = 25;
+            strengthLabel = 'Weak';
+            color = 'bg-red-500';
+        } else if (passedCount === 2) {
+            strength = 50;
+            strengthLabel = 'Fair';
+            color = 'bg-orange-500';
+        } else if (passedCount === 3) {
+            strength = 75;
+            strengthLabel = 'Good';
+            color = 'bg-yellow-500';
+        } else {
+            strength = 100;
+            strengthLabel = 'Strong';
+            color = 'bg-green-500';
+        }
+        
+        strengthBar.style.width = strength + '%';
+        strengthBar.className = 'h-full transition-all duration-300 rounded-full ' + color;
+        strengthText.textContent = strengthLabel;
+        strengthText.className = 'text-xs font-medium ' + (color ? color.replace('bg-', 'text-') : '');
+        
+        return Object.values(criteria).every(Boolean);
+    }
+    
+    function checkPasswordMatch() {
+        const password = passwordInput.value;
+        const confirmPassword = confirmPasswordInput.value;
+        
+        if (confirmPassword.length === 0) {
+            matchMessage.classList.add('hidden');
+            return true;
+        }
+        
+        matchMessage.classList.remove('hidden');
+        
+        if (password === confirmPassword) {
+            matchMessage.textContent = '✓ Passwords match';
+            matchMessage.classList.remove('text-red-600');
+            matchMessage.classList.add('text-green-600');
+            return true;
+        } else {
+            matchMessage.textContent = '✗ Passwords do not match';
+            matchMessage.classList.remove('text-green-600');
+            matchMessage.classList.add('text-red-600');
+            return false;
+        }
+    }
+    
+    function validateForm() {
+        const fullname = document.getElementById('fullname').value.trim();
+        const email = document.getElementById('email').value.trim();
+        const terms = document.getElementById('terms').checked;
+        
+        const passwordStrong = checkPasswordStrength(passwordInput.value);
+        const passwordsMatch = checkPasswordMatch();
+        
+        const isValid = fullname && email && passwordStrong && passwordsMatch && terms;
+        submitBtn.disabled = !isValid;
+    }
+    
+    // Real-time validation
+    confirmPasswordInput.addEventListener('input', validateForm);
+    document.getElementById('fullname').addEventListener('input', validateForm);
+    document.getElementById('email').addEventListener('input', validateForm);
+    document.getElementById('terms').addEventListener('change', validateForm);
+    
+    // Initial validation
+    validateForm();
+});
+</script>
+{% endblock %}

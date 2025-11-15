@@ -1,0 +1,13 @@
+<!-- Reusable Progress Bar Component -->
+<!-- Usage: {% include 'includes/progress_bar.html' with progress=50 %} -->
+
+{% if progress > 0 %}
+<div class="flex items-center gap-2">
+    <div class="w-full bg-gray-200 rounded-full h-2.5">
+        <div class="bg-orange-500 h-2.5 rounded-full" style="width: {{ progress }}%"></div>
+    </div>
+    <span class="text-sm text-gray-600 font-medium whitespace-nowrap">{{ progress }}%</span>
+</div>
+{% else %}
+<span class="text-sm text-gray-500">0%</span>
+{% endif %}
