@@ -1,4 +1,5 @@
 import { Button } from '../components/ui/button'
+import { Link } from 'react-router-dom'
 import { useRef, useEffect } from 'react'
 import { Swiper, SwiperSlide } from 'swiper/react'
 import { Navigation, Pagination } from 'swiper/modules'
@@ -63,12 +64,16 @@ const LandingPage = () => {
 
             {/* Auth Buttons */}
             <div className="flex items-center space-x-4">
-              <Button variant="outline" className="bg-white border-2 border-gray-300 text-gray-900 hover:border-gray-400 hover:bg-gray-50 rounded-xl w-28">
-                Sign In
-              </Button>
-              <Button className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl w-28">
-                Sign Up
-              </Button>
+              <Link to="/signin">
+                <Button variant="outline" className="bg-white border-2 border-gray-300 text-gray-900 hover:border-gray-400 hover:bg-gray-50 rounded-xl w-28">
+                  Sign In
+                </Button>
+              </Link>
+              <Link to="/signup">
+                <Button className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl w-28">
+                  Sign Up
+                </Button>
+              </Link>
             </div>
           </div>
         </nav>
@@ -101,12 +106,16 @@ const LandingPage = () => {
 
             {/* CTA Buttons */}
             <div className="flex items-center space-x-4">
-              <Button className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-6 text-lg rounded-lg">
-                Get Started
-              </Button>
-              <Button variant="outline" className="px-8 py-6 text-lg rounded-lg border-gray-300">
-                Sign In
-              </Button>
+              <Link to="/signup">
+                <Button className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-6 text-lg rounded-lg">
+                  Get Started
+                </Button>
+              </Link>
+              <Link to="/signin">
+                <Button variant="outline" className="px-8 py-6 text-lg rounded-lg border-gray-300">
+                  Sign In
+                </Button>
+              </Link>
             </div>
           </div>
 
@@ -684,12 +693,16 @@ const LandingPage = () => {
 
               {/* Right Side - Buttons */}
               <div className="flex items-center gap-4">
-                <Button className="bg-indigo-600 hover:bg-indigo-700 text-white py-6 text-base font-semibold rounded-xl w-40">
-                  Get Started
-                </Button>
-                <Button variant="outline" className="bg-white border-2 border-gray-300 text-gray-900 hover:border-gray-400 hover:bg-gray-50 py-6 text-base font-semibold rounded-xl w-40">
-                  Sign In
-                </Button>
+                <Link to="/signup">
+                  <Button className="bg-indigo-600 hover:bg-indigo-700 text-white py-6 text-base font-semibold rounded-xl w-40">
+                    Get Started
+                  </Button>
+                </Link>
+                <Link to="/signin">
+                  <Button variant="outline" className="bg-white border-2 border-gray-300 text-gray-900 hover:border-gray-400 hover:bg-gray-50 py-6 text-base font-semibold rounded-xl w-40">
+                    Sign In
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>
