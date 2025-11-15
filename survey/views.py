@@ -5,7 +5,23 @@ from django.shortcuts import render
 def index(request):
     template = 'index.html'
     context = {
-        'title' : 'Home'
+        'title' : 'Welcome'
     }
 
+    return render(request, template, context)
+
+def login(request):
+    template = 'login.html'
+    context = {
+        'title': 'Login'
+    }
+    
+    return render(request, template, context)
+
+def register(request):
+    template = 'register.html'
+    context = {
+        'title': 'Register'
+    }
+    
     return render(request, template, context)
