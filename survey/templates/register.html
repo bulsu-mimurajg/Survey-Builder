@@ -42,17 +42,6 @@
                     </svg>
                 </div>
             </div>
-            <div class="flex-1 h-1 bg-gray-200 rounded step-connector" data-connector="2"></div>
-            
-            <!-- Step 3 -->
-            <div class="step-indicator" data-step="3">
-                <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                    <span class="step-number text-gray-500 text-sm font-semibold">3</span>
-                    <svg class="step-checkmark hidden w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
-                    </svg>
-                </div>
-            </div>
         </div>
 
         <!-- Step 1: Login Details -->
@@ -68,9 +57,13 @@
                         id="email" 
                         name="email" 
                         required
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                        value="{% if form.email.value %}{{ form.email.value }}{% endif %}"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent {% if form.email.errors %}border-red-500{% endif %}"
                         placeholder="Enter your email"
                     />
+                    {% if form.email.errors %}
+                        <p class="text-red-500 text-sm mt-1">{{ form.email.errors.0 }}</p>
+                    {% endif %}
                 </div>
 
                 <!-- Password Field -->
@@ -83,9 +76,12 @@
                         id="password" 
                         name="password" 
                         required
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent {% if form.password.errors %}border-red-500{% endif %}"
                         placeholder="Enter your password"
                     />
+                    {% if form.password.errors %}
+                        <p class="text-red-500 text-sm mt-1">{{ form.password.errors.0 }}</p>
+                    {% endif %}
                 </div>
 
                 <!-- Confirm Password Field -->
@@ -98,14 +94,18 @@
                         id="confirm_password" 
                         name="confirm_password" 
                         required
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent {% if form.confirm_password.errors %}border-red-500{% endif %}"
                         placeholder="Confirm your password"
                     />
+                    {% if form.confirm_password.errors %}
+                        <p class="text-red-500 text-sm mt-1">{{ form.confirm_password.errors.0 }}</p>
+                    {% endif %}
                 </div>
 
                 <!-- Continue Button -->
                 <button 
-                    type="submit"
+                    type="button"
+                    id="continueToStep2"
                     class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-4 px-6 rounded-lg transition-colors duration-200"
                 >
                     Continue
@@ -114,7 +114,8 @@
         </form>
 
         <!-- Step 2: User Profile -->
-        <form id="step2Form" class="step-form hidden" data-step="2">
+        <form id="step2Form" method="post" action="{% url 'register' %}" class="step-form hidden" data-step="2">
+            {% csrf_token %}
             <div class="space-y-6">
                 <!-- First Name and Last Name (Side by Side) -->
                 <div class="grid grid-cols-2 gap-4">
@@ -127,9 +128,13 @@
                             id="first_name" 
                             name="first_name" 
                             required
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                            value="{% if form.first_name.value %}{{ form.first_name.value }}{% endif %}"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent {% if form.first_name.errors %}border-red-500{% endif %}"
                             placeholder="Enter your first name"
                         />
+                        {% if form.first_name.errors %}
+                            <p class="text-red-500 text-sm mt-1">{{ form.first_name.errors.0 }}</p>
+                        {% endif %}
                     </div>
                     <div>
                         <label for="last_name" class="block text-sm font-medium text-gray-700 mb-2">
@@ -140,9 +145,13 @@
                             id="last_name" 
                             name="last_name" 
                             required
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                            value="{% if form.last_name.value %}{{ form.last_name.value }}{% endif %}"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent {% if form.last_name.errors %}border-red-500{% endif %}"
                             placeholder="Enter your last name"
                         />
+                        {% if form.last_name.errors %}
+                            <p class="text-red-500 text-sm mt-1">{{ form.last_name.errors.0 }}</p>
+                        {% endif %}
                     </div>
                 </div>
 
@@ -156,13 +165,13 @@
                             id="gender" 
                             name="gender" 
                             required
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent appearance-none bg-white"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent appearance-none bg-white {% if form.gender.errors %}border-red-500{% endif %}"
                         >
                             <option value="">Select</option>
-                            <option value="male">Male</option>
-                            <option value="female">Female</option>
-                            <option value="other">Other</option>
-                            <option value="prefer_not_to_say">Prefer not to say</option>
+                            <option value="male" {% if form.gender.value == 'male' %}selected{% endif %}>Male</option>
+                            <option value="female" {% if form.gender.value == 'female' %}selected{% endif %}>Female</option>
+                            <option value="other" {% if form.gender.value == 'other' %}selected{% endif %}>Other</option>
+                            <option value="prefer_not_to_say" {% if form.gender.value == 'prefer_not_to_say' %}selected{% endif %}>Prefer not to say</option>
                         </select>
                         <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                             <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -170,6 +179,9 @@
                             </svg>
                         </div>
                     </div>
+                    {% if form.gender.errors %}
+                        <p class="text-red-500 text-sm mt-1">{{ form.gender.errors.0 }}</p>
+                    {% endif %}
                 </div>
 
                 <!-- Date of Birth Field -->
@@ -183,7 +195,8 @@
                             id="date_of_birth" 
                             name="date_of_birth" 
                             required
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent appearance-none"
+                            value="{% if form.date_of_birth.value %}{{ form.date_of_birth.value }}{% endif %}"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent appearance-none {% if form.date_of_birth.errors %}border-red-500{% endif %}"
                         />
                         <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                             <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -191,7 +204,15 @@
                             </svg>
                         </div>
                     </div>
+                    {% if form.date_of_birth.errors %}
+                        <p class="text-red-500 text-sm mt-1">{{ form.date_of_birth.errors.0 }}</p>
+                    {% endif %}
                 </div>
+
+                <!-- Hidden fields from step 1 -->
+                <input type="hidden" id="hidden_email" name="email" />
+                <input type="hidden" id="hidden_password" name="password" />
+                <input type="hidden" id="hidden_confirm_password" name="confirm_password" />
 
                 <!-- Create Account Button -->
                 <button 
@@ -203,79 +224,11 @@
             </div>
         </form>
 
-        <!-- Step 3: Verification -->
-        <form id="step3Form" class="step-form hidden" data-step="3">
-            <div class="space-y-6">
-                <!-- Instructions -->
-                <p class="text-gray-600 mb-6">
-                    A 6-digit verification code was sent to your email, <span id="maskedEmail" class="font-medium">m***er@yahoo.com</span>. Please check your inbox.
-                </p>
-
-                <!-- Verification Code Input -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        Input your 6-digit verification code
-                    </label>
-                    <div class="flex gap-3 justify-center" id="verificationInputs">
-                        <input 
-                            type="text" 
-                            maxlength="1" 
-                            class="w-14 h-14 text-center text-2xl font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-purple-600"
-                            pattern="[0-9]"
-                            inputmode="numeric"
-                        />
-                        <input 
-                            type="text" 
-                            maxlength="1" 
-                            class="w-14 h-14 text-center text-2xl font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-purple-600"
-                            pattern="[0-9]"
-                            inputmode="numeric"
-                        />
-                        <input 
-                            type="text" 
-                            maxlength="1" 
-                            class="w-14 h-14 text-center text-2xl font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-purple-600"
-                            pattern="[0-9]"
-                            inputmode="numeric"
-                        />
-                        <input 
-                            type="text" 
-                            maxlength="1" 
-                            class="w-14 h-14 text-center text-2xl font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-purple-600"
-                            pattern="[0-9]"
-                            inputmode="numeric"
-                        />
-                        <input 
-                            type="text" 
-                            maxlength="1" 
-                            class="w-14 h-14 text-center text-2xl font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-purple-600"
-                            pattern="[0-9]"
-                            inputmode="numeric"
-                        />
-                        <input 
-                            type="text" 
-                            maxlength="1" 
-                            class="w-14 h-14 text-center text-2xl font-semibold border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-purple-600"
-                            pattern="[0-9]"
-                            inputmode="numeric"
-                        />
-                    </div>
-                </div>
-
-                <!-- Continue Button -->
-                <button 
-                    type="submit"
-                    class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-4 px-6 rounded-lg transition-colors duration-200"
-                >
-                    Continue
-                </button>
-            </div>
-        </form>
 
         <!-- Sign In Link (Only show on Step 1) -->
         <p id="signInLink" class="mt-8 text-center text-gray-600">
             Already have an account? 
-            <a href="#" class="text-purple-600 hover:text-purple-700 font-medium">Sign In</a>
+            <a href="{% url 'login' %}" class="text-purple-600 hover:text-purple-700 font-medium">Sign In</a>
         </p>
     </div>
 
@@ -297,95 +250,51 @@
     </div>
 </div>
 
-<!-- Confirmation Modal -->
-<div id="confirmationModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-        <h3 class="text-xl font-bold text-gray-900 mb-4">Confirm account creation</h3>
-        <p class="text-gray-600 mb-6">
-            Please review your details before continuing. Once your account is created, you can't return to the previous steps. After this, you'll move on to Step 3: Verify Your Account.
-        </p>
-        <div class="flex gap-4">
-            <button 
-                id="cancelModalBtn"
-                class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
-            >
-                Cancel
-            </button>
-            <button 
-                id="confirmModalBtn"
-                class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
-            >
-                Confirm Action
-            </button>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
     let currentStep = 1;
-    const totalSteps = 3;
+    const totalSteps = 2;
 
     // Initialize
     document.addEventListener('DOMContentLoaded', function() {
         updateStepDisplay();
-        setupVerificationInputs();
     });
 
-    // Step 1 Form Submission
-    document.getElementById('step1Form').addEventListener('submit', function(e) {
+    // Step 1 Continue Button
+    document.getElementById('continueToStep2').addEventListener('click', function(e) {
         e.preventDefault();
         // Validate passwords match
         const password = document.getElementById('password').value;
         const confirmPassword = document.getElementById('confirm_password').value;
+        const email = document.getElementById('email').value;
+        
+        if (!email) {
+            alert('Please enter your email');
+            return;
+        }
+        
+        if (!password || password.length < 8) {
+            alert('Password must be at least 8 characters long');
+            return;
+        }
         
         if (password !== confirmPassword) {
             alert('Passwords do not match');
             return;
         }
         
-        // Store email for verification step
-        const email = document.getElementById('email').value;
-        const maskedEmail = maskEmail(email);
-        document.getElementById('maskedEmail').textContent = maskedEmail;
+        // Store values in hidden fields for step 2 form submission
+        document.getElementById('hidden_email').value = email;
+        document.getElementById('hidden_password').value = password;
+        document.getElementById('hidden_confirm_password').value = confirmPassword;
         
         goToStep(2);
     });
 
-    // Step 2 Form Submission
-    document.getElementById('step2Form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        // Show confirmation modal
-        document.getElementById('confirmationModal').classList.remove('hidden');
-    });
+    // Step 2 Form Submission - Let it submit normally to backend
 
-    // Step 3 Form Submission
-    document.getElementById('step3Form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        // Get verification code
-        const inputs = document.querySelectorAll('#verificationInputs input');
-        const code = Array.from(inputs).map(input => input.value).join('');
-        
-        if (code.length !== 6) {
-            alert('Please enter the complete 6-digit code');
-            return;
-        }
-        
-        // Here you would typically submit the form to the server
-        alert('Account created successfully!');
-        // window.location.href = '/login/'; // Redirect to login
-    });
-
-    // Modal Buttons
-    document.getElementById('confirmModalBtn').addEventListener('click', function() {
-        document.getElementById('confirmationModal').classList.add('hidden');
-        goToStep(3);
-    });
-
-    document.getElementById('cancelModalBtn').addEventListener('click', function() {
-        document.getElementById('confirmationModal').classList.add('hidden');
-    });
 
     // Back Link Navigation
     document.getElementById('backLink').addEventListener('click', function(e) {
@@ -419,8 +328,7 @@
         // Update subtitle
         const subtitles = {
             1: 'Step 1. Login Details',
-            2: 'Step 2. User Profile',
-            3: 'Step 3. Verification'
+            2: 'Step 2. User Profile'
         };
         document.getElementById('stepSubtitle').textContent = subtitles[currentStep];
         
@@ -485,52 +393,5 @@
         }
     }
 
-    // Setup verification code inputs
-    function setupVerificationInputs() {
-        const inputs = document.querySelectorAll('#verificationInputs input');
-        
-        inputs.forEach((input, index) => {
-            input.addEventListener('input', function(e) {
-                // Only allow numbers
-                this.value = this.value.replace(/[^0-9]/g, '');
-                
-                // Auto-focus next input
-                if (this.value && index < inputs.length - 1) {
-                    inputs[index + 1].focus();
-                }
-            });
-            
-            input.addEventListener('keydown', function(e) {
-                // Handle backspace
-                if (e.key === 'Backspace' && !this.value && index > 0) {
-                    inputs[index - 1].focus();
-                }
-            });
-            
-            // Handle paste
-            input.addEventListener('paste', function(e) {
-                e.preventDefault();
-                const pastedData = e.clipboardData.getData('text').replace(/[^0-9]/g, '').slice(0, 6);
-                pastedData.split('').forEach((char, i) => {
-                    if (inputs[index + i]) {
-                        inputs[index + i].value = char;
-                    }
-                });
-                if (inputs[index + pastedData.length - 1]) {
-                    inputs[index + pastedData.length - 1].focus();
-                }
-            });
-        });
-    }
-
-    // Mask email for display
-    function maskEmail(email) {
-        const [localPart, domain] = email.split('@');
-        if (localPart.length <= 2) {
-            return email;
-        }
-        const masked = localPart[0] + '*'.repeat(localPart.length - 2) + localPart[localPart.length - 1];
-        return masked + '@' + domain;
-    }
 </script>
 {% endblock %}

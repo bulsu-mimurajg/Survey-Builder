@@ -1,0 +1,137 @@
+{% extends 'student/base.html' %}
+
+{% block title %}Student Dashboard{% endblock %}
+
+{% block student_content %}
+<!-- Top Bar -->
+<div class="flex items-center justify-between mb-8">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900 flex items-center">
+            <span class="mr-2">👋</span>
+            Welcome, {{ user.first_name|default:user.username }}!
+        </h1>
+    </div>
+    <div class="text-gray-600">
+        {{ current_date }}
+    </div>
+</div>
+
+<!-- Get Started Banner -->
+<div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-8 mb-8 text-white relative overflow-hidden">
+    <div class="relative z-10 max-w-2xl">
+        <h2 class="text-3xl font-bold mb-4">Get Started - Join a Course Today!</h2>
+        <p class="text-blue-100 mb-6 text-lg">
+            Discover insights and share your thoughts by participating in one of our class surveys. Whether it's for feedback, research, or engagement, your voice helps shape a better learning experience. Be part of the conversation!
+        </p>
+        <button class="bg-purple-600 hover:bg-purple-700 text-white font-semibold px-6 py-3 rounded-lg flex items-center space-x-2 transition-colors">
+            <span>Join a Course</span>
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+        </button>
+    </div>
+    <!-- Illustration -->
+    <div class="absolute right-0 top-0 bottom-0 w-64 opacity-20">
+        <svg viewBox="0 0 200 200" class="w-full h-full">
+            <circle cx="100" cy="100" r="80" fill="white" opacity="0.3"/>
+            <circle cx="100" cy="100" r="50" fill="white" opacity="0.5"/>
+            <rect x="70" y="70" width="60" height="60" fill="white" opacity="0.4" rx="5"/>
+        </svg>
+    </div>
+</div>
+
+<!-- Enrolled Courses Section -->
+<div class="mb-8">
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-bold text-gray-900 flex items-center">
+            <svg class="w-6 h-6 mr-2 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            Enrolled Courses
+        </h2>
+        <a href="#" class="text-blue-600 hover:text-blue-700 font-medium">View All ></a>
+    </div>
+    <div class="flex space-x-4 overflow-x-auto pb-4">
+        {% for course in enrolled_courses %}
+        <div class="min-w-[200px] bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex-shrink-0">
+            <div class="flex items-center justify-between mb-3">
+                <div class="w-12 h-12 {{ course.color }} rounded-lg flex items-center justify-center text-white font-bold text-lg">
+                    {{ course.initial }}
+                </div>
+                <button class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                    </svg>
+                </button>
+            </div>
+            <h3 class="font-semibold text-gray-900 mb-1">{{ course.code }}</h3>
+            <p class="text-sm text-gray-600 mb-2">{{ course.name }}</p>
+            <p class="text-xs text-gray-500">{{ course.members }} Members</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Survey Board Section -->
+<div>
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-xl font-bold text-gray-900 flex items-center">
+            <svg class="w-6 h-6 mr-2 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            Survey Board
+        </h2>
+        <a href="#" class="text-blue-600 hover:text-blue-700 font-medium">View All ></a>
+    </div>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SURVEY NAME</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">COURSE</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DATE PUBLISHED</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DATE DUE</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SCORE</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">STATUS</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for survey in surveys %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ survey.name }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-600">{{ survey.course }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-600">{{ survey.date_published }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-600">{{ survey.date_due }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-600">{{ survey.score }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ survey.status_color }}">
+                                {{ survey.status }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button class="text-gray-400 hover:text-gray-600">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                                </svg>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+
+{% block title %}Student Dashboard{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 flex">
+    <!-- Mobile Menu Button -->
+    <button data-drawer-target="sidebar" data-drawer-toggle="sidebar" aria-controls="sidebar" type="button" class="md:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-lg hover:bg-gray-100">
+        <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+    </button>
+
+    <!-- Left Sidebar -->
+    <aside id="sidebar" class="fixed md:sticky top-0 left-0 z-40 w-64 h-screen bg-white border-r border-gray-200 flex flex-col transition-transform -translate-x-full md:translate-x-0" aria-label="Sidebar">
+        <!-- Logo Section -->
+        <div class="p-6 border-b border-gray-200">
+            <div class="flex items-center space-x-2">
+                <div class="text-2xl font-bold text-indigo-600">
+                    <svg class="w-8 h-8 inline-block" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8 12C8 10.8954 8.89543 10 10 10H15C16.1046 10 17 10.8954 17 12V15C17 16.1046 16.1046 17 15 17H10C8.89543 17 8 16.1046 8 15V12Z" fill="currentColor"/>
+                        <path d="M23 12C23 10.8954 23.8954 10 25 10H30C31.1046 10 32 10.8954 32 12V15C32 16.1046 31.1046 17 30 17H25C23.8954 17 23 16.1046 23 15V12Z" fill="currentColor"/>
+                        <path d="M10 23C8.89543 23 8 23.8954 8 25V28C8 29.1046 8.89543 30 10 30H15C16.1046 30 17 29.1046 17 28V25C17 23.8954 16.1046 23 15 23H10Z" fill="currentColor"/>
+                        <path d="M23 25C23 23.8954 23.8954 23 25 23H30C31.1046 23 32 23.8954 32 25V28C32 29.1046 31.1046 30 30 30H25C23.8954 30 23 29.1046 23 28V25Z" fill="currentColor"/>
+                    </svg>
+                </div>
+                <span class="text-xl font-semibold text-gray-900">sixsayvensurvey.io</span>
+            </div>
+            <!-- Purple underline -->
+            <div class="mt-2 h-1 bg-gradient-to-r from-purple-500 to-purple-600 rounded-full"></div>
+        </div>
+
+        <!-- Menu Section -->
+        <div class="flex-1 overflow-y-auto py-4">
+            <div class="px-6 mb-6">
+                <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">MENU</h2>
+                <nav class="space-y-1">
+                    <a href="{% url 'student_dashboard' %}" class="flex items-center space-x-3 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                        </svg>
+                        <span class="font-medium">Home</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                        <span>Notifications</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                        <span>Enrolled Courses</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        <span>Survey Board</span>
+                    </a>
+                </nav>
+            </div>
+
+            <!-- Account Section -->
+            <div class="px-6">
+                <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">ACCOUNT</h2>
+                <nav class="space-y-1">
+                    <a href="#" class="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span>Account Settings</span>
+                    </a>
+                    <a href="#" class="flex items-center space-x-3 px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Help</span>
+                    </a>
+                    <a href="{% url 'logout' %}" class="flex items-center space-x-3 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        <span>Logout</span>
+                    </a>
+                </nav>
+            </div>
+        </div>
+
+        <!-- User Profile Section -->
+        <div class="p-4 border-t border-gray-200">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden">
+                    {% if user.first_name or user.last_name %}
+                        <span class="text-gray-600 font-semibold">{{ user.first_name|first|default:"" }}{{ user.last_name|first|default:"" }}</span>
+                    {% else %}
+                        <svg class="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+                        </svg>
+                    {% endif %}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-gray-900 truncate">
+                        {% if user.get_full_name %}{{ user.get_full_name }}{% else %}{{ user.username }}{% endif %}
+                    </p>
+                    <p class="text-xs text-gray-500 truncate flex items-center">
+                        <svg class="w-3 h-3 mr-1 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+                        </svg>
+                        {{ user.email }}
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Close button for mobile -->
+        <button data-drawer-hide="sidebar" aria-controls="sidebar" type="button" class="md:hidden absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+    </aside>
+
+    <!-- Overlay for mobile -->
+    <div id="sidebar-backdrop" class="hidden md:hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-30" data-drawer-backdrop="sidebar"></div>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-y-auto md:ml-0">
+        <div class="p-8">
+            {% block student_content %}{% endblock %}
+        </div>
+    </main>
+</div>
+{% endblock %}
+
