@@ -14,14 +14,14 @@ def landing_page(request):
         if request.user.role == 'student':
             return redirect('student-home')
         elif request.user.role == 'teacher':
-            return redirect('student-home')  # Change to teacher-home when created
-        elif request.user.role == 'admin':
-            return redirect('student-home')  # Change to admin-home when created
+            return redirect('teacher-home')
     return render(request, 'auth/landing.html')
 
 def signin_view(request):
     """Sign in page view"""
     if request.user.is_authenticated:
+        if request.user.role == 'teacher':
+            return redirect('teacher-home')
         return redirect('student-home')
     
     if request.method == 'POST':
@@ -42,9 +42,7 @@ def signin_view(request):
                 if user.role == 'student':
                     return redirect('student-home')
                 elif user.role == 'teacher':
-                    return redirect('student-home')  # Change to teacher-home when created
-                else:
-                    return redirect('student-home')  # Change to admin-home when created
+                    return redirect('teacher-home')
             else:
                 messages.error(request, 'Invalid email or password.')
         except User.DoesNotExist:
@@ -372,3 +370,28 @@ def student_join_course(request):
         messages.success(request, f'Successfully joined course with code: {invite_code}')
         return redirect('student-courses')
     return redirect('student-home')
+
+
+# Teacher Views
+@login_required
+def teacher_home(request):
+    """Teacher home page view"""
+    context = {
+        'current_date': datetime.now(),
+        'my_courses': [
+            {'id': 1, 'code': 'CA', 'name': 'CAP 401 - Capstone', 'members': 23, 'color': 'pink'},
+            {'id': 2, 'code': 'SS', 'name': 'SSP101C - Gender and So..', 'members': 16, 'color': 'orange'},
+            {'id': 3, 'code': 'SA', 'name': 'IT401 - System Administra..', 'members': 67, 'color': 'green'},
+            {'id': 4, 'code': 'CA', 'name': 'IT403 - Web Systems & Te..', 'members': 12, 'color': 'cyan'},
+        ],
+        'recent_surveys': [
+            {'id': 1, 'title': 'UI/UX Design Principles', 'type': 'Exam', 'status': 'Active', 
+             'responses': 15, 'due_date': 'Nov 5'},
+            {'id': 2, 'title': 'Weekly Assessment', 'type': 'Exam', 'status': 'Draft', 
+             'responses': 0, 'due_date': 'Nov 10'},
+            {'id': 3, 'title': 'Course Evaluation', 'type': 'Survey', 'status': 'Active', 
+             'responses': 8, 'due_date': '--'},
+        ],
+        'unread_count': 6,
+    }
+    return render(request, 'teacher/home.html', context)

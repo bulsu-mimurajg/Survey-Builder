@@ -20,4 +20,12 @@ urlpatterns = [
     path('student/settings/', views.student_settings, name='student-settings'),
     path('student/help/', views.student_help, name='student-help'),
     path('student/join-course/', views.student_join_course, name='student-join-course'),
+    
+    # Teacher URLs
+    path('teacher/home/', views.teacher_home, name='teacher-home'),
+    path('teacher/courses/', views.teacher_home, name='teacher-courses'),  # Placeholder
+    path('teacher/survey-board/', views.teacher_home, name='teacher-survey-board'),  # Placeholder
+    path('teacher/notifications/', views.teacher_home, name='teacher-notifications'),  # Placeholder
+    path('teacher/settings/', views.teacher_home, name='teacher-settings'),  # Placeholder
+    path('teacher/help/', views.teacher_home, name='teacher-help'),  # Placeholder
 ]
