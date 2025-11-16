@@ -4,9 +4,9 @@
 
 {% block teacher_content %}
 <!-- Header -->
-<div class="flex items-center justify-between mb-8">
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 gap-4">
     <div>
-        <h1 class="text-2xl leading-8 font-normal text-gray-600 flex items-center">
+        <h1 class="text-xl sm:text-2xl leading-8 font-normal text-gray-600 flex items-center">
             <span class="mr-2">👋</span> Welcome, {{ user.first_name|default:"Teacher" }}!
         </h1>
     </div>
@@ -16,14 +16,14 @@
 </div>
 
 <!-- Get Started Card -->
-<div class="mb-8 p-8 bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-lg">
+<div class="mb-6 sm:mb-8 p-4 sm:p-8 bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-lg">
     <div class="flex items-center justify-between">
         <div class="flex-1">
-            <h2 class="text-xl font-bold text-gray-900 mb-2">Teacher Dashboard</h2>
-            <p class="text-gray-600 mb-4 max-w-2xl">
+            <h2 class="text-lg sm:text-xl font-bold text-gray-900 mb-2">Teacher Dashboard</h2>
+            <p class="text-sm sm:text-base text-gray-600 mb-4 max-w-2xl">
                 Manage your courses, create surveys, and track student responses. This is your central hub for all teaching activities.
             </p>
-            <button type="button" class="text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:outline-none focus:ring-indigo-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center inline-flex items-center">
+            <button type="button" class="text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:outline-none focus:ring-indigo-300 font-medium rounded-lg text-sm px-4 sm:px-5 py-2 sm:py-2.5 text-center inline-flex items-center">
                 Create New Survey
                 <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
@@ -108,8 +108,8 @@
         </a>
     </div>
 
-    <div class="relative overflow-x-auto shadow-md sm:rounded-lg">
-        <table class="w-full text-sm text-left text-gray-500">
+    <div class="relative overflow-x-auto shadow-md sm:rounded-lg -mx-4 sm:mx-0">
+        <table class="w-full text-sm text-left text-gray-500 min-w-[640px]">
             <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                 <tr>
                     <th scope="col" class="px-6 py-3">Survey Title</th>

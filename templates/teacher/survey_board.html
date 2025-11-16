@@ -4,12 +4,12 @@
 
 {% block teacher_content %}
 <!-- Header -->
-<div class="flex items-center justify-between mb-8">
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 gap-4">
     <div>
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">Survey Builder</h1>
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Survey Builder</h1>
         <p class="text-sm text-gray-500">Create and customize surveys for your courses with ease.</p>
     </div>
-    <button type="button" onclick="openCreateSurveyModal()" class="text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:outline-none focus:ring-indigo-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center inline-flex items-center">
+    <button type="button" onclick="openCreateSurveyModal()" class="text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:outline-none focus:ring-indigo-300 font-medium rounded-lg text-sm px-4 sm:px-5 py-2 sm:py-2.5 text-center inline-flex items-center justify-center">
         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
         </svg>
@@ -27,24 +27,24 @@
     </div>
     
     <!-- Filters -->
-    <div class="flex items-center justify-between mb-6">
-        <div class="flex border border-gray-300 rounded-lg">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
+        <div class="flex border border-gray-300 rounded-lg overflow-x-auto">
             <a href="?status=all{% if selected_course %}&course={{ selected_course }}{% endif %}" 
-               class="px-4 py-2 text-sm font-medium {% if selected_status == 'all' %}text-white bg-indigo-600{% else %}text-gray-700 bg-white hover:bg-gray-50{% endif %} rounded-l-lg">
+               class="px-3 sm:px-4 py-2 text-sm font-medium whitespace-nowrap {% if selected_status == 'all' %}text-white bg-indigo-600{% else %}text-gray-700 bg-white hover:bg-gray-50{% endif %} rounded-l-lg">
                 All ({{ all_count }})
             </a>
             <a href="?status=active{% if selected_course %}&course={{ selected_course }}{% endif %}" 
-               class="px-4 py-2 text-sm font-medium {% if selected_status == 'active' %}text-white bg-indigo-600{% else %}text-gray-700 bg-white hover:bg-gray-50{% endif %} border-l border-r border-gray-300">
+               class="px-3 sm:px-4 py-2 text-sm font-medium whitespace-nowrap {% if selected_status == 'active' %}text-white bg-indigo-600{% else %}text-gray-700 bg-white hover:bg-gray-50{% endif %} border-l border-r border-gray-300">
                 Active ({{ active_count }})
             </a>
             <a href="?status=closed{% if selected_course %}&course={{ selected_course }}{% endif %}" 
-               class="px-4 py-2 text-sm font-medium {% if selected_status == 'closed' %}text-white bg-indigo-600{% else %}text-gray-700 bg-white hover:bg-gray-50{% endif %} rounded-r-lg">
+               class="px-3 sm:px-4 py-2 text-sm font-medium whitespace-nowrap {% if selected_status == 'closed' %}text-white bg-indigo-600{% else %}text-gray-700 bg-white hover:bg-gray-50{% endif %} rounded-r-lg">
                 Closed ({{ closed_count }})
             </a>
         </div>
         
         <div class="flex items-center space-x-4">
-            <div class="relative">
+            <div class="relative w-full sm:w-auto">
                 <select id="course-filter" onchange="filterByCourse(this.value)" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full px-4 py-2 pr-8">
                     <option value="">Select an option</option>
                     {% for course in courses %}
@@ -58,11 +58,11 @@
     <!-- Survey Cards -->
     <div class="space-y-4">
         {% for survey in surveys %}
-        <div class="bg-white rounded-lg shadow border border-gray-200 p-6 hover:shadow-md transition-shadow">
-            <div class="flex items-start justify-between">
+        <div class="bg-white rounded-lg shadow border border-gray-200 p-4 sm:p-6 hover:shadow-md transition-shadow">
+            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                 <div class="flex-1">
-                    <div class="flex items-center space-x-3 mb-3">
-                        <h3 class="text-lg font-semibold text-gray-900">{{ survey.title }}</h3>
+                    <div class="flex flex-wrap items-center gap-2 sm:gap-3 mb-3">
+                        <h3 class="text-base sm:text-lg font-semibold text-gray-900">{{ survey.title }}</h3>
                         <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">{{ survey.type }}</span>
                         {% if survey.status_code == 'draft' %}
                         <span class="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">Draft</span>
@@ -73,7 +73,7 @@
                         {% endif %}
                     </div>
                     
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm text-gray-600">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 text-sm text-gray-600">
                         <div>
                             <span class="font-medium">Due date:</span>
                             <span class="ml-2">{{ survey.due_date }}</span>
@@ -103,8 +103,8 @@
                     </div>
                 </div>
                 
-                <div class="ml-4 flex items-center space-x-2">
-                    <a href="{% url 'teacher-survey-builder-detail' survey.id %}" class="text-indigo-600 hover:text-indigo-700 font-medium text-sm px-4 py-2 border border-indigo-600 rounded-lg hover:bg-indigo-50">
+                <div class="flex sm:flex-col items-center sm:items-end space-x-2 sm:space-x-0 sm:space-y-2 sm:ml-4">
+                    <a href="{% url 'teacher-survey-builder-detail' survey.id %}" class="text-indigo-600 hover:text-indigo-700 font-medium text-sm px-3 sm:px-4 py-2 border border-indigo-600 rounded-lg hover:bg-indigo-50 whitespace-nowrap">
                         View Details
                     </a>
                 </div>
