@@ -1,0 +1,200 @@
+{% extends 'teacher/base_teacher.html' %}
+
+{% block title %}{{ student.name }} - Submissions - {{ course.code }}{% endblock %}
+
+{% block teacher_content %}
+<!-- Back Button -->
+<div class="mb-4">
+    <a href="{% url 'teacher-course-detail' course.id %}?tab=members" class="inline-flex items-center text-sm font-medium text-gray-600 hover:text-gray-900">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+        </svg>
+        Back to Student List
+    </a>
+</div>
+
+<!-- Header -->
+<div class="mb-6">
+    <h2 class="text-xl font-semibold text-gray-900 flex items-center">
+        <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        Student Submissions
+    </h2>
+</div>
+
+<!-- Student Information Card -->
+<div class="bg-white rounded-lg shadow mb-6 border-l-4 border-indigo-500">
+    <div class="p-6">
+        <div class="flex items-start">
+            <div class="flex-shrink-0">
+                <div class="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
+                    <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14v9M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="ml-4 flex-1">
+                <div class="mb-4">
+                    <p class="text-sm text-gray-600">Student name: <span class="font-medium text-gray-900">{{ student.name }}</span></p>
+                    <p class="text-sm text-gray-600">{{ student.email }}</p>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="flex items-center">
+                        <svg class="w-5 h-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <div>
+                            <p class="text-xs text-gray-500">Submitted</p>
+                            <p class="text-sm font-semibold text-gray-900">{{ submitted_count }}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <svg class="w-5 h-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <div>
+                            <p class="text-xs text-gray-500">Pending</p>
+                            <p class="text-sm font-semibold text-gray-900">{{ pending_count }}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <svg class="w-5 h-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                        </svg>
+                        <div>
+                            <p class="text-xs text-gray-500">Average Score</p>
+                            <p class="text-sm font-semibold text-gray-900">{% if avg_score %}{{ avg_score }}%{% else %}--{% endif %}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <svg class="w-5 h-5 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        <div>
+                            <p class="text-xs text-gray-500">Completion Rate</p>
+                            <p class="text-sm font-semibold text-gray-900">{% if completion_rate %}{{ completion_rate }}%{% else %}--{% endif %}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- All Submissions Section -->
+<div>
+    <div class="mb-4">
+        <h3 class="text-lg font-semibold text-gray-900">All Submissions</h3>
+        <p class="text-sm text-gray-500">View all survey and exam submissions for this student.</p>
+    </div>
+    
+    <!-- Tabs -->
+    <div class="mb-4 flex border-b border-gray-200">
+        <button onclick="filterSubmissions('all')" id="tab-all" class="px-4 py-2 text-sm font-medium text-indigo-600 border-b-2 border-indigo-600">
+            All ({{ submissions|length }})
+        </button>
+        <button onclick="filterSubmissions('submitted')" id="tab-submitted" class="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">
+            Submitted ({{ submitted_count }})
+        </button>
+        <button onclick="filterSubmissions('pending')" id="tab-pending" class="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700">
+            Pending ({{ pending_count }})
+        </button>
+    </div>
+    
+    <!-- Submissions List -->
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <div id="submissions-list" class="divide-y divide-gray-200">
+            {% for submission in submissions %}
+            <div class="submission-item p-6 hover:bg-gray-50 {% if submission.is_complete %}submission-submitted{% else %}submission-pending{% endif %}" data-status="{% if submission.is_complete %}submitted{% else %}pending{% endif %}">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-2">{{ submission.survey_title }}</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600 mb-2">
+                            <div class="flex items-center">
+                                <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                </svg>
+                                Due: {{ submission.due_date }}
+                            </div>
+                            {% if submission.submitted_at %}
+                            <div class="flex items-center">
+                                <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                Submitted: {{ submission.submitted_at }}
+                            </div>
+                            {% else %}
+                            <div class="flex items-center">
+                                <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                Started: {{ submission.started_at }}
+                            </div>
+                            {% endif %}
+                            <div class="flex items-center">
+                                <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                                Score: {% if submission.score is not None %}{{ submission.score }}/{{ submission.total_points }} {{ submission.percentage }}%{% else %}None{% endif %}
+                            </div>
+                        </div>
+                        {% if submission.completion_time %}
+                        <p class="text-sm text-gray-500">Completed in {{ submission.completion_time }}.</p>
+                        {% endif %}
+                    </div>
+                    <div class="ml-4">
+                        <a href="{% url 'teacher-survey-builder' submission.survey_id %}" class="inline-flex items-center px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            View Details
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="p-8 text-center text-gray-500">
+                No submissions found for this student.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+function filterSubmissions(filter) {
+    const items = document.querySelectorAll('.submission-item');
+    const tabs = {
+        'all': document.getElementById('tab-all'),
+        'submitted': document.getElementById('tab-submitted'),
+        'pending': document.getElementById('tab-pending')
+    };
+    
+    // Update tab styles
+    Object.keys(tabs).forEach(key => {
+        const tab = tabs[key];
+        if (key === filter) {
+            tab.classList.add('text-indigo-600', 'border-b-2', 'border-indigo-600');
+            tab.classList.remove('text-gray-500');
+        } else {
+            tab.classList.remove('text-indigo-600', 'border-b-2', 'border-indigo-600');
+            tab.classList.add('text-gray-500');
+        }
+    });
+    
+    // Filter items
+    items.forEach(item => {
+        const status = item.getAttribute('data-status');
+        if (filter === 'all' || status === filter) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+</script>
+{% endblock %}
+

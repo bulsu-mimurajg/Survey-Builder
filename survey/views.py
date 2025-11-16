@@ -9,7 +9,7 @@ from django.views.decorators.http import require_http_methods
 from django.template.loader import render_to_string
 from datetime import datetime
 import json
-from .models import User, Course, CourseEnrollment, Survey, SurveyCourseAssignment, Question, QuestionOption
+from .models import User, Course, CourseEnrollment, Survey, SurveyCourseAssignment, Question, QuestionOption, SurveyResponse
 
 # Authentication Views
 def landing_page(request):
@@ -216,17 +216,57 @@ def student_course_detail(request, course_id):
         messages.error(request, 'You are not enrolled in this course.')
         return redirect('student-courses')
     
-    # Mock surveys for this course (to be implemented later)
-    all_surveys = [
-        {'id': 1, 'title': 'Quiz # 67', 'type': 'Exam', 'status': 'Not Started', 
-         'progress': 0, 'due_date': 'Nov 8, 5:00pm', 'course_code': course.code},
-        {'id': 2, 'title': 'Weekly Assessment', 'type': 'Exam', 'status': 'In Progress', 
-         'progress': 50, 'due_date': 'Nov 10', 'course_code': course.code},
-        {'id': 3, 'title': 'Feedback Form', 'type': 'Survey', 'status': 'Not Started', 
-         'progress': 0, 'due_date': '--', 'course_code': course.code},
-        {'id': 4, 'title': 'Course Evaluation', 'type': 'Survey', 'status': 'In Progress', 
-         'progress': 50, 'due_date': '--', 'course_code': course.code},
-    ]
+    # Get surveys assigned to this course (only active and closed, not draft)
+    surveys = Survey.objects.filter(courses=course).exclude(status='draft').select_related('created_by').prefetch_related('questions', 'responses')
+    
+    # Format surveys for template
+    all_surveys = []
+    for survey in surveys:
+        # Get student's response for this survey
+        response = survey.responses.filter(student=request.user).order_by('-started_at').first()
+        
+        # Determine status and progress
+        if response and response.is_complete:
+            # Student completed the survey
+            status = 'Completed'
+            progress = 100
+        elif response:
+            # Student has started but not completed
+            # Calculate progress based on questions answered
+            total_questions = survey.questions.count()
+            answered_questions = response.question_responses.count()
+            progress = int((answered_questions / total_questions * 100) if total_questions > 0 else 0)
+            # If survey is closed in database and not completed, show as Closed
+            if survey.status == 'closed':
+                status = 'Closed'
+            else:
+                status = 'In Progress' if progress < 100 else 'Completed'
+        else:
+            # Student hasn't started
+            # If survey is closed in database, show as Closed, otherwise Not Started
+            if survey.status == 'closed':
+                status = 'Closed'
+            else:
+                status = 'Not Started'
+            progress = 0
+        
+        # Format due date
+        if survey.due_date_enabled and survey.due_date:
+            due_date = survey.due_date.strftime('%b %d, %I:%M %p').lower()
+        else:
+            due_date = '--'
+        
+        # Map survey type
+        survey_type = survey.get_type_display()
+        
+        all_surveys.append({
+            'id': survey.id,
+            'title': survey.title,
+            'type': survey_type,
+            'status': status,
+            'progress': progress,
+            'due_date': due_date,
+        })
     
     course_data = {
         'id': course.id,
@@ -238,8 +278,8 @@ def student_course_detail(request, course_id):
     context = {
         'course': course_data,
         'active_surveys': [s for s in all_surveys if s['status'] in ['Not Started', 'In Progress']],
-        'closed_surveys': [],  # Empty for now
-        'completed_surveys': [],  # Empty for now
+        'closed_surveys': [s for s in all_surveys if s['status'] == 'Closed'],
+        'completed_surveys': [s for s in all_surveys if s['status'] == 'Completed'],
         'unread_count': 6,
     }
     return render(request, 'student/course_detail.html', context)
@@ -507,13 +547,25 @@ def teacher_create_course(request):
             return redirect('teacher-courses')
         
         try:
-            # Create course (invite code will be auto-generated in save method)
-            course = Course.objects.create(
+            # Get invite code from form if provided, otherwise it will be auto-generated
+            invite_code = request.POST.get('invite_code', '').strip()
+            
+            # Create course
+            course = Course(
                 code=code,
                 name=name,
                 description=description,
                 teacher=request.user
             )
+            
+            # Set invite code if provided and valid, otherwise let save() generate it
+            if invite_code and len(invite_code) == 6:
+                # Check if invite code is already taken
+                if not Course.objects.filter(invite_code=invite_code).exists():
+                    course.invite_code = invite_code
+                # If taken, let save() generate a new one
+            
+            course.save()
             messages.success(request, f'Course "{course.code}" created successfully!')
             return redirect('teacher-course-detail', course_id=course.id)
         except IntegrityError:
@@ -569,6 +621,8 @@ def teacher_edit_course(request, course_id):
 def teacher_regenerate_invite_code(request, course_id):
     """Regenerate invite code for a course"""
     if request.user.role != 'teacher':
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Access denied.'}, status=403)
         messages.error(request, 'Access denied.')
         return redirect('student-home')
     
@@ -579,8 +633,57 @@ def teacher_regenerate_invite_code(request, course_id):
         old_code = course.invite_code
         course.invite_code = ''  # Clear to trigger regeneration
         course.save()
+        
+        # Check if this is an AJAX request
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'invite_code': course.invite_code,
+                'message': f'Invite code regenerated. New code: {course.invite_code}'
+            })
+        
         messages.success(request, f'Invite code regenerated. New code: {course.invite_code}')
         return redirect('teacher-course-detail', course_id=course.id)
+    
+    return redirect('teacher-course-detail', course_id=course.id)
+
+
+@login_required
+def teacher_add_student(request, course_id):
+    """Add a student to a course by email"""
+    if request.user.role != 'teacher':
+        messages.error(request, 'Access denied.')
+        return redirect('student-home')
+    
+    course = get_object_or_404(Course, id=course_id, teacher=request.user)
+    
+    if request.method == 'POST':
+        student_email = request.POST.get('student_email', '').strip().lower()
+        
+        if not student_email:
+            messages.error(request, 'Please enter a student email address.')
+            return redirect('teacher-course-detail', course_id=course.id)
+        
+        try:
+            # Find student by email
+            student = User.objects.get(email=student_email, role='student')
+            
+            # Check if already enrolled
+            if CourseEnrollment.objects.filter(course=course, student=student).exists():
+                messages.info(request, f'{student.get_full_name() or student.email} is already enrolled in this course.')
+                return redirect('teacher-course-detail', course_id=course.id)
+            
+            # Create enrollment
+            CourseEnrollment.objects.create(course=course, student=student)
+            student_name = student.get_full_name() or student.email
+            messages.success(request, f'Successfully added {student_name} to {course.code}!')
+            return redirect('teacher-course-detail', course_id=course.id)
+        except User.DoesNotExist:
+            messages.error(request, f'No student found with email: {student_email}')
+            return redirect('teacher-course-detail', course_id=course.id)
+        except Exception as e:
+            messages.error(request, f'An error occurred: {str(e)}')
+            return redirect('teacher-course-detail', course_id=course.id)
     
     return redirect('teacher-course-detail', course_id=course.id)
 
@@ -594,6 +697,9 @@ def teacher_course_detail(request, course_id):
     
     course = get_object_or_404(Course, id=course_id, teacher=request.user)
     
+    # Get filter parameter
+    survey_filter = request.GET.get('filter', 'all')  # active, closed, or all
+    
     # Get enrolled students
     enrollments = CourseEnrollment.objects.filter(course=course).select_related('student')
     students = [{
@@ -603,20 +709,51 @@ def teacher_course_detail(request, course_id):
         'joined_at': e.joined_at
     } for e in enrollments]
     
-    # Mock surveys for this course (to be implemented later)
-    all_surveys = [
-        {'id': 1, 'title': 'Quiz # 67', 'type': 'Exam', 'status': 'Active', 
-         'progress': 0, 'due_date': 'Nov 8, 5:00pm'},
-        {'id': 2, 'title': 'Weekly Assessment', 'type': 'Exam', 'status': 'Active', 
-         'progress': 50, 'due_date': 'Nov 10'},
-        {'id': 3, 'title': 'Feedback Form', 'type': 'Survey', 'status': 'Draft', 
-         'progress': 0, 'due_date': '--'},
-        {'id': 4, 'title': 'Course Evaluation', 'type': 'Survey', 'status': 'Active', 
-         'progress': 50, 'due_date': '--'},
-    ]
+    # Get surveys assigned to this course
+    surveys = Survey.objects.filter(courses=course).select_related('created_by').prefetch_related('responses', 'questions')
+    
+    # Format surveys for template
+    all_surveys = []
+    for survey in surveys:
+        # Calculate class progress (percentage of enrolled students who responded)
+        total_students = CourseEnrollment.objects.filter(course=course).count()
+        responded_students = survey.responses.filter(
+            student__enrolled_courses__course=course
+        ).values('student').distinct().count()
+        progress = int((responded_students / total_students * 100) if total_students > 0 else 0)
+        
+        # Format due date
+        if survey.due_date_enabled and survey.due_date:
+            due_date = survey.due_date.strftime('%b %d, %I:%M %p').lower()
+        else:
+            due_date = '--'
+        
+        # Map survey type and status
+        survey_type = survey.get_type_display()
+        status = survey.get_status_display()
+        
+        all_surveys.append({
+            'id': survey.id,
+            'title': survey.title,
+            'type': survey_type,
+            'status': status,
+            'progress': progress,
+            'due_date': due_date,
+        })
     
     active_surveys = [s for s in all_surveys if s['status'] == 'Active']
     closed_surveys = [s for s in all_surveys if s['status'] == 'Closed']
+    
+    # Determine which surveys to display based on filter
+    if survey_filter == 'closed':
+        displayed_surveys = closed_surveys
+    elif survey_filter == 'all':
+        displayed_surveys = all_surveys
+    else:  # default to active
+        displayed_surveys = active_surveys
+    
+    # Get all courses for the create survey modal
+    teacher_courses = Course.objects.filter(teacher=request.user)
     
     context = {
         'course': course,
@@ -624,6 +761,10 @@ def teacher_course_detail(request, course_id):
         'student_count': len(students),
         'active_surveys': active_surveys,
         'closed_surveys': closed_surveys,
+        'all_surveys': all_surveys,
+        'displayed_surveys': displayed_surveys,
+        'survey_filter': survey_filter,
+        'teacher_courses': teacher_courses,
         'unread_count': 6,
     }
     return render(request, 'teacher/course_detail.html', context)
@@ -737,14 +878,19 @@ def teacher_create_survey(request):
         title = request.POST.get('title', '').strip()
         survey_type = request.POST.get('type', 'survey')
         course_ids = request.POST.getlist('courses')
+        redirect_to_course = request.POST.get('redirect_to_course', '')
         
         # Validation
         if not title:
             messages.error(request, 'Survey title is required.')
+            if redirect_to_course:
+                return redirect('teacher-course-detail', course_id=redirect_to_course)
             return redirect('teacher-survey-board')
         
         if not course_ids:
             messages.error(request, 'Please select at least one course.')
+            if redirect_to_course:
+                return redirect('teacher-course-detail', course_id=redirect_to_course)
             return redirect('teacher-survey-board')
         
         try:
@@ -768,6 +914,8 @@ def teacher_create_survey(request):
             return redirect('teacher-survey-builder', survey_id=survey.id)
         except Exception as e:
             messages.error(request, f'An error occurred: {str(e)}')
+            if redirect_to_course:
+                return redirect('teacher-course-detail', course_id=redirect_to_course)
             return redirect('teacher-survey-board')
     
     return redirect('teacher-survey-board')
@@ -1020,3 +1168,139 @@ def teacher_update_survey_parameters(request, survey_id):
         })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+def teacher_student_submissions(request, course_id, student_id):
+    """View all submissions for a specific student in a course"""
+    if request.user.role != 'teacher':
+        messages.error(request, 'Access denied.')
+        return redirect('student-home')
+    
+    course = get_object_or_404(Course, id=course_id, teacher=request.user)
+    student = get_object_or_404(User, id=student_id, role='student')
+    
+    # Verify student is enrolled in the course
+    enrollment = CourseEnrollment.objects.filter(course=course, student=student).first()
+    if not enrollment:
+        messages.error(request, 'Student is not enrolled in this course.')
+        return redirect('teacher-course-detail', course_id=course.id)
+    
+    # Get all surveys assigned to this course
+    surveys = Survey.objects.filter(courses=course).select_related('created_by').prefetch_related('responses', 'questions')
+    
+    # Get all submissions for this student
+    submissions = []
+    for survey in surveys:
+        # Get student's responses for this survey
+        responses = SurveyResponse.objects.filter(survey=survey, student=student).order_by('-started_at')
+        
+        for response in responses:
+            # Calculate score if it's an exam
+            score = None
+            total_points = None
+            percentage = None
+            if survey.type == 'exam':
+                total_questions = survey.questions.count()
+                if total_questions > 0:
+                    correct_answers = 0
+                    for question in survey.questions.all():
+                        if question.question_type in ['multiple_choice', 'checkboxes', 'dropdown']:
+                            question_response = response.question_responses.filter(question=question).first()
+                            if question_response:
+                                selected_options = question_response.response_options.all()
+                                correct_options = question.options.filter(is_correct=True)
+                                if correct_options.count() > 0:
+                                    if set(selected_options) == set(correct_options):
+                                        correct_answers += 1
+                    score = correct_answers
+                    total_points = total_questions
+                    percentage = int((score / total_points * 100) if total_points > 0 else 0)
+            
+            # Format due date
+            if survey.due_date_enabled and survey.due_date:
+                due_date = survey.due_date.strftime('%b %d, %I:%M %p').lower()
+            else:
+                due_date = '--'
+            
+            # Calculate completion time
+            completion_time = None
+            if response.submitted_at and response.started_at:
+                time_diff = response.submitted_at - response.started_at
+                minutes = int(time_diff.total_seconds() / 60)
+                completion_time = f"{minutes} Minutes"
+            
+            submissions.append({
+                'id': response.id,
+                'survey_id': survey.id,
+                'survey_title': survey.title,
+                'survey_type': survey.get_type_display(),
+                'due_date': due_date,
+                'submitted_at': response.submitted_at.strftime('%b %d, %I:%M %p').lower() if response.submitted_at else None,
+                'started_at': response.started_at.strftime('%b %d, %I:%M %p').lower(),
+                'is_complete': response.is_complete,
+                'score': score,
+                'total_points': total_points,
+                'percentage': percentage,
+                'completion_time': completion_time,
+                'attempt_number': response.attempt_number,
+            })
+    
+    # Sort submissions by started_at (most recent first)
+    submissions.sort(key=lambda x: x['started_at'], reverse=True)
+    
+    # Calculate statistics
+    submitted_count = len([s for s in submissions if s['is_complete']])
+    pending_count = len([s for s in submissions if not s['is_complete']])
+    
+    # Calculate average score
+    completed_submissions = [s for s in submissions if s['is_complete'] and s['percentage'] is not None]
+    avg_score = None
+    if completed_submissions:
+        avg_score = int(sum(s['percentage'] for s in completed_submissions) / len(completed_submissions))
+    
+    # Calculate completion rate
+    total_surveys = surveys.count()
+    completion_rate = None
+    if total_surveys > 0:
+        completion_rate = int((submitted_count / total_surveys) * 100)
+    
+    context = {
+        'course': course,
+        'student': {
+            'id': student.id,
+            'name': student.get_full_name() or student.username,
+            'email': student.email,
+        },
+        'submissions': submissions,
+        'submitted_count': submitted_count,
+        'pending_count': pending_count,
+        'avg_score': avg_score,
+        'completion_rate': completion_rate,
+        'unread_count': 6,
+    }
+    return render(request, 'teacher/student_submissions.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def teacher_remove_student(request, course_id, student_id):
+    """Remove a student from a course"""
+    if request.user.role != 'teacher':
+        messages.error(request, 'Access denied.')
+        return redirect('student-home')
+    
+    course = get_object_or_404(Course, id=course_id, teacher=request.user)
+    student = get_object_or_404(User, id=student_id, role='student')
+    
+    # Verify student is enrolled in the course
+    enrollment = CourseEnrollment.objects.filter(course=course, student=student).first()
+    if not enrollment:
+        messages.error(request, 'Student is not enrolled in this course.')
+        return redirect('teacher-course-detail', course_id=course.id)
+    
+    # Remove the enrollment
+    enrollment.delete()
+    messages.success(request, f'{student.get_full_name() or student.username} has been removed from the course.')
+    
+    return redirect('teacher-course-detail', course_id=course.id)
