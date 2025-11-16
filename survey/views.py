@@ -885,13 +885,13 @@ def teacher_create_survey(request):
             messages.error(request, 'Survey title is required.')
             if redirect_to_course:
                 return redirect('teacher-course-detail', course_id=redirect_to_course)
-            return redirect('teacher-survey-board')
+            return redirect('teacher-survey-builder')
         
         if not course_ids:
             messages.error(request, 'Please select at least one course.')
             if redirect_to_course:
                 return redirect('teacher-course-detail', course_id=redirect_to_course)
-            return redirect('teacher-survey-board')
+            return redirect('teacher-survey-builder')
         
         try:
             # Create survey
@@ -911,14 +911,14 @@ def teacher_create_survey(request):
                     pass
             
             messages.success(request, f'Survey "{survey.title}" created successfully!')
-            return redirect('teacher-survey-builder', survey_id=survey.id)
+            return redirect('teacher-survey-builder-detail', survey_id=survey.id)
         except Exception as e:
             messages.error(request, f'An error occurred: {str(e)}')
             if redirect_to_course:
                 return redirect('teacher-course-detail', course_id=redirect_to_course)
-            return redirect('teacher-survey-board')
+            return redirect('teacher-survey-builder')
     
-    return redirect('teacher-survey-board')
+    return redirect('teacher-survey-builder')
 
 
 @login_required
@@ -953,9 +953,32 @@ def api_add_question(request, survey_id):
     if not question_type:
         return JsonResponse({'success': False, 'error': 'Question type is required'})
     
-    # Get the next order number
-    max_order = survey.questions.aggregate(Max('order'))['order__max'] or -1
-    next_order = max_order + 1
+    # Check if insert_order is provided
+    insert_order = request.POST.get('insert_order')
+    if insert_order:
+        try:
+            insert_order = int(insert_order)
+            # Shift existing questions with order >= insert_order
+            existing_questions = survey.questions.filter(order__gte=insert_order).order_by('order')
+            for q in existing_questions:
+                q.order += 1
+                q.save()
+            next_order = insert_order
+        except ValueError:
+            # Invalid insert_order, fall back to appending
+            max_order = survey.questions.aggregate(Max('order'))['order__max'] or -1
+            next_order = max_order + 1
+    else:
+        # Get the next order number (append to end)
+        max_order = survey.questions.aggregate(Max('order'))['order__max'] or -1
+        next_order = max_order + 1
+    
+    # Set default settings based on question type
+    default_settings = {}
+    if question_type == 'rating':
+        default_settings = {'max': 5}
+    elif question_type == 'scale':
+        default_settings = {'min': 1, 'max': 10}
     
     # Create question with default text
     question = Question.objects.create(
@@ -963,7 +986,8 @@ def api_add_question(request, survey_id):
         question_type=question_type,
         question_text='New Question',
         order=next_order,
-        required=False
+        required=False,
+        settings=default_settings
     )
     
     return JsonResponse({
@@ -1025,6 +1049,27 @@ def api_update_question(request, question_id):
             if len(option_texts) < len(existing_options):
                 for opt in existing_options[len(option_texts):]:
                     opt.delete()
+        elif question.question_type == 'rating':
+            # Update rating settings - always set max to 5
+            if not question.settings:
+                question.settings = {}
+            question.settings['max'] = 5
+        elif question.question_type == 'scale':
+            # Update scale settings
+            if not question.settings:
+                question.settings = {}
+            min_value = request.POST.get('scale_min')
+            max_value = request.POST.get('scale_max')
+            if min_value:
+                try:
+                    question.settings['min'] = int(min_value)
+                except ValueError:
+                    pass
+            if max_value:
+                try:
+                    question.settings['max'] = int(max_value)
+                except ValueError:
+                    pass
         
         question.save()
         
@@ -1042,7 +1087,17 @@ def api_delete_question(request, question_id):
         return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
     
     question = get_object_or_404(Question, id=question_id, survey__created_by=request.user)
+    survey = question.survey
+    deleted_order = question.order
+    
+    # Delete the question
     question.delete()
+    
+    # Renumber remaining questions
+    remaining_questions = survey.questions.filter(order__gt=deleted_order).order_by('order')
+    for q in remaining_questions:
+        q.order -= 1
+        q.save()
     
     return JsonResponse({
         'success': True,
@@ -1080,17 +1135,23 @@ def api_reorder_questions(request, survey_id):
 @require_http_methods(["POST"])
 def api_save_survey(request, survey_id):
     """API endpoint to save survey (mark as saved)"""
-    if request.user.role != 'teacher':
-        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
-    
-    survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
-    # Just update the updated_at timestamp
-    survey.save()
-    
-    return JsonResponse({
-        'success': True,
-        'message': 'Survey saved successfully'
-    })
+    try:
+        if request.user.role != 'teacher':
+            return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+        
+        survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
+        # Just update the updated_at timestamp
+        survey.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Survey saved successfully'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
 
 
 @login_required
@@ -1108,9 +1169,9 @@ def teacher_edit_survey(request, survey_id):
             survey.title = title
             survey.save()
             messages.success(request, 'Survey updated successfully!')
-            return redirect('teacher-survey-builder', survey_id=survey.id)
+            return redirect('teacher-survey-builder-detail', survey_id=survey.id)
     
-    return redirect('teacher-survey-builder', survey_id=survey.id)
+    return redirect('teacher-survey-builder-detail', survey_id=survey.id)
 
 
 @login_required

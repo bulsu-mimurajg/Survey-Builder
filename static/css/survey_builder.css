@@ -1,5 +1,16 @@
 /* Survey Builder Styles */
 
+/* Ensure all text is horizontal in survey builder */
+#survey-canvas,
+#survey-canvas *,
+#questions-container,
+#questions-container *,
+.component-item,
+.question-item {
+    writing-mode: horizontal-tb !important;
+    text-orientation: mixed !important;
+}
+
 /* Drag and Drop Styles */
 #survey-canvas {
     min-height: 400px;
@@ -36,6 +47,43 @@
 
 .question-item.dragging {
     opacity: 0.5;
+}
+
+.draggable-question {
+    user-select: none;
+}
+
+.draggable-question.drag-over {
+    border-color: #6366f1 !important;
+    background-color: #eef2ff !important;
+    transform: scale(1.02);
+}
+
+.draggable-question:active {
+    cursor: grabbing;
+}
+
+.drag-handle {
+    cursor: grab;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+.drop-zone {
+    transition: all 0.2s ease;
+}
+
+/* Question Drop Zones */
+.question-drop-zone {
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.question-drop-zone:hover {
+    background-color: #818cf8 !important;
+    border-color: #6366f1 !important;
 }
 
 /* Component Toolbox Styles */
@@ -224,6 +272,27 @@ input:checked + .toggle-slider:before {
     pointer-events: none;
 }
 
+/* Toast Notification Styles */
+#toast-container {
+    pointer-events: none;
+}
+
+#toast-container > div {
+    pointer-events: auto;
+    animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
 /* Responsive Adjustments */
 @media (max-width: 768px) {
     .component-toolbox {
@@ -234,6 +303,17 @@ input:checked + .toggle-slider:before {
         right: 0;
         max-height: 50vh;
         z-index: 40;
+    }
+    
+    #toast-container {
+        bottom: 1rem;
+        right: 1rem;
+        left: 1rem;
+    }
+    
+    #toast-container > div {
+        min-width: auto;
+        max-width: 100%;
     }
 }
 
