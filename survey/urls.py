@@ -23,7 +23,11 @@ urlpatterns = [
     
     # Teacher URLs
     path('teacher/home/', views.teacher_home, name='teacher-home'),
-    path('teacher/courses/', views.teacher_home, name='teacher-courses'),  # Placeholder
+    path('teacher/courses/', views.teacher_courses, name='teacher-courses'),
+    path('teacher/courses/create/', views.teacher_create_course, name='teacher-create-course'),
+    path('teacher/courses/<int:course_id>/', views.teacher_course_detail, name='teacher-course-detail'),
+    path('teacher/courses/<int:course_id>/edit/', views.teacher_edit_course, name='teacher-edit-course'),
+    path('teacher/courses/<int:course_id>/regenerate-invite/', views.teacher_regenerate_invite_code, name='teacher-regenerate-invite'),
     path('teacher/survey-board/', views.teacher_home, name='teacher-survey-board'),  # Placeholder
     path('teacher/notifications/', views.teacher_home, name='teacher-notifications'),  # Placeholder
     path('teacher/settings/', views.teacher_home, name='teacher-settings'),  # Placeholder
