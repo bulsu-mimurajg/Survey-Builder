@@ -1,0 +1,283 @@
+{% extends 'teacher/base_teacher.html' %}
+{% load static %}
+
+{% block title %}{{ survey.title }} - Survey Builder{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/survey_builder.css' %}">
+{% endblock %}
+
+{% block teacher_content %}
+<!-- Top Bar -->
+<div class="bg-white border-b border-gray-200 px-6 py-4 mb-6 flex items-center justify-between">
+    <div class="flex items-center space-x-3">
+        <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/>
+            </svg>
+        </div>
+        <div>
+            <div class="text-sm font-semibold text-gray-900">Survey Name</div>
+            <div class="text-xs text-gray-500" id="save-status">All changes saved</div>
+        </div>
+        <div class="ml-4 text-sm text-gray-600">
+            {{ survey.courses.all|join:", " }}
+        </div>
+    </div>
+    <div class="flex items-center space-x-2">
+        <button type="button" class="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+        </button>
+        <button type="button" class="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg" onclick="undoAction()">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+            </svg>
+        </button>
+        <button type="button" class="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg" onclick="redoAction()">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
+            </svg>
+        </button>
+        <button type="button" onclick="openParametersModal()" class="text-gray-600 hover:text-gray-900 font-medium rounded-lg text-sm px-4 py-2 border border-gray-300 hover:bg-gray-50">
+            Parameters
+        </button>
+        <button type="button" onclick="saveSurvey()" class="text-white bg-indigo-600 hover:bg-indigo-700 font-medium rounded-lg text-sm px-4 py-2">
+            Save Changes
+        </button>
+        <div class="relative">
+            <button type="button" onclick="toggleActionsMenu()" class="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                </svg>
+            </button>
+            <div id="actions-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10">
+                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">View Submissions</a>
+                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Archive Survey</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Content Area -->
+<div class="flex h-[calc(100vh-200px)]">
+    <!-- Center Canvas -->
+    <div class="flex-1 bg-gray-50 p-6 overflow-y-auto">
+        <div id="survey-canvas" class="min-h-full bg-white rounded-lg border-2 border-dashed border-gray-300 p-8">
+            {% if questions %}
+                <div id="questions-container">
+                    {% for question in questions %}
+                        {% include 'includes/question_component.html' with question=question %}
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="flex flex-col items-center justify-center h-full text-center py-20">
+                    <div class="text-6xl text-gray-300 mb-4">T</div>
+                    <p class="text-lg font-medium text-gray-600 mb-2">Drop components here to start building</p>
+                    <p class="text-sm text-gray-500">Drag question types from the toolbox on the right</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Right Sidebar - Component Toolbox -->
+    <div class="w-80 bg-white border-l border-gray-200 overflow-y-auto">
+        <div class="p-4 border-b border-gray-200">
+            <div class="flex items-center space-x-2 mb-2">
+                <svg class="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/>
+                </svg>
+                <h3 class="font-semibold text-gray-900">Component Toolbox</h3>
+            </div>
+            <p class="text-xs text-gray-500">Drag to add questions</p>
+        </div>
+        
+        <div class="p-4 space-y-4">
+            <!-- Text Inputs -->
+            <div class="component-category">
+                <button onclick="toggleCategory('text-inputs')" class="w-full flex items-center justify-between text-sm font-medium text-gray-700 mb-2">
+                    <span>Text Inputs (2)</span>
+                    <svg id="text-inputs-icon" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div id="text-inputs" class="space-y-2">
+                    <div draggable="true" ondragstart="handleDragStart(event, 'short_text')" class="component-item cursor-move p-3 border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 bg-indigo-100 rounded flex items-center justify-center">
+                                <span class="text-indigo-600 font-bold">T</span>
+                            </div>
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">Short Text</div>
+                                <div class="text-xs text-gray-500">Single line text input</div>
+                            </div>
+                        </div>
+                        <svg class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                        </svg>
+                    </div>
+                    <div draggable="true" ondragstart="handleDragStart(event, 'long_text')" class="component-item cursor-move p-3 border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 bg-indigo-100 rounded flex items-center justify-center">
+                                <svg class="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">Long Text</div>
+                                <div class="text-xs text-gray-500">Multi-line text area</div>
+                            </div>
+                        </div>
+                        <svg class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Choice Questions -->
+            <div class="component-category">
+                <button onclick="toggleCategory('choice-questions')" class="w-full flex items-center justify-between text-sm font-medium text-gray-700 mb-2">
+                    <span>Choice Questions (3)</span>
+                    <svg id="choice-questions-icon" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div id="choice-questions" class="space-y-2">
+                    <div draggable="true" ondragstart="handleDragStart(event, 'multiple_choice')" class="component-item cursor-move p-3 border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 bg-indigo-100 rounded flex items-center justify-center">
+                                <svg class="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M3 3a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1zm7.707 3.293a1 1 0 010 1.414L9.414 9H17a1 1 0 110 2H9.414l1.293 1.293a1 1 0 01-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">Multiple Choice</div>
+                                <div class="text-xs text-gray-500">Single selection</div>
+                            </div>
+                        </div>
+                        <svg class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                        </svg>
+                    </div>
+                    <div draggable="true" ondragstart="handleDragStart(event, 'checkboxes')" class="component-item cursor-move p-3 border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 bg-indigo-100 rounded flex items-center justify-center">
+                                <svg class="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">Checkboxes</div>
+                                <div class="text-xs text-gray-500">Multiple selections</div>
+                            </div>
+                        </div>
+                        <svg class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                        </svg>
+                    </div>
+                    <div draggable="true" ondragstart="handleDragStart(event, 'dropdown')" class="component-item cursor-move p-3 border border-gray-200 rounded-lg hover:bg-gray-50 flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 bg-indigo-100 rounded flex items-center justify-center">
+                                <svg class="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">Dropdown</div>
+                                <div class="text-xs text-gray-500">Select from list</div>
+                            </div>
+                        </div>
+                        <svg class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Rating & Scale -->
+            <div class="component-category">
+                <button onclick="toggleCategory('rating-scale')" class="w-full flex items-center justify-between text-sm font-medium text-gray-700 mb-2">
+                    <span>Rating & Scale (2)</span>
+                    <svg id="rating-scale-icon" class="w-4 h-4 transform transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div id="rating-scale" class="hidden space-y-2">
+                    <!-- Rating and Scale components will be added here -->
+                </div>
+            </div>
+            
+            <!-- Date & Time -->
+            <div class="component-category">
+                <button onclick="toggleCategory('date-time')" class="w-full flex items-center justify-between text-sm font-medium text-gray-700 mb-2">
+                    <span>Date & Time (2)</span>
+                    <svg id="date-time-icon" class="w-4 h-4 transform transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div id="date-time" class="hidden space-y-2">
+                    <!-- Date and Time components will be added here -->
+                </div>
+            </div>
+            
+            <!-- Media & Files -->
+            <div class="component-category">
+                <button onclick="toggleCategory('media-files')" class="w-full flex items-center justify-between text-sm font-medium text-gray-700 mb-2">
+                    <span>Media & Files (2)</span>
+                    <svg id="media-files-icon" class="w-4 h-4 transform transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div id="media-files" class="hidden space-y-2">
+                    <!-- Media and Files components will be added here -->
+                </div>
+            </div>
+            
+            <!-- Layout Elements -->
+            <div class="component-category">
+                <button onclick="toggleCategory('layout-elements')" class="w-full flex items-center justify-between text-sm font-medium text-gray-700 mb-2">
+                    <span>Layout Elements (3)</span>
+                    <svg id="layout-elements-icon" class="w-4 h-4 transform transition-transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div id="layout-elements" class="hidden space-y-2">
+                    <!-- Layout elements will be added here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Parameters Modal -->
+{% include 'teacher/parameters_modal.html' with survey=survey %}
+
+<!-- Question Edit Modal -->
+<div id="question-edit-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-semibold text-gray-900">Edit Question</h3>
+                <button onclick="closeQuestionModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div id="question-edit-form">
+                <!-- Form will be loaded dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{% static 'js/survey_builder.js' %}"></script>
+<script>
+    const surveyId = {{ survey.id }};
+    const csrfToken = '{{ csrf_token }}';
+</script>
+{% endblock %}
+

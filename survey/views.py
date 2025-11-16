@@ -3,8 +3,13 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from django.db import IntegrityError
+from django.db.models import Count, Q, Max
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.template.loader import render_to_string
 from datetime import datetime
-from .models import User, Course, CourseEnrollment
+import json
+from .models import User, Course, CourseEnrollment, Survey, SurveyCourseAssignment, Question, QuestionOption
 
 # Authentication Views
 def landing_page(request):
@@ -622,3 +627,396 @@ def teacher_course_detail(request, course_id):
         'unread_count': 6,
     }
     return render(request, 'teacher/course_detail.html', context)
+
+
+@login_required
+def teacher_survey_board(request):
+    """Survey board view - list all surveys created by teacher"""
+    if request.user.role != 'teacher':
+        messages.error(request, 'Access denied.')
+        return redirect('student-home')
+    
+    # Get all surveys created by this teacher
+    surveys = Survey.objects.filter(created_by=request.user).select_related('created_by').prefetch_related('courses', 'questions')
+    
+    # Get filter parameters
+    status_filter = request.GET.get('status', 'all')
+    course_filter = request.GET.get('course', '')
+    
+    # Filter by status
+    if status_filter == 'active':
+        surveys = surveys.filter(status='active')
+    elif status_filter == 'closed':
+        surveys = surveys.filter(status='closed')
+    # 'all' shows everything
+    
+    # Filter by course
+    if course_filter:
+        try:
+            course_id = int(course_filter)
+            surveys = surveys.filter(courses__id=course_id)
+        except ValueError:
+            pass
+    
+    # Get courses for filter dropdown
+    courses = Course.objects.filter(teacher=request.user)
+    
+    # Format surveys for template
+    surveys_data = []
+    for survey in surveys:
+        # Get assigned courses
+        assigned_courses = survey.courses.all()
+        course_names = ', '.join([c.code for c in assigned_courses[:3]])
+        if assigned_courses.count() > 3:
+            course_names += f" (+{assigned_courses.count() - 3} more)"
+        
+        # Calculate class progress (percentage of enrolled students who responded)
+        total_students = 0
+        responded_students = 0
+        for course in assigned_courses:
+            enrolled = CourseEnrollment.objects.filter(course=course).count()
+            total_students += enrolled
+            responded = survey.responses.filter(student__enrolled_courses__course=course).values('student').distinct().count()
+            responded_students += responded
+        
+        progress = int((responded_students / total_students * 100) if total_students > 0 else 0)
+        
+        # Format due date
+        if survey.due_date_enabled and survey.due_date:
+            due_date = survey.due_date.strftime('%b %d, %I:%M %p')
+        else:
+            due_date = '---'
+        
+        # Format duration
+        if survey.duration_enabled and survey.duration_minutes:
+            duration = f"{survey.duration_minutes} minutes"
+        else:
+            duration = '---'
+        
+        surveys_data.append({
+            'id': survey.id,
+            'title': survey.title,
+            'type': survey.get_type_display(),
+            'type_code': survey.type,
+            'status': survey.get_status_display(),
+            'status_code': survey.status,
+            'due_date': due_date,
+            'duration': duration,
+            'total_questions': survey.get_total_questions(),
+            'progress': progress,
+            'courses': course_names,
+            'assigned_courses': assigned_courses,
+        })
+    
+    # Count surveys by status
+    all_count = Survey.objects.filter(created_by=request.user).count()
+    active_count = Survey.objects.filter(created_by=request.user, status='active').count()
+    closed_count = Survey.objects.filter(created_by=request.user, status='closed').count()
+    
+    context = {
+        'surveys': surveys_data,
+        'courses': courses,
+        'selected_status': status_filter,
+        'selected_course': course_filter,
+        'all_count': all_count,
+        'active_count': active_count,
+        'closed_count': closed_count,
+        'unread_count': 6,
+    }
+    return render(request, 'teacher/survey_board.html', context)
+
+
+@login_required
+def teacher_create_survey(request):
+    """Create a new survey"""
+    if request.user.role != 'teacher':
+        messages.error(request, 'Access denied.')
+        return redirect('student-home')
+    
+    if request.method == 'POST':
+        title = request.POST.get('title', '').strip()
+        survey_type = request.POST.get('type', 'survey')
+        course_ids = request.POST.getlist('courses')
+        
+        # Validation
+        if not title:
+            messages.error(request, 'Survey title is required.')
+            return redirect('teacher-survey-board')
+        
+        if not course_ids:
+            messages.error(request, 'Please select at least one course.')
+            return redirect('teacher-survey-board')
+        
+        try:
+            # Create survey
+            survey = Survey.objects.create(
+                title=title,
+                type=survey_type,
+                created_by=request.user,
+                status='draft'
+            )
+            
+            # Assign to courses
+            for course_id in course_ids:
+                try:
+                    course = Course.objects.get(id=course_id, teacher=request.user)
+                    SurveyCourseAssignment.objects.create(survey=survey, course=course)
+                except Course.DoesNotExist:
+                    pass
+            
+            messages.success(request, f'Survey "{survey.title}" created successfully!')
+            return redirect('teacher-survey-builder', survey_id=survey.id)
+        except Exception as e:
+            messages.error(request, f'An error occurred: {str(e)}')
+            return redirect('teacher-survey-board')
+    
+    return redirect('teacher-survey-board')
+
+
+@login_required
+def teacher_survey_builder(request, survey_id):
+    """Survey builder interface"""
+    if request.user.role != 'teacher':
+        messages.error(request, 'Access denied.')
+        return redirect('student-home')
+    
+    survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
+    questions = survey.questions.all().order_by('order')
+    
+    context = {
+        'survey': survey,
+        'questions': questions,
+        'unread_count': 6,
+    }
+    return render(request, 'teacher/survey_builder.html', context)
+
+
+# API Endpoints
+@login_required
+@require_http_methods(["POST"])
+def api_add_question(request, survey_id):
+    """API endpoint to add a new question to a survey"""
+    if request.user.role != 'teacher':
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+    
+    survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
+    question_type = request.POST.get('question_type')
+    
+    if not question_type:
+        return JsonResponse({'success': False, 'error': 'Question type is required'})
+    
+    # Get the next order number
+    max_order = survey.questions.aggregate(Max('order'))['order__max'] or -1
+    next_order = max_order + 1
+    
+    # Create question with default text
+    question = Question.objects.create(
+        survey=survey,
+        question_type=question_type,
+        question_text='New Question',
+        order=next_order,
+        required=False
+    )
+    
+    return JsonResponse({
+        'success': True,
+        'question_id': question.id,
+        'message': 'Question added successfully'
+    })
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def api_update_question(request, question_id):
+    """API endpoint to update a question"""
+    if request.user.role != 'teacher':
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+    
+    question = get_object_or_404(Question, id=question_id, survey__created_by=request.user)
+    
+    if request.method == 'GET':
+        # Return form HTML for editing
+        form_html = render_to_string('includes/question_edit_form.html', {
+            'question': question,
+            'survey': question.survey
+        }, request=request)
+        return JsonResponse({'success': True, 'form_html': form_html})
+    
+    elif request.method == 'POST':
+        # Update question
+        question_text = request.POST.get('question_text', '').strip()
+        required = request.POST.get('required') == 'on'
+        
+        if not question_text:
+            return JsonResponse({'success': False, 'error': 'Question text is required'})
+        
+        question.question_text = question_text
+        question.required = required
+        
+        # Handle question-specific settings
+        if question.question_type in ['multiple_choice', 'checkboxes', 'dropdown']:
+            # Update options
+            option_texts = request.POST.getlist('options[]')
+            existing_options = list(question.options.all())
+            
+            # Update or create options
+            for idx, option_text in enumerate(option_texts):
+                if option_text.strip():
+                    if idx < len(existing_options):
+                        existing_options[idx].option_text = option_text.strip()
+                        existing_options[idx].order = idx
+                        existing_options[idx].save()
+                    else:
+                        QuestionOption.objects.create(
+                            question=question,
+                            option_text=option_text.strip(),
+                            order=idx
+                        )
+            
+            # Delete extra options
+            if len(option_texts) < len(existing_options):
+                for opt in existing_options[len(option_texts):]:
+                    opt.delete()
+        
+        question.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Question updated successfully'
+        })
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_delete_question(request, question_id):
+    """API endpoint to delete a question"""
+    if request.user.role != 'teacher':
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+    
+    question = get_object_or_404(Question, id=question_id, survey__created_by=request.user)
+    question.delete()
+    
+    return JsonResponse({
+        'success': True,
+        'message': 'Question deleted successfully'
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_reorder_questions(request, survey_id):
+    """API endpoint to reorder questions"""
+    if request.user.role != 'teacher':
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+    
+    survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
+    
+    try:
+        data = json.loads(request.body)
+        question_orders = data.get('orders', [])  # List of {question_id: order}
+        
+        for item in question_orders:
+            question_id = item.get('question_id')
+            order = item.get('order')
+            Question.objects.filter(id=question_id, survey=survey).update(order=order)
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Questions reordered successfully'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_save_survey(request, survey_id):
+    """API endpoint to save survey (mark as saved)"""
+    if request.user.role != 'teacher':
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+    
+    survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
+    # Just update the updated_at timestamp
+    survey.save()
+    
+    return JsonResponse({
+        'success': True,
+        'message': 'Survey saved successfully'
+    })
+
+
+@login_required
+def teacher_edit_survey(request, survey_id):
+    """Edit survey basic info"""
+    if request.user.role != 'teacher':
+        messages.error(request, 'Access denied.')
+        return redirect('student-home')
+    
+    survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
+    
+    if request.method == 'POST':
+        title = request.POST.get('title', '').strip()
+        if title:
+            survey.title = title
+            survey.save()
+            messages.success(request, 'Survey updated successfully!')
+            return redirect('teacher-survey-builder', survey_id=survey.id)
+    
+    return redirect('teacher-survey-builder', survey_id=survey.id)
+
+
+@login_required
+@require_http_methods(["POST"])
+def teacher_update_survey_parameters(request, survey_id):
+    """Update survey parameters"""
+    if request.user.role != 'teacher':
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+    
+    survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
+    
+    try:
+        # Duration
+        survey.duration_enabled = request.POST.get('duration_enabled') == 'on'
+        if survey.duration_enabled:
+            duration_minutes = request.POST.get('duration_minutes')
+            if duration_minutes:
+                survey.duration_minutes = int(duration_minutes)
+        
+        # Due date
+        survey.due_date_enabled = request.POST.get('due_date_enabled') == 'on'
+        if survey.due_date_enabled:
+            due_date_str = request.POST.get('due_date')
+            if due_date_str:
+                from django.utils.dateparse import parse_datetime
+                survey.due_date = parse_datetime(due_date_str)
+        
+        # Description
+        survey.description = request.POST.get('description', '')
+        
+        # Instructions
+        instructions = request.POST.getlist('instructions[]')
+        survey.instructions = [inst.strip() for inst in instructions if inst.strip()]
+        
+        # Attempts
+        survey.attempts_enabled = request.POST.get('attempts_enabled') == 'on'
+        if survey.attempts_enabled:
+            attempt_type = request.POST.get('attempt_type')
+            if attempt_type == 'single':
+                survey.single_attempt = True
+                survey.max_attempts = None
+            else:
+                survey.single_attempt = False
+                max_attempts = request.POST.get('max_attempts')
+                if max_attempts:
+                    survey.max_attempts = int(max_attempts)
+        
+        survey.require_completion_in_one_sitting = request.POST.get('require_completion_in_one_sitting') == 'on'
+        
+        survey.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Parameters updated successfully'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})

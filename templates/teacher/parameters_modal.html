@@ -1,0 +1,344 @@
+<!-- Parameters Modal -->
+<div id="parameters-modal" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-black bg-opacity-50">
+    <div class="relative p-4 w-full max-w-3xl max-h-full">
+        <div class="relative bg-white rounded-lg shadow">
+            <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t">
+                <div>
+                    <h3 class="text-xl font-semibold text-gray-900">Parameters</h3>
+                    <p class="text-sm text-gray-500 mt-1">Adjust the settings and conditions for your survey here.</p>
+                </div>
+                <button type="button" onclick="closeParametersModal()" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center">
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 14 14">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                    </svg>
+                    <span class="sr-only">Close modal</span>
+                </button>
+            </div>
+            
+            <!-- Tabs -->
+            <div class="border-b border-gray-200">
+                <ul class="flex flex-wrap -mb-px text-sm font-medium text-center">
+                    <li class="me-2">
+                        <button onclick="switchParameterTab('duration')" id="tab-duration" class="inline-block p-4 border-b-2 border-indigo-600 text-indigo-600 rounded-t-lg active">
+                            Duration
+                        </button>
+                    </li>
+                    <li class="me-2">
+                        <button onclick="switchParameterTab('due-date')" id="tab-due-date" class="inline-block p-4 border-b-2 border-transparent text-gray-500 hover:text-gray-600 hover:border-gray-300 rounded-t-lg">
+                            Due Date
+                        </button>
+                    </li>
+                    <li class="me-2">
+                        <button onclick="switchParameterTab('description')" id="tab-description" class="inline-block p-4 border-b-2 border-transparent text-gray-500 hover:text-gray-600 hover:border-gray-300 rounded-t-lg">
+                            Description
+                        </button>
+                    </li>
+                    <li class="me-2">
+                        <button onclick="switchParameterTab('attempts')" id="tab-attempts" class="inline-block p-4 border-b-2 border-transparent text-gray-500 hover:text-gray-600 hover:border-gray-300 rounded-t-lg">
+                            Attempts
+                        </button>
+                    </li>
+                </ul>
+            </div>
+            
+            <form id="parameters-form" method="post" action="{% url 'teacher-update-survey-parameters' survey.id %}" class="p-4 md:p-5">
+                {% csrf_token %}
+                
+                <!-- Duration Tab -->
+                <div id="tab-content-duration" class="parameter-tab-content">
+                    <div class="mb-4">
+                        <div class="flex items-center justify-between mb-4">
+                            <label class="text-sm font-medium text-gray-900">Duration</label>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" name="duration_enabled" id="duration_toggle" class="sr-only peer" {% if survey.duration_enabled %}checked{% endif %}>
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
+                        
+                        <div id="duration-settings" class="{% if not survey.duration_enabled %}hidden{% endif %}">
+                            <div class="mb-4">
+                                <div class="flex border border-gray-300 rounded-lg mb-4">
+                                    <button type="button" onclick="switchDurationUnit('minutes')" id="duration-unit-minutes" class="flex-1 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-l-lg">
+                                        Minutes
+                                    </button>
+                                    <button type="button" onclick="switchDurationUnit('hours')" id="duration-unit-hours" class="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white rounded-r-lg hover:bg-gray-50">
+                                        Hours
+                                    </button>
+                                </div>
+                                
+                                <div class="mb-4">
+                                    <label class="block text-sm font-medium text-gray-900 mb-2">Duration: <span id="duration-value">{{ survey.duration_minutes|default:20 }} min</span></label>
+                                    <input type="range" name="duration_minutes" id="duration-slider" min="10" max="120" step="5" value="{{ survey.duration_minutes|default:20 }}" oninput="updateDurationValue(this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                                    <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                        <span>10 min</span>
+                                        <span>60 min</span>
+                                        <span>2 hours</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-600">
+                                    Perfect for short surveys and precise timing. Adjust in 5-minute increments from 10 minutes to 2 hours.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Due Date Tab -->
+                <div id="tab-content-due-date" class="parameter-tab-content hidden">
+                    <div class="mb-4">
+                        <div class="flex items-center justify-between mb-4">
+                            <label class="text-sm font-medium text-gray-900">Due date</label>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" name="due_date_enabled" id="due_date_toggle" class="sr-only peer" {% if survey.due_date_enabled %}checked{% endif %}>
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
+                        
+                        <div id="due-date-settings" class="{% if not survey.due_date_enabled %}hidden{% endif %}">
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                    <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+                                    </svg>
+                                </div>
+                                <input type="datetime-local" name="due_date" id="due_date_input" value="{% if survey.due_date %}{{ survey.due_date|date:'Y-m-d\TH:i' }}{% endif %}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-10 p-2.5" placeholder="MM/DD/YYYY hh:mm aa">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Description Tab -->
+                <div id="tab-content-description" class="parameter-tab-content hidden">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-900 mb-2">Description</label>
+                        <textarea name="description" id="survey_description" rows="4" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" placeholder="Enter the survey description here. This will explain what the survey is about to students.">{{ survey.description }}</textarea>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <label class="text-sm font-medium text-gray-900">Instructions</label>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" name="instructions_enabled" id="instructions_toggle" class="sr-only peer" {% if survey.instructions %}checked{% endif %}>
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
+                        
+                        <div id="instructions-container" class="{% if not survey.instructions %}hidden{% endif %}">
+                            <div id="instructions-list" class="space-y-2 mb-2">
+                                {% for instruction in survey.instructions %}
+                                <div class="instruction-item flex items-center space-x-2">
+                                    <input type="text" name="instructions[]" value="{{ instruction }}" class="flex-1 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5" placeholder="Enter instruction">
+                                    <button type="button" onclick="removeInstruction(this)" class="text-red-600 hover:text-red-800">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                {% empty %}
+                                <div class="instruction-item flex items-center space-x-2">
+                                    <input type="text" name="instructions[]" class="flex-1 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5" placeholder="Instruction 1">
+                                    <button type="button" onclick="removeInstruction(this)" class="text-red-600 hover:text-red-800">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <button type="button" onclick="addInstruction()" class="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
+                                + Add Instruction
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Attempts Tab -->
+                <div id="tab-content-attempts" class="parameter-tab-content hidden">
+                    <div class="mb-4">
+                        <div class="flex items-center justify-between mb-4">
+                            <label class="text-sm font-medium text-gray-900">Number of Attempts</label>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" name="attempts_enabled" id="attempts_toggle" class="sr-only peer" {% if survey.attempts_enabled %}checked{% endif %}>
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
+                        
+                        <div id="attempts-settings" class="{% if not survey.attempts_enabled %}hidden{% endif %}">
+                            <div class="space-y-4">
+                                <div class="flex items-start space-x-3 p-4 border border-gray-200 rounded-lg">
+                                    <input type="radio" name="attempt_type" id="attempt_limited" value="limited" class="mt-1" {% if not survey.single_attempt %}checked{% endif %}>
+                                    <div class="flex-1">
+                                        <label for="attempt_limited" class="block text-sm font-medium text-gray-900 mb-1">Limited Attempts</label>
+                                        <p class="text-sm text-gray-600 mb-3">Set a specific number of attempts allowed for this survey.</p>
+                                        <div class="flex items-center space-x-2">
+                                            <label class="text-sm text-gray-700">Maximum attempts:</label>
+                                            <input type="number" name="max_attempts" id="max_attempts" min="1" value="{{ survey.max_attempts|default:1 }}" class="w-20 px-3 py-1 border border-gray-300 rounded-lg text-sm">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-start space-x-3 p-4 border border-gray-200 rounded-lg">
+                                    <input type="radio" name="attempt_type" id="attempt_single" value="single" class="mt-1" {% if survey.single_attempt %}checked{% endif %}>
+                                    <div class="flex-1">
+                                        <label for="attempt_single" class="block text-sm font-medium text-gray-900 mb-1">Single Attempt</label>
+                                        <p class="text-sm text-gray-600">Students can only submit the survey once. Best for assessments and final submissions.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4">
+                                <div class="flex items-center justify-between mb-2">
+                                    <label class="text-sm font-medium text-gray-900">Require Completion in One Sitting</label>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" name="require_completion_in_one_sitting" id="one_sitting_toggle" class="sr-only peer" {% if survey.require_completion_in_one_sitting %}checked{% endif %}>
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                    </label>
+                                </div>
+                                <p class="text-sm text-gray-600">Students must complete the survey in one session. Saving and continuation is disabled.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-end space-x-3 pt-4 border-t mt-6">
+                    <button type="button" onclick="closeParametersModal()" class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900">
+                        Previous
+                    </button>
+                    <button type="submit" class="text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:outline-none focus:ring-indigo-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">
+                        Save changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentParameterTab = 'duration';
+let durationUnit = 'minutes';
+
+function openParametersModal() {
+    document.getElementById('parameters-modal').classList.remove('hidden');
+}
+
+function closeParametersModal() {
+    document.getElementById('parameters-modal').classList.add('hidden');
+}
+
+function switchParameterTab(tab) {
+    // Hide all tab contents
+    document.querySelectorAll('.parameter-tab-content').forEach(content => {
+        content.classList.add('hidden');
+    });
+    
+    // Remove active class from all tabs
+    document.querySelectorAll('[id^="tab-"]').forEach(btn => {
+        btn.classList.remove('border-indigo-600', 'text-indigo-600');
+        btn.classList.add('border-transparent', 'text-gray-500');
+    });
+    
+    // Show selected tab content
+    document.getElementById(`tab-content-${tab}`).classList.remove('hidden');
+    
+    // Add active class to selected tab
+    const tabBtn = document.getElementById(`tab-${tab}`);
+    tabBtn.classList.remove('border-transparent', 'text-gray-500');
+    tabBtn.classList.add('border-indigo-600', 'text-indigo-600');
+    
+    currentParameterTab = tab;
+}
+
+function switchDurationUnit(unit) {
+    durationUnit = unit;
+    const minutesBtn = document.getElementById('duration-unit-minutes');
+    const hoursBtn = document.getElementById('duration-unit-hours');
+    
+    if (unit === 'minutes') {
+        minutesBtn.classList.add('text-white', 'bg-indigo-600');
+        minutesBtn.classList.remove('text-gray-700', 'bg-white');
+        hoursBtn.classList.remove('text-white', 'bg-indigo-600');
+        hoursBtn.classList.add('text-gray-700', 'bg-white');
+    } else {
+        hoursBtn.classList.add('text-white', 'bg-indigo-600');
+        hoursBtn.classList.remove('text-gray-700', 'bg-white');
+        minutesBtn.classList.remove('text-white', 'bg-indigo-600');
+        minutesBtn.classList.add('text-gray-700', 'bg-white');
+    }
+}
+
+function updateDurationValue(value) {
+    const display = document.getElementById('duration-value');
+    if (durationUnit === 'minutes') {
+        display.textContent = value + ' min';
+    } else {
+        display.textContent = (value / 60).toFixed(1) + ' hours';
+    }
+}
+
+function addInstruction() {
+    const container = document.getElementById('instructions-list');
+    const count = container.children.length + 1;
+    const div = document.createElement('div');
+    div.className = 'instruction-item flex items-center space-x-2';
+    div.innerHTML = `
+        <input type="text" name="instructions[]" class="flex-1 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5" placeholder="Instruction ${count}">
+        <button type="button" onclick="removeInstruction(this)" class="text-red-600 hover:text-red-800">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+    `;
+    container.appendChild(div);
+}
+
+function removeInstruction(button) {
+    button.closest('.instruction-item').remove();
+}
+
+// Toggle handlers
+document.getElementById('duration_toggle')?.addEventListener('change', function() {
+    document.getElementById('duration-settings').classList.toggle('hidden', !this.checked);
+});
+
+document.getElementById('due_date_toggle')?.addEventListener('change', function() {
+    document.getElementById('due-date-settings').classList.toggle('hidden', !this.checked);
+});
+
+document.getElementById('instructions_toggle')?.addEventListener('change', function() {
+    document.getElementById('instructions-container').classList.toggle('hidden', !this.checked);
+});
+
+document.getElementById('attempts_toggle')?.addEventListener('change', function() {
+    document.getElementById('attempts-settings').classList.toggle('hidden', !this.checked);
+});
+
+// Form submission
+document.getElementById('parameters-form')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    fetch(this.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeParametersModal();
+            alert('Parameters saved successfully!');
+        } else {
+            alert('Error: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error saving parameters');
+    });
+});
+</script>
+
