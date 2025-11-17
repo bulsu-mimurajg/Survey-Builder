@@ -293,6 +293,25 @@ input:checked + .toggle-slider:before {
     }
 }
 
+/* Courses Display Styles */
+#courses-display {
+    max-width: 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+}
+
+#courses-display span {
+    flex-shrink: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#open-course-modal-btn {
+    max-width: 100%;
+    min-width: 0;
+}
+
 /* Responsive Adjustments */
 @media (max-width: 768px) {
     .component-toolbox {
@@ -314,6 +333,10 @@ input:checked + .toggle-slider:before {
     #toast-container > div {
         min-width: auto;
         max-width: 100%;
+    }
+    
+    #courses-display {
+        max-width: calc(100% - 2rem);
     }
 }
 

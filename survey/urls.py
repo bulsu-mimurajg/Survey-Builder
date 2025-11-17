@@ -41,6 +41,7 @@ urlpatterns = [
     path('api/survey/question/<int:question_id>/delete/', views.api_delete_question, name='api-delete-question'),
     path('api/survey/<int:survey_id>/questions/reorder/', views.api_reorder_questions, name='api-reorder-questions'),
     path('api/survey/<int:survey_id>/save/', views.api_save_survey, name='api-save-survey'),
+    path('api/survey/<int:survey_id>/courses/update/', views.api_update_course_assignments, name='api-update-course-assignments'),
     path('teacher/notifications/', views.teacher_home, name='teacher-notifications'),  # Placeholder
     path('teacher/settings/', views.teacher_home, name='teacher-settings'),  # Placeholder
     path('teacher/help/', views.teacher_home, name='teacher-help'),  # Placeholder

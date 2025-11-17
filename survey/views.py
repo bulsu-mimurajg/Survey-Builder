@@ -930,10 +930,14 @@ def teacher_survey_builder(request, survey_id):
     
     survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
     questions = survey.questions.all().order_by('order')
+    all_courses = Course.objects.filter(teacher=request.user).order_by('code')
+    assigned_course_ids = set(survey.courses.values_list('id', flat=True))
     
     context = {
         'survey': survey,
         'questions': questions,
+        'all_courses': all_courses,
+        'assigned_course_ids': assigned_course_ids,
         'unread_count': 6,
     }
     return render(request, 'teacher/survey_builder.html', context)
@@ -1146,6 +1150,65 @@ def api_save_survey(request, survey_id):
         return JsonResponse({
             'success': True,
             'message': 'Survey saved successfully'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_update_course_assignments(request, survey_id):
+    """API endpoint to update course assignments for a survey"""
+    if request.user.role != 'teacher':
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+    
+    survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
+    
+    try:
+        data = json.loads(request.body)
+        course_ids = data.get('course_ids', [])
+        
+        # Ensure at least one course is selected
+        if not course_ids or len(course_ids) == 0:
+            return JsonResponse({
+                'success': False,
+                'error': 'At least one course must be assigned to the survey'
+            }, status=400)
+        
+        # Verify all courses belong to the teacher
+        teacher_courses = Course.objects.filter(teacher=request.user, id__in=course_ids)
+        if teacher_courses.count() != len(course_ids):
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid course selection'
+            }, status=400)
+        
+        # Get current assignments
+        current_assignments = set(survey.courses.values_list('id', flat=True))
+        new_assignments = set(course_ids)
+        
+        # Remove assignments that are no longer selected
+        to_remove = current_assignments - new_assignments
+        if to_remove:
+            SurveyCourseAssignment.objects.filter(survey=survey, course_id__in=to_remove).delete()
+        
+        # Add new assignments
+        to_add = new_assignments - current_assignments
+        for course_id in to_add:
+            course = Course.objects.get(id=course_id, teacher=request.user)
+            SurveyCourseAssignment.objects.get_or_create(survey=survey, course=course)
+        
+        # Get updated course assignments for display
+        assigned_courses = survey.courses.all().order_by('code')
+        course_names = [course.code for course in assigned_courses]
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Course assignments updated successfully',
+            'course_names': course_names
         })
     except Exception as e:
         return JsonResponse({

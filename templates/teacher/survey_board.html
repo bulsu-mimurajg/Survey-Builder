@@ -46,7 +46,7 @@
         <div class="flex items-center space-x-4">
             <div class="relative w-full sm:w-auto">
                 <select id="course-filter" onchange="filterByCourse(this.value)" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full px-4 py-2 pr-8">
-                    <option value="">Select an option</option>
+                    <option value="">All Surveys</option>
                     {% for course in courses %}
                     <option value="{{ course.id }}" {% if selected_course == course.id|stringformat:"s" %}selected{% endif %}>{{ course.code }} - {{ course.name }}</option>
                     {% endfor %}
@@ -116,10 +116,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             <h3 class="text-lg font-medium text-gray-900 mb-2">No surveys found</h3>
-            <p class="text-gray-500 mb-4">Get started by creating your first survey.</p>
-            <button type="button" onclick="openCreateSurveyModal()" class="text-white bg-indigo-600 hover:bg-indigo-700 font-medium rounded-lg text-sm px-5 py-2.5">
-                Build a Survey
-            </button>
+            <p class="text-gray-500 mb-4">Get started by building your first survey.</p>
         </div>
         {% endfor %}
     </div>
