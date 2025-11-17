@@ -8,6 +8,19 @@ let autoScrollInterval = null;
 
 // Drag and Drop Handlers for adding new questions
 function handleDragStart(event, questionType) {
+    // REINFORCED: Check if restrictions apply - block if survey is active OR has responses
+    if (typeof surveyStatus !== 'undefined' && surveyStatus === 'active') {
+        event.preventDefault();
+        showToast('Cannot add questions when survey is active', 'error');
+        return;
+    }
+    if (typeof surveyStatus !== 'undefined' && surveyStatus !== 'draft' && 
+        typeof hasResponses !== 'undefined' && hasResponses) {
+        event.preventDefault();
+        showToast('Cannot add questions when survey has responses', 'error');
+        return;
+    }
+    
     draggedQuestionType = questionType;
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/html', event.target.outerHTML);
@@ -52,6 +65,23 @@ function handleDrop(event) {
         return;
     }
     
+    // REINFORCED: Check if restrictions apply - block if survey is active OR has responses
+    if (typeof surveyStatus !== 'undefined' && surveyStatus === 'active') {
+        event.preventDefault();
+        showToast('Cannot add questions when survey is active', 'error');
+        hideQuestionDropZones();
+        draggedQuestionType = null;
+        return;
+    }
+    if (typeof surveyStatus !== 'undefined' && surveyStatus !== 'draft' && 
+        typeof hasResponses !== 'undefined' && hasResponses) {
+        event.preventDefault();
+        showToast('Cannot add questions when survey has responses', 'error');
+        hideQuestionDropZones();
+        draggedQuestionType = null;
+        return;
+    }
+    
     event.preventDefault();
     event.currentTarget.classList.remove('border-indigo-500', 'bg-indigo-50');
     
@@ -72,6 +102,21 @@ function handleDrop(event) {
 
 // Drag and Drop Handlers for reordering existing questions
 function handleQuestionDragStart(event, questionId) {
+    // REINFORCED: Check if restrictions apply - block if survey is active OR has responses
+    if (typeof surveyStatus !== 'undefined' && surveyStatus === 'active') {
+        event.preventDefault();
+        event.stopPropagation();
+        showToast('Cannot reorder questions when survey is active', 'error');
+        return false;
+    }
+    if (typeof surveyStatus !== 'undefined' && surveyStatus !== 'draft' && 
+        typeof hasResponses !== 'undefined' && hasResponses) {
+        event.preventDefault();
+        event.stopPropagation();
+        showToast('Cannot reorder questions when survey has responses', 'error');
+        return false;
+    }
+    
     // Handle both string temp IDs and numeric IDs
     draggedQuestionId = String(questionId);
     draggedQuestionElement = event.currentTarget;
@@ -376,6 +421,17 @@ function handleQuestionDrop(event) {
     event.preventDefault();
     event.stopPropagation();
     
+    // REINFORCED: Check if restrictions apply - block if survey is active OR has responses
+    if (typeof surveyStatus !== 'undefined' && surveyStatus === 'active') {
+        showToast('Cannot reorder questions when survey is active', 'error');
+        return;
+    }
+    if (typeof surveyStatus !== 'undefined' && surveyStatus !== 'draft' && 
+        typeof hasResponses !== 'undefined' && hasResponses) {
+        showToast('Cannot reorder questions when survey has responses', 'error');
+        return;
+    }
+    
     const targetQuestionId = event.currentTarget.dataset.questionId;
     
     if (draggedQuestionId && String(targetQuestionId) !== String(draggedQuestionId)) {
@@ -391,6 +447,17 @@ function handleQuestionDrop(event) {
 
 // Reorder questions (temporary, not saved to backend)
 function reorderQuestions(draggedId, targetId) {
+    // REINFORCED: Check if restrictions apply - block if survey is active OR has responses
+    if (typeof surveyStatus !== 'undefined' && surveyStatus === 'active') {
+        showToast('Cannot reorder questions when survey is active', 'error');
+        return;
+    }
+    if (typeof surveyStatus !== 'undefined' && surveyStatus !== 'draft' && 
+        typeof hasResponses !== 'undefined' && hasResponses) {
+        showToast('Cannot reorder questions when survey has responses', 'error');
+        return;
+    }
+    
     const questions = Array.from(document.querySelectorAll('.draggable-question'));
     const draggedElement = questions.find(q => {
         const id = q.dataset.questionId;
@@ -452,6 +519,17 @@ function toggleCategory(categoryId) {
 
 // Add question (temporary, not saved to backend)
 function addQuestion(questionType, insertOrder = null) {
+    // REINFORCED: Check if restrictions apply - block if survey is active OR has responses
+    if (typeof surveyStatus !== 'undefined' && surveyStatus === 'active') {
+        showToast('Cannot add questions when survey is active', 'error');
+        return;
+    }
+    if (typeof surveyStatus !== 'undefined' && surveyStatus !== 'draft' && 
+        typeof hasResponses !== 'undefined' && hasResponses) {
+        showToast('Cannot add questions when survey has responses', 'error');
+        return;
+    }
+    
     // Generate temporary ID
     const tempId = 'temp-' + changeTracker.tempQuestionIdCounter++;
     
@@ -670,32 +748,11 @@ function editQuestion(questionId) {
                                 Cancel
                             </button>
                             <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">
-                                Save
+                                Confirm
                             </button>
                         </div>
                     </div>
                 </form>
-                <script>
-                    function addOption() {
-                        const container = document.getElementById('options-list');
-                        const optionDiv = document.createElement('div');
-                        optionDiv.className = 'flex items-center space-x-2 option-item';
-                        optionDiv.innerHTML = \`
-                            <input type="text" name="options[]" 
-                                   class="flex-1 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5" 
-                                   placeholder="Option text" required>
-                            <button type="button" onclick="removeOption(this)" class="text-red-600 hover:text-red-800">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        \`;
-                        container.appendChild(optionDiv);
-                    }
-                    function removeOption(button) {
-                        button.closest('.option-item').remove();
-                    }
-                </script>
             `;
             document.getElementById('question-edit-form').innerHTML = formHtml;
             document.getElementById('question-edit-modal').classList.remove('hidden');
@@ -709,18 +766,29 @@ function editQuestion(questionId) {
                 document.getElementById('question-edit-form').innerHTML = data.form_html;
                 document.getElementById('question-edit-modal').classList.remove('hidden');
             } else {
-                alert('Error loading question: ' + (data.error || 'Unknown error'));
+                showToast('Error loading question: ' + (data.error || 'Unknown error'), 'error');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('Error loading question');
+            showToast('Error loading question', 'error');
         });
     }
 }
 
 // Delete question (temporary, not saved to backend)
 function deleteQuestion(questionId) {
+    // REINFORCED: Check if restrictions apply - block if survey is active OR has responses
+    if (typeof surveyStatus !== 'undefined' && surveyStatus === 'active') {
+        showToast('Cannot delete questions when survey is active', 'error');
+        return false;
+    }
+    if (typeof surveyStatus !== 'undefined' && surveyStatus !== 'draft' && 
+        typeof hasResponses !== 'undefined' && hasResponses) {
+        showToast('Cannot delete questions when survey has responses', 'error');
+        return false;
+    }
+    
     if (!confirm('Are you sure you want to delete this question?')) {
         return;
     }
@@ -882,7 +950,7 @@ function saveQuestion(questionId) {
                     textElement.textContent = questionText;
                 }
                 // Update type badge
-                const typeBadge = questionElement.querySelector('.text-xs.text-gray-400');
+                const typeBadge = questionElement.querySelector('.text-xs.text-gray-400, .question-type-badge');
                 if (typeBadge) {
                     const typeLabels = {
                         'short_text': 'short text',
@@ -895,11 +963,156 @@ function saveQuestion(questionId) {
                     };
                     typeBadge.textContent = typeLabels[newType] || newType.replace('_', ' ');
                 }
+                
+                // Update options display for choice-based questions
+                if (['multiple_choice', 'checkboxes', 'dropdown'].includes(newType) && options.length > 0) {
+                    // Check if there's already an options container, if not create one
+                    let optionsContainer = questionElement.querySelector('.mt-3, .space-y-2');
+                    if (!optionsContainer) {
+                        // Create a container for options
+                        const container = document.createElement('div');
+                        container.className = 'mt-3';
+                        questionElement.appendChild(container);
+                        optionsContainer = container;
+                    } else if (!optionsContainer.classList.contains('space-y-2')) {
+                        // If it's the mt-3 container, create space-y-2 inside it
+                        const spaceDiv = document.createElement('div');
+                        spaceDiv.className = 'space-y-2';
+                        optionsContainer.innerHTML = '';
+                        optionsContainer.appendChild(spaceDiv);
+                        optionsContainer = spaceDiv;
+                    }
+                    
+                    if (newType === 'multiple_choice' || newType === 'checkboxes') {
+                        optionsContainer.innerHTML = '';
+                        options.forEach(optionText => {
+                            if (optionText.trim()) {
+                                const optionDiv = document.createElement('div');
+                                optionDiv.className = 'flex items-center';
+                                const inputType = newType === 'multiple_choice' ? 'radio' : 'checkbox';
+                                optionDiv.innerHTML = `
+                                    <input type="${inputType}" disabled class="mr-2">
+                                    <label class="text-sm text-gray-700">${optionText}</label>
+                                `;
+                                optionsContainer.appendChild(optionDiv);
+                            }
+                        });
+                    } else if (newType === 'dropdown') {
+                        const parentContainer = optionsContainer.parentElement || questionElement;
+                        const select = document.createElement('select');
+                        select.className = 'w-full px-3 py-2 border border-gray-300 rounded-lg';
+                        select.disabled = true;
+                        const defaultOption = document.createElement('option');
+                        defaultOption.textContent = 'Select an option';
+                        select.appendChild(defaultOption);
+                        options.forEach(optionText => {
+                            if (optionText.trim()) {
+                                const option = document.createElement('option');
+                                option.textContent = optionText;
+                                select.appendChild(option);
+                            }
+                        });
+                        if (optionsContainer.parentElement) {
+                            optionsContainer.parentElement.innerHTML = '';
+                            optionsContainer.parentElement.appendChild(select);
+                        }
+                    }
+                }
             }
         }
     } else {
         // Store as edited
         changeTracker.pendingQuestionChanges.edited[questionId] = questionData;
+        
+        // Update the question display in DOM for existing questions
+        const questionElement = document.querySelector(`[data-question-id="${questionId}"]`);
+        if (questionElement) {
+            // Update question text
+            const questionText = questionData.question_text || '';
+            const textElement = questionElement.querySelector('h4.text-base.font-medium.text-gray-900');
+            if (textElement) {
+                textElement.textContent = questionText;
+            }
+            
+            // Update required indicator
+            const requiredSpan = questionElement.querySelector('.text-xs.text-red-600');
+            const isRequired = questionData.required === 'on' || questionData.required === true;
+            if (isRequired) {
+                if (!requiredSpan) {
+                    // Add required indicator if it doesn't exist
+                    const questionMeta = questionElement.querySelector('.flex.items-center.space-x-2.mb-2');
+                    if (questionMeta) {
+                        const requiredIndicator = document.createElement('span');
+                        requiredIndicator.className = 'text-xs text-red-600';
+                        requiredIndicator.textContent = '* Required';
+                        questionMeta.appendChild(requiredIndicator);
+                    }
+                }
+            } else {
+                // Remove required indicator if it exists
+                if (requiredSpan) {
+                    requiredSpan.remove();
+                }
+            }
+            
+            // Update options display for choice-based questions
+            const questionType = questionElement.querySelector('.text-xs.text-gray-400.bg-gray-100')?.textContent?.toLowerCase() || '';
+            if (['multiple choice', 'checkboxes', 'dropdown'].some(type => questionType.includes(type))) {
+                const questionTypeValue = questionData.question_type || 
+                    (questionType.includes('multiple choice') ? 'multiple_choice' :
+                     questionType.includes('checkboxes') ? 'checkboxes' : 'dropdown');
+                
+                const mt3Container = questionElement.querySelector('.mt-3');
+                if (mt3Container) {
+                    // Clear existing content
+                    mt3Container.innerHTML = '';
+                    
+                    // Add new options based on type
+                    if (questionTypeValue === 'multiple_choice' || questionTypeValue === 'checkboxes') {
+                        const optionsDiv = document.createElement('div');
+                        optionsDiv.className = 'space-y-2';
+                        
+                        if (options.length > 0) {
+                            options.forEach(optionText => {
+                                if (optionText.trim()) {
+                                    const optionDiv = document.createElement('div');
+                                    optionDiv.className = 'flex items-center';
+                                    const inputType = questionTypeValue === 'multiple_choice' ? 'radio' : 'checkbox';
+                                    optionDiv.innerHTML = `
+                                        <input type="${inputType}" disabled class="mr-2">
+                                        <label class="text-sm text-gray-700">${optionText}</label>
+                                    `;
+                                    optionsDiv.appendChild(optionDiv);
+                                }
+                            });
+                        } else {
+                            const emptyMsg = document.createElement('p');
+                            emptyMsg.className = 'text-sm text-gray-400';
+                            emptyMsg.textContent = 'No options added';
+                            optionsDiv.appendChild(emptyMsg);
+                        }
+                        mt3Container.appendChild(optionsDiv);
+                    } else if (questionTypeValue === 'dropdown') {
+                        const select = document.createElement('select');
+                        select.className = 'w-full px-3 py-2 border border-gray-300 rounded-lg';
+                        select.disabled = true;
+                        const defaultOption = document.createElement('option');
+                        defaultOption.textContent = 'Select an option';
+                        select.appendChild(defaultOption);
+                        if (options.length > 0) {
+                            options.forEach(optionText => {
+                                if (optionText.trim()) {
+                                    const option = document.createElement('option');
+                                    option.textContent = optionText;
+                                    select.appendChild(option);
+                                }
+                            });
+                        }
+                        mt3Container.appendChild(select);
+                    }
+                }
+            }
+        }
     }
     
     closeQuestionModal();
@@ -911,8 +1124,46 @@ function saveQuestion(questionId) {
     }
 }
 
+// Global functions for adding/removing options in question edit form
+function addOption() {
+    const container = document.getElementById('options-list');
+    if (!container) return;
+    
+    const div = document.createElement('div');
+    div.className = 'flex items-center space-x-2 option-item';
+    div.innerHTML = `
+        <input type="text" name="options[]" class="flex-1 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5" placeholder="Option text" required>
+        <button type="button" onclick="removeOption(this)" class="text-red-600 hover:text-red-800">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+    `;
+    container.appendChild(div);
+}
+
+function removeOption(button) {
+    const container = document.getElementById('options-list');
+    if (!container) return;
+    
+    const optionItem = button.closest('.option-item');
+    if (!optionItem) return;
+    
+    const optionItems = container.querySelectorAll('.option-item');
+    if (optionItems.length > 1) {
+        optionItem.remove();
+    } else {
+        alert('At least one option is required');
+    }
+}
+
 // Close question modal
 function closeQuestionModal() {
+    // Clear the form HTML to discard unsaved changes
+    const formContainer = document.getElementById('question-edit-form');
+    if (formContainer) {
+        formContainer.innerHTML = '';
+    }
     document.getElementById('question-edit-modal').classList.add('hidden');
 }
 
@@ -1021,12 +1272,16 @@ let changeTracker = {
     },
     
     updateSaveButtonState: function() {
-        const saveButton = document.querySelector('button[onclick="saveSurvey()"]');
+        const saveButton = document.getElementById('save-button');
         if (saveButton) {
             if (this.hasUnsavedChanges) {
+                // Show button and change to orange when there are unsaved changes
+                saveButton.classList.remove('hidden');
                 saveButton.classList.remove('bg-indigo-600', 'hover:bg-indigo-700');
                 saveButton.classList.add('bg-orange-500', 'hover:bg-orange-600');
             } else {
+                // Hide button when there are no unsaved changes
+                saveButton.classList.add('hidden');
                 saveButton.classList.remove('bg-orange-500', 'hover:bg-orange-600');
                 saveButton.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
             }
@@ -1464,6 +1719,23 @@ function saveQuestionChanges() {
         promises.push(saveQuestionEdit(questionId, questionData));
     }
     
+    // REINFORCED: Validate before attempting to delete questions
+    if (changeTracker.pendingQuestionChanges.deleted.length > 0) {
+        // Check if restrictions apply - block if active OR has responses
+        if (typeof surveyStatus !== 'undefined' && surveyStatus === 'active') {
+            showToast('Cannot delete questions when survey is active', 'error');
+            changeTracker.pendingQuestionChanges.deleted = [];
+            return Promise.reject(new Error('Cannot delete questions when survey is active'));
+        }
+        if (typeof surveyStatus !== 'undefined' && surveyStatus !== 'draft' && 
+            typeof hasResponses !== 'undefined' && hasResponses) {
+            showToast('Cannot delete questions when survey has responses', 'error');
+            // Clear the deleted list to prevent sending to backend
+            changeTracker.pendingQuestionChanges.deleted = [];
+            return Promise.reject(new Error('Cannot delete questions when survey has responses'));
+        }
+    }
+    
     // Delete questions
     for (const questionId of changeTracker.pendingQuestionChanges.deleted) {
         promises.push(
@@ -1491,12 +1763,23 @@ function saveQuestionChanges() {
         );
     }
     
-    // Save reordering
+    // REINFORCED: Validate before attempting to reorder questions
     const currentState = changeTracker.getCurrentQuestionState();
     const originalOrder = changeTracker.originalQuestionState.order.map(o => String(o.questionId));
     const currentOrder = currentState.order.map(o => String(o.questionId));
     
     if (JSON.stringify(originalOrder) !== JSON.stringify(currentOrder)) {
+        // Check if restrictions apply - block if active OR has responses
+        if (typeof surveyStatus !== 'undefined' && surveyStatus === 'active') {
+            showToast('Cannot reorder questions when survey is active', 'error');
+            // Reset order to original to prevent sending to backend
+            return Promise.reject(new Error('Cannot reorder questions when survey is active'));
+        }
+        if (typeof surveyStatus !== 'undefined' && surveyStatus !== 'draft' && 
+            typeof hasResponses !== 'undefined' && hasResponses) {
+            showToast('Cannot reorder questions when survey has responses', 'error');
+            return Promise.reject(new Error('Cannot reorder questions when survey has responses'));
+        }
         const orders = currentState.order.map((item, index) => {
             const questionId = item.questionId;
             // Skip temp IDs (they'll be real IDs after being added)
@@ -1535,10 +1818,20 @@ function saveQuestionChanges() {
 function saveQuestionEdit(questionId, questionData) {
     const formData = new FormData();
     for (const [key, value] of Object.entries(questionData)) {
-        if (key !== 'csrfmiddlewaretoken') {
+        if (key !== 'csrfmiddlewaretoken' && key !== 'options') {
             formData.append(key, value);
         }
     }
+    
+    // Handle options array separately - append each option as options[]
+    if (questionData.options && Array.isArray(questionData.options)) {
+        questionData.options.forEach(option => {
+            if (option && option.trim()) {
+                formData.append('options[]', option.trim());
+            }
+        });
+    }
+    
     formData.append('csrfmiddlewaretoken', csrfToken);
     
     return fetch(`/api/survey/question/${questionId}/update/`, {
@@ -1864,6 +2157,408 @@ document.addEventListener('click', function(event) {
             // closeCourseAssignmentModal will restore the states, so just call it
             closeCourseAssignmentModal();
         }
+    }
+    
+    // Close parameters modal when clicking outside
+    const parametersModal = document.getElementById('parameters-modal');
+    if (parametersModal && !parametersModal.classList.contains('hidden')) {
+        const modalContent = parametersModal.querySelector('.bg-white');
+        const openBtn = document.querySelector('[onclick="openParametersModal()"]');
+        // Close if clicking on the backdrop (not on modal content or the button that opens it)
+        if (event.target === parametersModal && !modalContent.contains(event.target) && event.target !== openBtn && !openBtn.contains(event.target)) {
+            // closeParametersModal will restore the states, so just call it
+            closeParametersModal();
+        }
+    }
+});
+
+// Survey Activation Functions
+function activateSurvey() {
+    // Show confirmation modal first
+    document.getElementById('activation-confirmation-modal').classList.remove('hidden');
+}
+
+function closeActivationConfirmationModal() {
+    document.getElementById('activation-confirmation-modal').classList.add('hidden');
+}
+
+function confirmActivationProceed() {
+    // Close confirmation modal
+    closeActivationConfirmationModal();
+    
+    // Proceed with activation
+    const formData = new FormData();
+    formData.append('action', 'activate');
+    formData.append('csrfmiddlewaretoken', csrfToken);
+    
+    fetch(`/api/survey/${surveyId}/status/toggle/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': csrfToken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (data.requires_confirmation) {
+                // Show warning modal for surveys with existing responses
+                document.getElementById('response-count-display').textContent = data.response_count;
+                document.getElementById('activation-warning-modal').classList.remove('hidden');
+            } else {
+                // Activate directly
+                showToast(data.message || 'Survey activated successfully', 'success');
+                // Reload page to update UI
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            }
+        } else {
+            showToast(data.error || 'Failed to activate survey', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Error activating survey', 'error');
+    });
+}
+
+function closeSurvey() {
+    // Show confirmation modal
+    document.getElementById('close-survey-modal').classList.remove('hidden');
+}
+
+function closeCloseSurveyModal() {
+    document.getElementById('close-survey-modal').classList.add('hidden');
+}
+
+function confirmCloseSurvey() {
+    // Close modal
+    closeCloseSurveyModal();
+    
+    const formData = new FormData();
+    formData.append('action', 'close');
+    formData.append('csrfmiddlewaretoken', csrfToken);
+    
+    fetch(`/api/survey/${surveyId}/status/toggle/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': csrfToken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message || 'Survey closed successfully', 'success');
+            // Reload page to update UI
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showToast(data.error || 'Failed to close survey', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Error closing survey', 'error');
+    });
+}
+
+function confirmActivateSurvey() {
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', csrfToken);
+    
+    fetch(`/api/survey/${surveyId}/status/confirm-activate/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': csrfToken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeActivationWarningModal();
+            showToast(data.message || 'Survey activated successfully', 'success');
+            // Reload page to update UI and apply edit restrictions
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showToast(data.error || 'Failed to activate survey', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Error activating survey', 'error');
+    });
+}
+
+function closeActivationWarningModal() {
+    document.getElementById('activation-warning-modal').classList.add('hidden');
+}
+
+// Edit Restrictions When Survey is Active or Has Responses
+function applyEditRestrictions() {
+    // Apply restrictions if survey is active (regardless of responses)
+    // OR if survey was ever activated (not draft) AND has responses
+    // If survey is draft, no restrictions
+    if (typeof surveyStatus === 'undefined' || surveyStatus === 'draft') {
+        return; // No restrictions if survey is draft
+    }
+    
+    // Check if survey is active - block deletion regardless of responses
+    const isActive = surveyStatus === 'active';
+    // Check if survey has responses (for other restrictions)
+    const hasResponsesCheck = typeof hasResponses !== 'undefined' && hasResponses;
+    
+    // Only apply restrictions if survey is active OR has responses
+    if (!isActive && !hasResponsesCheck) {
+        return; // No restrictions if survey is closed and has no responses
+    }
+    
+    // Disable delete question buttons - REINFORCED (block if active OR has responses)
+    if (isActive || hasResponsesCheck) {
+    document.querySelectorAll('[onclick*="deleteQuestion"]').forEach(btn => {
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+        const restrictionMessage = isActive 
+            ? 'Cannot delete questions when survey is active' 
+            : 'Cannot delete questions when survey has responses';
+        btn.title = restrictionMessage;
+        // Remove existing onclick and add click handler to show toast
+        const originalOnclick = btn.getAttribute('onclick');
+        btn.removeAttribute('onclick');
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            showToast(restrictionMessage, 'error');
+            return false;
+        });
+        // Store original onclick for potential restoration
+        if (originalOnclick) {
+            btn.setAttribute('data-original-onclick', originalOnclick);
+        }
+    });
+    
+    // Also disable delete buttons by class or data attribute
+    document.querySelectorAll('.delete-question-btn, [data-action="delete-question"]').forEach(btn => {
+        if (!btn.hasAttribute('data-restriction-handler')) {
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+            const restrictionMessage = isActive 
+                ? 'Cannot delete questions when survey is active' 
+                : 'Cannot delete questions when survey has responses';
+            btn.title = restrictionMessage;
+            btn.setAttribute('data-restriction-handler', 'true');
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                showToast(restrictionMessage, 'error');
+                return false;
+            });
+        }
+    });
+    }
+    
+    // Disable add question drag-and-drop (block if active OR has responses)
+    if (isActive || hasResponsesCheck) {
+        document.querySelectorAll('.component-item').forEach(item => {
+            item.draggable = false;
+            item.classList.add('opacity-50', 'cursor-not-allowed');
+            const restrictionMessage = isActive 
+                ? 'Cannot add questions when survey is active' 
+                : 'Cannot add questions when survey has responses';
+            item.title = restrictionMessage;
+            // Add click/drag handlers to show toast
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                showToast(restrictionMessage, 'error');
+            });
+            item.addEventListener('dragstart', function(e) {
+                e.preventDefault();
+                showToast(restrictionMessage, 'error');
+            });
+        });
+    }
+    
+    // Allow dragging but show toast and prevent reordering (block if active OR has responses)
+    if (isActive || hasResponsesCheck) {
+        document.querySelectorAll('.draggable-question').forEach(question => {
+            // Keep draggable enabled, but prevent actual reordering
+            // Don't blur the questions - keep them visible
+            const restrictionMessage = isActive 
+                ? 'Cannot reorder questions when survey is active' 
+                : 'Cannot reorder questions when survey has responses';
+            // Add dragstart handler to show toast and prevent drag
+            question.addEventListener('dragstart', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                showToast(restrictionMessage, 'error');
+                return false;
+            }, true); // Use capture phase to catch early
+        });
+    }
+    
+    // Monitor for question edit modal and disable type selector (only if has responses)
+    if (hasResponsesCheck) {
+        const observer = new MutationObserver(function(mutations) {
+        const typeSelector = document.getElementById('question-type-select');
+        if (typeSelector && !typeSelector.hasAttribute('data-restriction-handler')) {
+            typeSelector.disabled = true;
+            typeSelector.title = 'Cannot change question type when survey has responses';
+            typeSelector.classList.add('opacity-50', 'cursor-not-allowed');
+            typeSelector.setAttribute('data-restriction-handler', 'true');
+            // Add change handler to show toast
+            typeSelector.addEventListener('change', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                // Reset to original value
+                const originalValue = typeSelector.getAttribute('data-original-value');
+                if (originalValue) {
+                    typeSelector.value = originalValue;
+                }
+                showToast('Cannot change question type when survey has responses', 'error');
+            });
+            // Store original value
+            if (!typeSelector.hasAttribute('data-original-value')) {
+                typeSelector.setAttribute('data-original-value', typeSelector.value);
+            }
+        }
+        
+        // Disable option add/remove buttons
+        document.querySelectorAll('[onclick="addOption()"]').forEach(btn => {
+            if (!btn.hasAttribute('data-restriction-handler')) {
+                btn.disabled = true;
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+                btn.title = 'Cannot add options when survey has responses';
+                btn.setAttribute('data-restriction-handler', 'true');
+                // Add click handler to show toast
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showToast('Cannot add options when survey has responses', 'error');
+                });
+            }
+        });
+        
+        document.querySelectorAll('[onclick="removeOption"]').forEach(btn => {
+            if (!btn.hasAttribute('data-restriction-handler')) {
+                btn.disabled = true;
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+                btn.title = 'Cannot remove options when survey has responses';
+                btn.setAttribute('data-restriction-handler', 'true');
+                // Add click handler to show toast
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showToast('Cannot remove options when survey has responses', 'error');
+                });
+            }
+        });
+        
+        // Observe the question edit modal
+        const modal = document.getElementById('question-edit-modal');
+        if (modal) {
+            observer.observe(modal, { childList: true, subtree: true });
+        }
+    });
+    }
+}
+
+// REINFORCED: Override deleteQuestion to check for active status or responses
+const originalDeleteQuestion = window.deleteQuestion;
+window.deleteQuestion = function(questionId) {
+    // Double-check restrictions before allowing deletion - block if active OR has responses
+    if (typeof surveyStatus !== 'undefined' && surveyStatus === 'active') {
+        showToast('Cannot delete questions when survey is active', 'error');
+        return false;
+    }
+    if (typeof surveyStatus !== 'undefined' && surveyStatus !== 'draft' && 
+        typeof hasResponses !== 'undefined' && hasResponses) {
+        showToast('Cannot delete questions when survey has responses', 'error');
+        return false;
+    }
+    // Call original function if restrictions don't apply
+    if (originalDeleteQuestion) {
+        return originalDeleteQuestion(questionId);
+    }
+    return false;
+};
+
+// REINFORCED: Override addQuestion to check for active status or responses
+const originalAddQuestion = window.addQuestion;
+window.addQuestion = function(questionType, insertOrder) {
+    // Double-check restrictions before allowing addition - block if active OR has responses
+    if (typeof surveyStatus !== 'undefined' && surveyStatus === 'active') {
+        showToast('Cannot add questions when survey is active', 'error');
+        return;
+    }
+    if (typeof surveyStatus !== 'undefined' && surveyStatus !== 'draft' && 
+        typeof hasResponses !== 'undefined' && hasResponses) {
+        showToast('Cannot add questions when survey has responses', 'error');
+        return;
+    }
+    if (originalAddQuestion) {
+        originalAddQuestion(questionType, insertOrder);
+    }
+};
+
+// REINFORCED: Apply restrictions on page load and monitor for dynamically added elements
+function applyRestrictionsToNewElements() {
+    if (typeof surveyStatus === 'undefined' || surveyStatus === 'draft') {
+        return;
+    }
+    
+    const isActive = surveyStatus === 'active';
+    const hasResponsesCheck = typeof hasResponses !== 'undefined' && hasResponses;
+    
+    // Only apply delete restrictions if survey is active OR has responses
+    if (!isActive && !hasResponsesCheck) {
+        return;
+    }
+    
+    // Re-apply delete button restrictions to any newly added buttons
+    document.querySelectorAll('[onclick*="deleteQuestion"]:not([data-restriction-applied])').forEach(btn => {
+        if (!btn.disabled) {
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+            const restrictionMessage = isActive 
+                ? 'Cannot delete questions when survey is active' 
+                : 'Cannot delete questions when survey has responses';
+            btn.title = restrictionMessage;
+            const originalOnclick = btn.getAttribute('onclick');
+            btn.removeAttribute('onclick');
+            btn.setAttribute('data-restriction-applied', 'true');
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                showToast(restrictionMessage, 'error');
+                return false;
+            });
+            if (originalOnclick) {
+                btn.setAttribute('data-original-onclick', originalOnclick);
+            }
+        }
+    });
+}
+
+// Apply restrictions on page load
+document.addEventListener('DOMContentLoaded', function() {
+    applyEditRestrictions();
+    
+    // REINFORCED: Monitor for dynamically added delete buttons
+    const questionsContainer = document.getElementById('questions-container');
+    if (questionsContainer) {
+        const restrictionObserver = new MutationObserver(function(mutations) {
+            applyRestrictionsToNewElements();
+        });
+        restrictionObserver.observe(questionsContainer, {
+            childList: true,
+            subtree: true
+        });
     }
 });
 

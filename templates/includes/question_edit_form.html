@@ -9,7 +9,7 @@
         <label class="block mb-2 text-sm font-medium text-gray-900">Options</label>
         <div id="options-list" class="space-y-2">
             {% for option in question.options.all %}
-            <div class="flex items-center space-x-2">
+            <div class="flex items-center space-x-2 option-item">
                 <input type="text" name="options[]" value="{{ option.option_text }}" class="flex-1 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5" placeholder="Option text" required>
                 <button type="button" onclick="removeOption(this)" class="text-red-600 hover:text-red-800">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -18,7 +18,7 @@
                 </button>
             </div>
             {% empty %}
-            <div class="flex items-center space-x-2">
+            <div class="flex items-center space-x-2 option-item">
                 <input type="text" name="options[]" class="flex-1 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5" placeholder="Option text" required>
                 <button type="button" onclick="removeOption(this)" class="text-red-600 hover:text-red-800">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -65,34 +65,8 @@
             Cancel
         </button>
         <button type="submit" class="text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:outline-none focus:ring-indigo-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">
-            Save
+            Confirm
         </button>
     </div>
 </form>
-
-<script>
-function addOption() {
-    const container = document.getElementById('options-list');
-    const div = document.createElement('div');
-    div.className = 'flex items-center space-x-2';
-    div.innerHTML = `
-        <input type="text" name="options[]" class="flex-1 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5" placeholder="Option text" required>
-        <button type="button" onclick="removeOption(this)" class="text-red-600 hover:text-red-800">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-        </button>
-    `;
-    container.appendChild(div);
-}
-
-function removeOption(button) {
-    const container = document.getElementById('options-list');
-    if (container.children.length > 1) {
-        button.closest('div').remove();
-    } else {
-        alert('At least one option is required');
-    }
-}
-</script>
 

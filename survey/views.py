@@ -386,6 +386,8 @@ def student_survey_detail(request, survey_id):
     }
     
     survey = surveys.get(str(survey_id), surveys['1'])
+    # Add require_completion_in_one_sitting flag (mock data - will be from database when implemented)
+    survey['require_completion_in_one_sitting'] = True  # Mock: set to True for testing
     
     context = {
         'survey': survey,
@@ -932,12 +934,16 @@ def teacher_survey_builder(request, survey_id):
     questions = survey.questions.all().order_by('order')
     all_courses = Course.objects.filter(teacher=request.user).order_by('code')
     assigned_course_ids = set(survey.courses.values_list('id', flat=True))
+    has_responses = survey.responses.exists()
+    response_count = survey.responses.count() if has_responses else 0
     
     context = {
         'survey': survey,
         'questions': questions,
         'all_courses': all_courses,
         'assigned_course_ids': assigned_course_ids,
+        'has_responses': has_responses,
+        'response_count': response_count,
         'unread_count': 6,
     }
     return render(request, 'teacher/survey_builder.html', context)
@@ -952,6 +958,21 @@ def api_add_question(request, survey_id):
         return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
     
     survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
+    
+    # REINFORCED: Block adding questions if survey is active (regardless of responses)
+    # OR if survey was ever activated (not draft) AND has responses
+    if survey.status == 'active':
+        return JsonResponse({
+            'success': False,
+            'error': 'Cannot add questions when survey is active'
+        }, status=400)
+    
+    if survey.status != 'draft' and survey.responses.exists():
+        return JsonResponse({
+            'success': False,
+            'error': 'Cannot add questions when survey has responses'
+        }, status=400)
+    
     question_type = request.POST.get('question_type')
     
     if not question_type:
@@ -1019,12 +1040,29 @@ def api_update_question(request, question_id):
         return JsonResponse({'success': True, 'form_html': form_html})
     
     elif request.method == 'POST':
+        # Check if survey was ever activated (not draft) and has responses - if so, only allow safe edits
+        survey = question.survey
+        was_ever_activated = survey.status != 'draft'  # active or closed
+        has_responses = survey.responses.exists()
+        
         # Update question
         question_text = request.POST.get('question_text', '').strip()
         required = request.POST.get('required') == 'on'
         
         if not question_text:
             return JsonResponse({'success': False, 'error': 'Question text is required'})
+        
+        # If survey was ever activated AND has responses, validate safe edits only
+        # If survey is active but no responses, allow full editing
+        # If survey is closed but has responses, apply restrictions
+        if was_ever_activated and has_responses:
+            # Check if question type is being changed (not allowed)
+            new_question_type = request.POST.get('question_type')
+            if new_question_type and new_question_type != question.question_type:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Cannot change question type when survey has responses'
+                }, status=400)
         
         question.question_text = question_text
         question.required = required
@@ -1035,24 +1073,45 @@ def api_update_question(request, question_id):
             option_texts = request.POST.getlist('options[]')
             existing_options = list(question.options.all())
             
-            # Update or create options
-            for idx, option_text in enumerate(option_texts):
-                if option_text.strip():
-                    if idx < len(existing_options):
+            # If survey was ever activated AND has responses, validate option changes
+            if was_ever_activated and has_responses:
+                # Check if option count is changing (not allowed)
+                if len(option_texts) != len(existing_options):
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Cannot add or remove options when survey has responses'
+                    }, status=400)
+                
+                # Check if option order is changing (not allowed for scale questions)
+                # For choice questions, we allow text changes but not order changes
+                # Actually, we'll allow text changes but validate order hasn't changed
+                for idx, option_text in enumerate(option_texts):
+                    if option_text.strip() and idx < len(existing_options):
+                        # Allow text updates but check order
                         existing_options[idx].option_text = option_text.strip()
-                        existing_options[idx].order = idx
+                        if existing_options[idx].order != idx:
+                            existing_options[idx].order = idx
                         existing_options[idx].save()
-                    else:
-                        QuestionOption.objects.create(
-                            question=question,
-                            option_text=option_text.strip(),
-                            order=idx
-                        )
-            
-            # Delete extra options
-            if len(option_texts) < len(existing_options):
-                for opt in existing_options[len(option_texts):]:
-                    opt.delete()
+            else:
+                # No responses - allow all changes
+                # Update or create options
+                for idx, option_text in enumerate(option_texts):
+                    if option_text.strip():
+                        if idx < len(existing_options):
+                            existing_options[idx].option_text = option_text.strip()
+                            existing_options[idx].order = idx
+                            existing_options[idx].save()
+                        else:
+                            QuestionOption.objects.create(
+                                question=question,
+                                option_text=option_text.strip(),
+                                order=idx
+                            )
+                
+                # Delete extra options
+                if len(option_texts) < len(existing_options):
+                    for opt in existing_options[len(option_texts):]:
+                        opt.delete()
         elif question.question_type == 'rating':
             # Update rating settings - always set max to 5
             if not question.settings:
@@ -1060,6 +1119,13 @@ def api_update_question(request, question_id):
             question.settings['max'] = 5
         elif question.question_type == 'scale':
             # Update scale settings
+            if was_ever_activated and has_responses:
+                # Cannot change scale settings when survey was activated and has responses
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Cannot change scale settings when survey has responses'
+                }, status=400)
+            
             if not question.settings:
                 question.settings = {}
             min_value = request.POST.get('scale_min')
@@ -1092,6 +1158,21 @@ def api_delete_question(request, question_id):
     
     question = get_object_or_404(Question, id=question_id, survey__created_by=request.user)
     survey = question.survey
+    
+    # REINFORCED: Block deletion if survey is active (regardless of responses)
+    # OR if survey was ever activated (not draft) AND has responses
+    if survey.status == 'active':
+        return JsonResponse({
+            'success': False,
+            'error': 'Cannot delete questions when survey is active'
+        }, status=400)
+    
+    if survey.status != 'draft' and survey.responses.exists():
+        return JsonResponse({
+            'success': False,
+            'error': 'Cannot delete questions when survey has responses'
+        }, status=400)
+    
     deleted_order = question.order
     
     # Delete the question
@@ -1117,6 +1198,20 @@ def api_reorder_questions(request, survey_id):
         return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
     
     survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
+    
+    # REINFORCED: Block reordering if survey is active (regardless of responses)
+    # OR if survey was ever activated (not draft) AND has responses
+    if survey.status == 'active':
+        return JsonResponse({
+            'success': False,
+            'error': 'Cannot reorder questions when survey is active'
+        }, status=400)
+    
+    if survey.status != 'draft' and survey.responses.exists():
+        return JsonResponse({
+            'success': False,
+            'error': 'Cannot reorder questions when survey has responses'
+        }, status=400)
     
     try:
         data = json.loads(request.body)
@@ -1246,6 +1341,13 @@ def teacher_update_survey_parameters(request, survey_id):
     
     survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
     
+    # Check if survey is active - parameters are locked when active
+    if survey.status == 'active':
+        return JsonResponse({
+            'success': False,
+            'error': 'Cannot edit parameters when survey is active. Please close the survey first.'
+        }, status=400)
+    
     try:
         # Duration
         survey.duration_enabled = request.POST.get('duration_enabled') == 'on'
@@ -1292,6 +1394,100 @@ def teacher_update_survey_parameters(request, survey_id):
         })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)})
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_toggle_survey_status(request, survey_id):
+    """API endpoint to activate or close a survey"""
+    if request.user.role != 'teacher':
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+    
+    survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
+    
+    try:
+        action = request.POST.get('action', 'activate')  # 'activate' or 'close'
+        
+        if action == 'activate':
+            # Validate that ALL three required parameters are set
+            missing_params = []
+            
+            # Check duration
+            if not survey.duration_enabled or not survey.duration_minutes:
+                missing_params.append('Duration')
+            
+            # Check attempts
+            if not survey.attempts_enabled:
+                missing_params.append('Attempts')
+            elif not survey.single_attempt and (not survey.max_attempts or survey.max_attempts < 1):
+                missing_params.append('Attempts (max attempts must be set)')
+            
+            # Check due date
+            if not survey.due_date_enabled or not survey.due_date:
+                missing_params.append('Due Date')
+            
+            if missing_params:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Please set the following parameters before activating: {", ".join(missing_params)}'
+                }, status=400)
+            
+            # Check if survey has existing responses
+            response_count = survey.responses.count()
+            has_responses = response_count > 0
+            
+            # If no responses, activate directly
+            if not has_responses:
+                survey.status = 'active'
+                survey.save()
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Survey activated successfully',
+                    'status': 'active',
+                    'has_responses': False
+                })
+            else:
+                # Return response count for modal warning
+                return JsonResponse({
+                    'success': True,
+                    'requires_confirmation': True,
+                    'response_count': response_count,
+                    'message': f'This survey has {response_count} response(s). Activating will restrict editing options.'
+                })
+        
+        elif action == 'close':
+            survey.status = 'closed'
+            survey.save()
+            return JsonResponse({
+                'success': True,
+                'message': 'Survey closed successfully',
+                'status': 'closed'
+            })
+        else:
+            return JsonResponse({'success': False, 'error': 'Invalid action'}, status=400)
+            
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def api_confirm_activate_survey(request, survey_id):
+    """API endpoint to confirm activation after warning modal"""
+    if request.user.role != 'teacher':
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+    
+    survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
+    
+    try:
+        survey.status = 'active'
+        survey.save()
+        return JsonResponse({
+            'success': True,
+            'message': 'Survey activated successfully',
+            'status': 'active'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 @login_required

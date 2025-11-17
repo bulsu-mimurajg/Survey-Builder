@@ -165,4 +165,124 @@
         Continue Survey
     </button>
 </div>
+
+<!-- Exit Warning Modal (for "Require Completion in One Sitting") -->
+<div id="exit-warning-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 overflow-y-auto">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div class="p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-semibold text-gray-900">Exit Survey?</h3>
+                <button onclick="closeExitWarningModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="mb-6">
+                <p class="text-sm text-gray-600 mb-4">
+                    If you exit now, your form will be automatically submitted. 
+                    You will not be able to make any changes after submission.
+                </p>
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <p class="text-sm text-yellow-800">
+                        <strong>Warning:</strong> This survey requires completion in one sitting. 
+                        Exiting will submit your current responses.
+                    </p>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3">
+                <button onclick="closeExitWarningModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Stay on Page
+                </button>
+                <button onclick="confirmExitAndSubmit()" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700">
+                    Exit and Submit
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Exit warning for "Require Completion in One Sitting"
+    // Set this to true when the survey has require_completion_in_one_sitting enabled
+    const requireCompletionInOneSitting = {% if survey.require_completion_in_one_sitting %}true{% else %}false{% endif %};
+    let exitWarningShown = false;
+    
+    function showExitWarning() {
+        if (requireCompletionInOneSitting && !exitWarningShown) {
+            exitWarningShown = true;
+            document.getElementById('exit-warning-modal').classList.remove('hidden');
+            return true; // Prevent default navigation
+        }
+        return false;
+    }
+    
+    function closeExitWarningModal() {
+        exitWarningShown = false;
+        document.getElementById('exit-warning-modal').classList.add('hidden');
+    }
+    
+    function confirmExitAndSubmit() {
+        // Submit the form automatically
+        const form = document.getElementById('survey-form');
+        if (form) {
+            form.submit();
+        } else {
+            // If no form exists yet, just navigate away
+            window.location.href = document.referrer || '/student/home/';
+        }
+    }
+    
+    // Intercept navigation attempts
+    if (requireCompletionInOneSitting) {
+        // Handle beforeunload (browser close/refresh) - shows browser's native dialog
+        window.addEventListener('beforeunload', function(e) {
+            e.preventDefault();
+            e.returnValue = 'If you exit now, your form will be automatically submitted. Are you sure you want to leave?';
+            return e.returnValue;
+        });
+        
+        // Handle browser back button
+        window.addEventListener('popstate', function(e) {
+            if (showExitWarning()) {
+                e.preventDefault();
+                history.pushState(null, null, window.location.href);
+            }
+        });
+        
+        // Push state to track back button
+        history.pushState(null, null, window.location.href);
+        
+        // Intercept link clicks
+        document.addEventListener('click', function(e) {
+            const link = e.target.closest('a');
+            if (link && link.href && !link.href.startsWith('javascript:') && !link.href.startsWith('#')) {
+                if (showExitWarning()) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            }
+        });
+        
+        // Intercept form submission buttons that navigate away
+        document.addEventListener('submit', function(e) {
+            const form = e.target;
+            if (form.method === 'get' || form.getAttribute('data-navigate-away') === 'true') {
+                if (showExitWarning()) {
+                    e.preventDefault();
+                }
+            }
+        });
+        
+        // Intercept back button clicks
+        document.addEventListener('click', function(e) {
+            if (e.target.onclick && e.target.onclick.toString().includes('history.back')) {
+                if (showExitWarning()) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            }
+        });
+    }
+</script>
 {% endblock %}
