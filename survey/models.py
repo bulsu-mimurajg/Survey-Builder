@@ -133,6 +133,17 @@ class Survey(models.Model):
     def get_total_questions(self):
         return self.questions.count()
     
+    def is_past_due(self):
+        """Check if survey is past its due date"""
+        from django.utils import timezone
+        if self.due_date_enabled and self.due_date:
+            return timezone.now() > self.due_date
+        return False
+    
+    def should_auto_close(self):
+        """Check if survey should be automatically closed due to due date"""
+        return self.status == 'active' and self.is_past_due()
+    
     class Meta:
         db_table = 'surveys'
         ordering = ['-created_at']
@@ -151,6 +162,7 @@ class Question(models.Model):
         ('date', 'Date'),
         ('time', 'Time'),
         ('file_upload', 'File Upload'),
+        ('section', 'Section'),
         ('heading', 'Heading'),
         ('paragraph', 'Paragraph'),
     ]

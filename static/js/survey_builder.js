@@ -6,6 +6,43 @@ let draggedQuestionId = null;
 let draggedQuestionElement = null;
 let autoScrollInterval = null;
 
+// Function to hide empty state message
+function hideEmptyState() {
+    const canvas = document.getElementById('survey-canvas');
+    if (!canvas) return;
+    
+    const emptyState = canvas.querySelector('.flex.flex-col.items-center.justify-center.h-full');
+    if (emptyState) {
+        emptyState.remove();
+    }
+}
+
+// Function to show empty state message
+function showEmptyState() {
+    const canvas = document.getElementById('survey-canvas');
+    if (!canvas) return;
+    
+    const container = document.getElementById('questions-container');
+    
+    // Only show if there are no questions
+    const hasQuestions = container && container.querySelectorAll('.draggable-question').length > 0;
+    if (hasQuestions) return;
+    
+    // Check if empty state already exists
+    const existingEmptyState = canvas.querySelector('.flex.flex-col.items-center.justify-center.h-full');
+    if (existingEmptyState) return;
+    
+    // Create empty state message
+    const emptyState = document.createElement('div');
+    emptyState.className = 'flex flex-col items-center justify-center h-full text-center py-20';
+    emptyState.innerHTML = `
+        <div class="text-6xl text-gray-300 mb-4">T</div>
+        <p class="text-lg font-medium text-gray-600 mb-2">Drop components here to start building</p>
+        <p class="text-sm text-gray-500">Drag question types from the toolbox on the right</p>
+    `;
+    canvas.appendChild(emptyState);
+}
+
 // Drag and Drop Handlers for adding new questions
 function handleDragStart(event, questionType) {
     // REINFORCED: Check if restrictions apply - block if survey is active OR has responses
@@ -24,7 +61,6 @@ function handleDragStart(event, questionType) {
     draggedQuestionType = questionType;
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/html', event.target.outerHTML);
-    event.target.style.opacity = '0.5';
     
     // Show drop zones between questions
     showQuestionDropZones();
@@ -489,11 +525,23 @@ function reorderQuestions(draggedId, targetId) {
 function updateQuestionOrders() {
     const questions = Array.from(document.querySelectorAll('.draggable-question'));
     
+    // Count sections starting from 2 (Section 1 is the implicit first page)
+    let sectionCount = 1;
+    let questionCount = 0;
+    
     // Update question numbers in DOM
-    questions.forEach((question, index) => {
+    questions.forEach((question) => {
         const qNumber = question.querySelector('.text-sm.font-medium.text-gray-500');
+        const isSection = qNumber && qNumber.hasAttribute('data-is-section');
+        
         if (qNumber) {
-            qNumber.textContent = `Question ${index + 1}`;
+            if (isSection) {
+                sectionCount++;
+                qNumber.textContent = `Section ${sectionCount}`;
+            } else {
+                questionCount++;
+                qNumber.textContent = `Question ${questionCount}`;
+            }
         }
     });
     
@@ -570,36 +618,127 @@ function addQuestion(questionType, insertOrder = null) {
     
     // Create question HTML (simplified - you may want to load from template)
     const typeLabels = {
-        'short_text': 'short text',
-        'long_text': 'long text',
-        'multiple_choice': 'multiple choice',
-        'checkboxes': 'checkboxes',
-        'dropdown': 'dropdown',
-        'rating': 'rating',
-        'scale': 'scale'
+        'short_text': 'Short Text',
+        'long_text': 'Long Text',
+        'multiple_choice': 'Multiple Choice',
+        'checkboxes': 'Checkboxes',
+        'dropdown': 'Dropdown',
+        'rating': 'Rating',
+        'scale': 'Scale',
+        'date': 'Date',
+        'time': 'Time',
+        'file_upload': 'File Upload',
+        'section': 'Section'
     };
     
+    // Get icon HTML based on question type
+    let iconHtml = '';
+    if (questionType === 'short_text') {
+        iconHtml = '<div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center"><span class="text-indigo-600 font-bold text-xs">T</span></div>';
+    } else if (questionType === 'long_text') {
+        iconHtml = '<div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center"><svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg></div>';
+    } else if (questionType === 'multiple_choice') {
+        iconHtml = '<div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center"><svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 3a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1zm7.707 3.293a1 1 0 010 1.414L9.414 9H17a1 1 0 110 2H9.414l1.293 1.293a1 1 0 01-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></div>';
+    } else if (questionType === 'checkboxes') {
+        iconHtml = '<div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center"><svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></div>';
+    } else if (questionType === 'dropdown') {
+        iconHtml = '<div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center"><svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></div>';
+    } else if (questionType === 'rating') {
+        iconHtml = '<div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center"><svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg></div>';
+    } else if (questionType === 'scale') {
+        iconHtml = '<div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center"><svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></div>';
+    } else if (questionType === 'date') {
+        iconHtml = '<div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center"><svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/></svg></div>';
+    } else if (questionType === 'time') {
+        iconHtml = '<div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center"><svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg></div>';
+    } else if (questionType === 'file_upload') {
+        iconHtml = '<div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center"><svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg></div>';
+    } else if (questionType === 'section') {
+        iconHtml = '<div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center"><svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/></svg></div>';
+    } else {
+        iconHtml = '<div class="w-6 h-6 bg-gray-100 rounded flex items-center justify-center"><svg class="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></div>';
+    }
+    
+    // Generate preview based on question type
+    let questionPreview = '';
+    if (questionType === 'short_text') {
+        questionPreview = '<input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Enter your answer" disabled>';
+    } else if (questionType === 'long_text') {
+        questionPreview = '<textarea class="w-full px-3 py-2 border border-gray-300 rounded-lg" rows="3" placeholder="Enter your answer" disabled></textarea>';
+    } else if (questionType === 'multiple_choice') {
+        questionPreview = '<div class="space-y-2"><p class="text-sm text-gray-400">No options added</p></div>';
+    } else if (questionType === 'checkboxes') {
+        questionPreview = '<div class="space-y-2"><p class="text-sm text-gray-400">No options added</p></div>';
+    } else if (questionType === 'dropdown') {
+        questionPreview = '<select class="w-full px-3 py-2 border border-gray-300 rounded-lg" disabled><option>Select an option</option></select>';
+    } else if (questionType === 'rating') {
+        questionPreview = '<div class="flex space-x-2">' + Array.from({length: 5}, (_, i) => '<button disabled class="w-8 h-8 border border-gray-300 rounded hover:bg-indigo-50">⭐</button>').join('') + '</div>';
+    } else if (questionType === 'scale') {
+        questionPreview = '<div class="flex space-x-2">' + Array.from({length: 10}, (_, i) => `<button disabled class="w-8 h-8 border border-gray-300 rounded hover:bg-indigo-50">${i + 1}</button>`).join('') + '</div>';
+    } else if (questionType === 'date') {
+        questionPreview = '<input type="date" class="w-full px-3 py-2 border border-gray-300 rounded-lg" disabled>';
+    } else if (questionType === 'time') {
+        questionPreview = '<input type="time" class="w-full px-3 py-2 border border-gray-300 rounded-lg" disabled>';
+    } else if (questionType === 'file_upload') {
+        questionPreview = '<div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center"><svg class="w-12 h-12 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg><p class="mt-2 text-sm text-gray-500">Click to upload or drag and drop</p></div>';
+    } else if (questionType === 'section') {
+        questionPreview = '<div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4"><p class="text-sm text-indigo-600 font-medium mb-1">Section Break</p><p class="text-xs text-gray-500">Add a description to provide context for the next set of questions</p></div>';
+    }
+    
+    // Calculate initial display number
+    let initialDisplayNumber = 1;
+    if (questionType === 'section') {
+        // Count existing sections + 2 (since Section 1 is implicit)
+        const existingSections = container.querySelectorAll('[data-is-section="true"]');
+        initialDisplayNumber = existingSections.length + 2;
+    } else {
+        // Count existing non-section questions
+        const allItems = container.querySelectorAll('.draggable-question');
+        let questionCount = 0;
+        allItems.forEach(item => {
+            const qNum = item.querySelector('.text-sm.font-medium.text-gray-500');
+            if (qNum && !qNum.hasAttribute('data-is-section')) {
+                questionCount++;
+            }
+        });
+        initialDisplayNumber = questionCount + 1;
+    }
+    
     questionDiv.innerHTML = `
-        <div class="flex items-start justify-between mb-2">
-            <div class="flex items-center space-x-2">
-                <span class="text-sm font-medium text-gray-500">Question ${container.querySelectorAll('.draggable-question').length + 1}</span>
-                <span class="text-xs text-gray-400 question-type-badge">${typeLabels[questionType] || questionType.replace('_', ' ')}</span>
+        <div class="flex items-start justify-between">
+            <div class="flex-1">
+                <div class="flex items-center space-x-2 mb-2">
+                    <div class="flex items-center space-x-2">
+                        <svg class="w-5 h-5 text-gray-400 drag-handle" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M7 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM7 8a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM7 14a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM13 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM13 8a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM13 14a2 2 0 1 1 0 4 2 2 0 0 1 0-4z"/>
+                        </svg>
+                        ${iconHtml}
+                    </div>
+                    <span class="text-sm font-medium text-gray-500"${questionType === 'section' ? ' data-is-section="true"' : ''}>${questionType === 'section' ? 'Section ' + initialDisplayNumber : 'Question ' + initialDisplayNumber}</span>
+                    <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">${typeLabels[questionType] || questionType.replace(/_/g, ' ')}</span>
+                </div>
+                <h4 class="text-base font-medium text-gray-900 mb-2">New Question</h4>
+                <div class="mt-3">
+                    ${questionPreview}
+                </div>
             </div>
-            <div class="flex items-center space-x-2">
-                <button onclick="editQuestion('${tempId}')" class="text-gray-400 hover:text-gray-600">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="ml-4 flex items-center space-x-2">
+                <button onclick="editQuestion('${tempId}')" class="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
                 </button>
-                <button onclick="deleteQuestion('${tempId}')" class="text-gray-400 hover:text-red-600">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <button onclick="deleteQuestion('${tempId}')" class="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
                 </button>
             </div>
         </div>
-        <p class="text-gray-700">New Question</p>
     `;
+    
+    // Hide empty state when adding first question
+    hideEmptyState();
     
     // Insert at correct position
     const existingQuestions = container.querySelectorAll('.draggable-question');
@@ -608,6 +747,11 @@ function addQuestion(questionType, insertOrder = null) {
     } else {
         container.appendChild(questionDiv);
     }
+    
+    // Attach drag and drop event listeners for the new question
+    questionDiv.addEventListener('dragover', handleQuestionDragOver);
+    questionDiv.addEventListener('dragleave', handleQuestionDragLeave);
+    questionDiv.addEventListener('drop', handleQuestionDrop);
     
     // Renumber all questions
     renumberQuestions();
@@ -626,7 +770,47 @@ function editQuestion(questionId) {
         // For temporary questions, create an edit form with type selector
         const addedQuestion = changeTracker.pendingQuestionChanges.added.find(q => q.tempId === questionId);
         if (addedQuestion) {
-            // Create form with question type selector
+            const currentType = addedQuestion.type || 'short_text';
+            const currentText = addedQuestion.text || 'New Question';
+            const currentRequired = addedQuestion.required || false;
+            const currentOptions = addedQuestion.options || [];
+            const currentSettings = addedQuestion.settings || {};
+            
+            // Special modal for section type
+            if (currentType === 'section') {
+                const currentDescription = currentSettings.description || '';
+                const sectionFormHtml = `
+                    <form onsubmit="event.preventDefault(); saveQuestion('${questionId}');">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Section Title</label>
+                                <input type="text" name="question_text" value="${currentText}" 
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                                      placeholder="Enter section title" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Section Description</label>
+                                <textarea name="section_description" rows="3" 
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                                          placeholder="Add a description to provide context for the next set of questions">${currentDescription}</textarea>
+                                <p class="text-xs text-gray-500 mt-1">This description will be shown to students at the beginning of the section</p>
+                            </div>
+                            <div class="flex justify-end gap-3 pt-4 border-t">
+                                <button type="button" onclick="closeQuestionModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                                    Cancel
+                                </button>
+                                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">
+                                    Confirm
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                `;
+                showQuestionModal('Edit Section', sectionFormHtml);
+                return;
+            }
+            
+            // Create form with question type selector for non-section questions
             const questionTypes = [
                 {value: 'short_text', label: 'Short Text'},
                 {value: 'long_text', label: 'Long Text'},
@@ -634,14 +818,11 @@ function editQuestion(questionId) {
                 {value: 'checkboxes', label: 'Checkboxes'},
                 {value: 'dropdown', label: 'Dropdown'},
                 {value: 'rating', label: 'Rating'},
-                {value: 'scale', label: 'Scale'}
+                {value: 'scale', label: 'Scale'},
+                {value: 'date', label: 'Date'},
+                {value: 'time', label: 'Time'},
+                {value: 'file_upload', label: 'File Upload'}
             ];
-            
-            const currentType = addedQuestion.type || 'short_text';
-            const currentText = addedQuestion.text || 'New Question';
-            const currentRequired = addedQuestion.required || false;
-            const currentOptions = addedQuestion.options || [];
-            const currentSettings = addedQuestion.settings || {};
             
             let typeSpecificFields = '';
             
@@ -692,17 +873,19 @@ function editQuestion(questionId) {
                     <div class="mb-4 space-y-3" id="scale-section">
                         <div>
                             <label for="scale_min" class="block mb-2 text-sm font-medium text-gray-900">Minimum Value</label>
-                            <input type="number" name="scale_min" id="scale_min" min="0" max="100" 
+                            <input type="number" name="scale_min" id="scale_min" min="1" max="10" 
                                    value="${currentSettings.min || 1}" 
+                                   oninput="validateScaleInputs(this)" onchange="validateScaleRange()"
                                    class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" required>
                         </div>
                         <div>
                             <label for="scale_max" class="block mb-2 text-sm font-medium text-gray-900">Maximum Value</label>
-                            <input type="number" name="scale_max" id="scale_max" min="1" max="100" 
+                            <input type="number" name="scale_max" id="scale_max" min="1" max="10" 
                                    value="${currentSettings.max || 10}" 
+                                   oninput="validateScaleInputs(this)" onchange="validateScaleRange()"
                                    class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" required>
                         </div>
-                        <p class="text-xs text-gray-500">Numeric range from minimum to maximum value</p>
+                        <p class="text-xs text-gray-500">Numeric range from minimum (1) to maximum (10) value</p>
                     </div>
                 `;
             }
@@ -715,6 +898,20 @@ function editQuestion(questionId) {
                             <p class="text-sm font-medium text-gray-900 mb-1">Rating Type</p>
                             <p class="text-xs text-gray-600">Likert scale (1-5)</p>
                         </div>
+                    </div>
+                `;
+            }
+            
+            // Section description
+            if (currentType === 'section') {
+                const currentDescription = currentSettings.description || '';
+                typeSpecificFields = `
+                    <div class="mb-4" id="section-description">
+                        <label for="section_description" class="block mb-2 text-sm font-medium text-gray-900">Section Description</label>
+                        <textarea name="section_description" id="section_description" rows="3" 
+                                  class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" 
+                                  placeholder="Provide context or instructions for this section">${currentDescription}</textarea>
+                        <p class="text-xs text-gray-500 mt-1">This description will be shown to students at the beginning of the section</p>
                     </div>
                 `;
             }
@@ -817,6 +1014,13 @@ function deleteQuestion(questionId) {
     // Renumber remaining questions
     renumberQuestions();
     
+    // Check if no questions remain and show empty state
+    const container = document.getElementById('questions-container');
+    const remainingQuestions = container ? container.querySelectorAll('.draggable-question').length : 0;
+    if (remainingQuestions === 0) {
+        showEmptyState();
+    }
+    
     // Track changes
     changeTracker.updateChangeStatus();
     if (changeTracker.hasUnsavedChanges) {
@@ -826,13 +1030,8 @@ function deleteQuestion(questionId) {
 
 // Renumber questions after deletion
 function renumberQuestions() {
-    const questions = Array.from(document.querySelectorAll('.draggable-question'));
-    questions.forEach((question, index) => {
-        const qNumber = question.querySelector('.text-sm.font-medium.text-gray-500');
-        if (qNumber) {
-            qNumber.textContent = `Question ${index + 1}`;
-        }
-    });
+    // Use updateQuestionOrders which handles sections correctly
+    updateQuestionOrders();
 }
 
 // Update question type fields when type changes
@@ -869,15 +1068,17 @@ function updateQuestionTypeFields(questionId) {
             <div class="mb-4 space-y-3" id="scale-section">
                 <div>
                     <label for="scale_min" class="block mb-2 text-sm font-medium text-gray-900">Minimum Value</label>
-                    <input type="number" name="scale_min" id="scale_min" min="0" max="100" value="1" 
+                    <input type="number" name="scale_min" id="scale_min" min="1" max="10" value="1" 
+                           oninput="validateScaleInputs(this)" onchange="validateScaleRange()"
                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" required>
                 </div>
                 <div>
                     <label for="scale_max" class="block mb-2 text-sm font-medium text-gray-900">Maximum Value</label>
-                    <input type="number" name="scale_max" id="scale_max" min="1" max="100" value="10" 
+                    <input type="number" name="scale_max" id="scale_max" min="1" max="10" value="10" 
+                           oninput="validateScaleInputs(this)" onchange="validateScaleRange()"
                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" required>
                 </div>
-                <p class="text-xs text-gray-500">Numeric range from minimum to maximum value</p>
+                <p class="text-xs text-gray-500">Numeric range from minimum (1) to maximum (10) value</p>
             </div>
         `;
     } else if (selectedType === 'rating') {
@@ -892,6 +1093,47 @@ function updateQuestionTypeFields(questionId) {
     }
     
     typeFieldsContainer.innerHTML = typeSpecificFields;
+}
+
+// Validate scale input values (1-10 only)
+function validateScaleInputs(input) {
+    let value = parseInt(input.value);
+    
+    // Remove non-numeric characters
+    if (input.value !== '' && isNaN(value)) {
+        input.value = '';
+        return;
+    }
+    
+    // Enforce range 1-10
+    if (value < 1) {
+        input.value = 1;
+    } else if (value > 10) {
+        input.value = 10;
+    }
+}
+
+// Validate that minimum doesn't exceed maximum
+function validateScaleRange() {
+    const minInput = document.getElementById('scale_min');
+    const maxInput = document.getElementById('scale_max');
+    
+    if (!minInput || !maxInput) return;
+    
+    const minValue = parseInt(minInput.value);
+    const maxValue = parseInt(maxInput.value);
+    
+    // If both have values, check that min <= max
+    if (!isNaN(minValue) && !isNaN(maxValue)) {
+        if (minValue > maxValue) {
+            // Adjust the one that was just changed
+            if (document.activeElement === minInput) {
+                minInput.value = maxValue;
+            } else if (document.activeElement === maxInput) {
+                maxInput.value = minValue;
+            }
+        }
+    }
 }
 
 // Save question (temporary, stores in pending changes)
@@ -935,6 +1177,10 @@ function saveQuestion(questionId) {
                 };
             } else if (newType === 'rating') {
                 addedQuestion.settings = { max: 5 };
+            } else if (newType === 'section') {
+                addedQuestion.settings = {
+                    description: questionData.section_description || ''
+                };
             } else {
                 addedQuestion.settings = {};
             }
@@ -945,23 +1191,80 @@ function saveQuestion(questionId) {
             const questionElement = document.querySelector(`[data-question-id="${questionId}"]`);
             if (questionElement) {
                 const questionText = questionData.question_text || 'New Question';
-                const textElement = questionElement.querySelector('.text-gray-700');
+                const textElement = questionElement.querySelector('h4.text-base.font-medium.text-gray-900');
                 if (textElement) {
                     textElement.textContent = questionText;
                 }
+                
+                // Update icon based on new type
+                const iconContainer = questionElement.querySelector('.w-6.h-6.bg-indigo-100, .w-6.h-6.bg-gray-100');
+                if (iconContainer) {
+                    let iconHtml = '';
+                    if (newType === 'short_text') {
+                        iconHtml = '<div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center"><span class="text-indigo-600 font-bold text-xs">T</span></div>';
+                    } else if (newType === 'long_text') {
+                        iconHtml = '<div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center"><svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/></svg></div>';
+                    } else if (newType === 'multiple_choice') {
+                        iconHtml = '<div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center"><svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 3a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1zm7.707 3.293a1 1 0 010 1.414L9.414 9H17a1 1 0 110 2H9.414l1.293 1.293a1 1 0 01-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></div>';
+                    } else if (newType === 'checkboxes') {
+                        iconHtml = '<div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center"><svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></div>';
+                    } else if (newType === 'dropdown') {
+                        iconHtml = '<div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center"><svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg></div>';
+                    } else if (newType === 'rating') {
+                        iconHtml = '<div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center"><svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg></div>';
+                    } else if (newType === 'scale') {
+                        iconHtml = '<div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center"><svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></div>';
+                    } else if (newType === 'date') {
+                        iconHtml = '<div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center"><svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/></svg></div>';
+                    } else if (newType === 'time') {
+                        iconHtml = '<div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center"><svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg></div>';
+                    } else if (newType === 'file_upload') {
+                        iconHtml = '<div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center"><svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg></div>';
+                    } else if (newType === 'section') {
+                        iconHtml = '<div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center"><svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/></svg></div>';
+                    } else {
+                        iconHtml = '<div class="w-6 h-6 bg-gray-100 rounded flex items-center justify-center"><svg class="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></div>';
+                    }
+                    iconContainer.outerHTML = iconHtml;
+                }
+                
                 // Update type badge
-                const typeBadge = questionElement.querySelector('.text-xs.text-gray-400, .question-type-badge');
+                const typeBadge = questionElement.querySelector('.text-xs.text-gray-400.bg-gray-100');
                 if (typeBadge) {
                     const typeLabels = {
-                        'short_text': 'short text',
-                        'long_text': 'long text',
-                        'multiple_choice': 'multiple choice',
-                        'checkboxes': 'checkboxes',
-                        'dropdown': 'dropdown',
-                        'rating': 'rating',
-                        'scale': 'scale'
+                        'short_text': 'Short Text',
+                        'long_text': 'Long Text',
+                        'multiple_choice': 'Multiple Choice',
+                        'checkboxes': 'Checkboxes',
+                        'dropdown': 'Dropdown',
+                        'rating': 'Rating',
+                        'scale': 'Scale',
+                        'date': 'Date',
+                        'time': 'Time',
+                        'file_upload': 'File Upload',
+                        'section': 'Section'
                     };
-                    typeBadge.textContent = typeLabels[newType] || newType.replace('_', ' ');
+                    typeBadge.textContent = typeLabels[newType] || newType.replace(/_/g, ' ');
+                }
+                
+                // Update preview container based on question type
+                const previewContainer = questionElement.querySelector('.mt-3');
+                if (previewContainer) {
+                    // Generate appropriate preview based on type
+                    if (newType === 'short_text') {
+                        previewContainer.innerHTML = '<input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Enter your answer" disabled>';
+                    } else if (newType === 'long_text') {
+                        previewContainer.innerHTML = '<textarea class="w-full px-3 py-2 border border-gray-300 rounded-lg" rows="3" placeholder="Enter your answer" disabled></textarea>';
+                    } else if (newType === 'date') {
+                        previewContainer.innerHTML = '<input type="date" class="w-full px-3 py-2 border border-gray-300 rounded-lg" disabled>';
+                    } else if (newType === 'time') {
+                        previewContainer.innerHTML = '<input type="time" class="w-full px-3 py-2 border border-gray-300 rounded-lg" disabled>';
+                    } else if (newType === 'file_upload') {
+                        previewContainer.innerHTML = '<div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center"><svg class="w-12 h-12 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg><p class="mt-2 text-sm text-gray-500">Click to upload or drag and drop</p></div>';
+                    } else if (newType === 'section') {
+                        const description = addedQuestion.settings && addedQuestion.settings.description ? addedQuestion.settings.description : '';
+                        previewContainer.innerHTML = `<div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4"><p class="text-sm text-indigo-600 font-medium mb-1">Section Break</p>${description ? `<p class="text-sm text-gray-700">${description}</p>` : '<p class="text-xs text-gray-500">Add a description to provide context for the next set of questions</p>'}</div>`;
+                    }
                 }
                 
                 // Update options display for choice-based questions
@@ -998,7 +1301,6 @@ function saveQuestion(questionId) {
                             }
                         });
                     } else if (newType === 'dropdown') {
-                        const parentContainer = optionsContainer.parentElement || questionElement;
                         const select = document.createElement('select');
                         select.className = 'w-full px-3 py-2 border border-gray-300 rounded-lg';
                         select.disabled = true;
@@ -1012,116 +1314,46 @@ function saveQuestion(questionId) {
                                 select.appendChild(option);
                             }
                         });
-                        if (optionsContainer.parentElement) {
-                            optionsContainer.parentElement.innerHTML = '';
-                            optionsContainer.parentElement.appendChild(select);
+                        
+                        // Find the preview container (the .mt-3 div) and replace its content
+                        const previewContainer = questionElement.querySelector('.mt-3');
+                        if (previewContainer) {
+                            previewContainer.innerHTML = '';
+                            previewContainer.appendChild(select);
                         }
+                    }
+                }
+                
+                // Update scale preview with custom min/max
+                if (newType === 'scale') {
+                    const previewContainer = questionElement.querySelector('.mt-3');
+                    if (previewContainer) {
+                        const min = addedQuestion.settings.min || 1;
+                        const max = addedQuestion.settings.max || 10;
+                        const scaleButtons = [];
+                        for (let i = min; i <= max; i++) {
+                            scaleButtons.push(`<button disabled class="w-8 h-8 border border-gray-300 rounded hover:bg-indigo-50">${i}</button>`);
+                        }
+                        previewContainer.innerHTML = '<div class="flex space-x-2">' + scaleButtons.join('') + '</div>';
+                    }
+                }
+                
+                // Update rating preview
+                if (newType === 'rating') {
+                    const previewContainer = questionElement.querySelector('.mt-3');
+                    if (previewContainer) {
+                        const ratingButtons = Array.from({length: 5}, () => '<button disabled class="w-8 h-8 border border-gray-300 rounded hover:bg-indigo-50">⭐</button>').join('');
+                        previewContainer.innerHTML = '<div class="flex space-x-2">' + ratingButtons + '</div>';
                     }
                 }
             }
         }
     } else {
-        // Store as edited
-        changeTracker.pendingQuestionChanges.edited[questionId] = questionData;
-        
-        // Update the question display in DOM for existing questions
-        const questionElement = document.querySelector(`[data-question-id="${questionId}"]`);
-        if (questionElement) {
-            // Update question text
-            const questionText = questionData.question_text || '';
-            const textElement = questionElement.querySelector('h4.text-base.font-medium.text-gray-900');
-            if (textElement) {
-                textElement.textContent = questionText;
-            }
-            
-            // Update required indicator
-            const requiredSpan = questionElement.querySelector('.text-xs.text-red-600');
-            const isRequired = questionData.required === 'on' || questionData.required === true;
-            if (isRequired) {
-                if (!requiredSpan) {
-                    // Add required indicator if it doesn't exist
-                    const questionMeta = questionElement.querySelector('.flex.items-center.space-x-2.mb-2');
-                    if (questionMeta) {
-                        const requiredIndicator = document.createElement('span');
-                        requiredIndicator.className = 'text-xs text-red-600';
-                        requiredIndicator.textContent = '* Required';
-                        questionMeta.appendChild(requiredIndicator);
-                    }
-                }
-            } else {
-                // Remove required indicator if it exists
-                if (requiredSpan) {
-                    requiredSpan.remove();
-                }
-            }
-            
-            // Update options display for choice-based questions
-            const questionType = questionElement.querySelector('.text-xs.text-gray-400.bg-gray-100')?.textContent?.toLowerCase() || '';
-            if (['multiple choice', 'checkboxes', 'dropdown'].some(type => questionType.includes(type))) {
-                const questionTypeValue = questionData.question_type || 
-                    (questionType.includes('multiple choice') ? 'multiple_choice' :
-                     questionType.includes('checkboxes') ? 'checkboxes' : 'dropdown');
-                
-                const mt3Container = questionElement.querySelector('.mt-3');
-                if (mt3Container) {
-                    // Clear existing content
-                    mt3Container.innerHTML = '';
-                    
-                    // Add new options based on type
-                    if (questionTypeValue === 'multiple_choice' || questionTypeValue === 'checkboxes') {
-                        const optionsDiv = document.createElement('div');
-                        optionsDiv.className = 'space-y-2';
-                        
-                        if (options.length > 0) {
-                            options.forEach(optionText => {
-                                if (optionText.trim()) {
-                                    const optionDiv = document.createElement('div');
-                                    optionDiv.className = 'flex items-center';
-                                    const inputType = questionTypeValue === 'multiple_choice' ? 'radio' : 'checkbox';
-                                    optionDiv.innerHTML = `
-                                        <input type="${inputType}" disabled class="mr-2">
-                                        <label class="text-sm text-gray-700">${optionText}</label>
-                                    `;
-                                    optionsDiv.appendChild(optionDiv);
-                                }
-                            });
-                        } else {
-                            const emptyMsg = document.createElement('p');
-                            emptyMsg.className = 'text-sm text-gray-400';
-                            emptyMsg.textContent = 'No options added';
-                            optionsDiv.appendChild(emptyMsg);
-                        }
-                        mt3Container.appendChild(optionsDiv);
-                    } else if (questionTypeValue === 'dropdown') {
-                        const select = document.createElement('select');
-                        select.className = 'w-full px-3 py-2 border border-gray-300 rounded-lg';
-                        select.disabled = true;
-                        const defaultOption = document.createElement('option');
-                        defaultOption.textContent = 'Select an option';
-                        select.appendChild(defaultOption);
-                        if (options.length > 0) {
-                            options.forEach(optionText => {
-                                if (optionText.trim()) {
-                                    const option = document.createElement('option');
-                                    option.textContent = optionText;
-                                    select.appendChild(option);
-                                }
-                            });
-                        }
-                        mt3Container.appendChild(select);
-                    }
-                }
-            }
-        }
+        // For saved questions, immediately save to backend
+        saveQuestionEdit(questionId, questionData);
     }
     
     closeQuestionModal();
-    
-    // Track changes
-    changeTracker.updateChangeStatus();
-    if (changeTracker.hasUnsavedChanges) {
-        updateSaveStatus('Unsaved changes', 'unsaved');
-    }
 }
 
 // Global functions for adding/removing options in question edit form
@@ -1163,6 +1395,12 @@ function closeQuestionModal() {
     const formContainer = document.getElementById('question-edit-form');
     if (formContainer) {
         formContainer.innerHTML = '';
+    }
+    
+    // Hide the modal
+    const modal = document.getElementById('question-edit-modal');
+    if (modal) {
+        modal.classList.add('hidden');
     }
     document.getElementById('question-edit-modal').classList.add('hidden');
 }
@@ -1347,6 +1585,16 @@ function updateSurveyTitle() {
 
 // Save survey - saves all pending changes
 function saveSurvey() {
+    // Disable button and show spinner
+    const saveButton = document.getElementById('save-button');
+    const saveSpinner = document.getElementById('save-spinner');
+    if (saveButton) {
+        saveButton.disabled = true;
+        if (saveSpinner) {
+            saveSpinner.classList.remove('hidden');
+        }
+    }
+    
     isSaving = true; // Set flag to prevent beforeunload alert
     updateSaveStatus('Saving...', 'saving');
     
@@ -1423,9 +1671,17 @@ function saveSurvey() {
     
     // Save question changes
     let questionsPromise = Promise.resolve();
+    
+    // Check if there are any question changes (additions, deletions, edits, or reordering)
+    const currentState = changeTracker.getCurrentQuestionState();
+    const originalOrder = changeTracker.originalQuestionState.order.map(o => String(o.questionId));
+    const currentOrder = currentState.order.map(o => String(o.questionId));
+    const hasReordering = JSON.stringify(originalOrder) !== JSON.stringify(currentOrder);
+    
     const hasQuestionChanges = changeTracker.pendingQuestionChanges.added.length > 0 ||
                                changeTracker.pendingQuestionChanges.deleted.length > 0 ||
-                               Object.keys(changeTracker.pendingQuestionChanges.edited).length > 0;
+                               Object.keys(changeTracker.pendingQuestionChanges.edited).length > 0 ||
+                               hasReordering;
     
     if (hasQuestionChanges) {
         questionsPromise = saveQuestionChanges();
@@ -1441,12 +1697,28 @@ function saveSurvey() {
             // Reload page to show all saved changes (especially for questions)
             setTimeout(() => {
                 isSaving = false; // Reset flag after navigation starts
+                // Re-enable button before reload (for visual feedback)
+                if (saveButton) {
+                    saveButton.disabled = false;
+                    if (saveSpinner) {
+                        saveSpinner.classList.add('hidden');
+                    }
+                }
                 window.location.reload();
             }, 500);
         })
         .catch(error => {
             console.error('Error saving:', error);
             isSaving = false; // Reset flag on error
+            
+            // Re-enable button on error
+            if (saveButton) {
+                saveButton.disabled = false;
+                if (saveSpinner) {
+                    saveSpinner.classList.add('hidden');
+                }
+            }
+            
             updateSaveStatus('Error saving', 'error');
             showToast('Error saving changes: ' + error.message, 'error');
             throw error; // Re-throw so callers can handle it
@@ -1643,72 +1915,77 @@ function closeUnsavedChangesModal() {
 // Save question changes to backend
 function saveQuestionChanges() {
     const promises = [];
+    const tempIdToRealId = {}; // Map temp IDs to real IDs as questions are created
     
-        // Save added questions
-        for (const addedQuestion of changeTracker.pendingQuestionChanges.added) {
-            const formData = new FormData();
-            formData.append('question_type', addedQuestion.type);
-            formData.append('insert_order', addedQuestion.order);
-            formData.append('csrfmiddlewaretoken', csrfToken);
+    // Save added questions (without insert_order - they'll be appended, then reordered)
+    const addPromises = changeTracker.pendingQuestionChanges.added.map(addedQuestion => {
+        const tempId = addedQuestion.tempId;
+        const formData = new FormData();
+        formData.append('question_type', addedQuestion.type);
+        formData.append('csrfmiddlewaretoken', csrfToken);
+        
+        return fetch(`/api/survey/${surveyId}/question/add/`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => {
+                    throw new Error(err.error || `HTTP error! status: ${response.status}`);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to add question');
+            }
+            const newQuestionId = data.question_id;
             
-            promises.push(
-                fetch(`/api/survey/${surveyId}/question/add/`, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-CSRFToken': csrfToken
-                    }
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.json().then(err => {
-                            throw new Error(err.error || `HTTP error! status: ${response.status}`);
-                        });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (!data.success) {
-                        throw new Error(data.error || 'Failed to add question');
-                    }
-                    const newQuestionId = data.question_id;
-                    
-                    // Now update the question with all its data (text, required, options, settings)
-                    const updateFormData = new FormData();
-                    updateFormData.append('question_text', addedQuestion.text || 'New Question');
-                    updateFormData.append('required', addedQuestion.required ? 'on' : '');
-                    
-                    // Add options if it's a choice-based question
-                    if (addedQuestion.options && addedQuestion.options.length > 0) {
-                        addedQuestion.options.forEach(opt => {
-                            updateFormData.append('options[]', opt);
-                        });
-                    }
-                    
-                    // Add settings for scale
-                    if (addedQuestion.type === 'scale' && addedQuestion.settings) {
-                        updateFormData.append('scale_min', addedQuestion.settings.min || 1);
-                        updateFormData.append('scale_max', addedQuestion.settings.max || 10);
-                    }
-                    
-                    updateFormData.append('csrfmiddlewaretoken', csrfToken);
-                    
-                    return fetch(`/api/survey/question/${newQuestionId}/update/`, {
-                        method: 'POST',
-                        body: updateFormData,
-                        headers: {
-                            'X-CSRFToken': csrfToken
-                        }
-                    })
-                    .then(response => response.json())
-                    .then(updateData => {
-                        if (!updateData.success) {
-                            throw new Error(updateData.error || 'Failed to update question');
-                        }
-                    });
-                })
-            );
-        }
+            // Store the mapping
+            tempIdToRealId[tempId] = newQuestionId;
+            
+            // Now update the question with all its data
+            const updateFormData = new FormData();
+            updateFormData.append('question_text', addedQuestion.text || 'New Question');
+            updateFormData.append('required', addedQuestion.required ? 'on' : '');
+            
+            // Add options if it's a choice-based question
+            if (addedQuestion.options && addedQuestion.options.length > 0) {
+                addedQuestion.options.forEach(opt => {
+                    updateFormData.append('options[]', opt);
+                });
+            }
+            
+            // Add settings for scale
+            if (addedQuestion.type === 'scale' && addedQuestion.settings) {
+                updateFormData.append('scale_min', addedQuestion.settings.min || 1);
+                updateFormData.append('scale_max', addedQuestion.settings.max || 10);
+            }
+            
+            updateFormData.append('csrfmiddlewaretoken', csrfToken);
+            
+            return fetch(`/api/survey/question/${newQuestionId}/update/`, {
+                method: 'POST',
+                body: updateFormData,
+                headers: {
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(response => response.json())
+            .then(updateData => {
+                if (!updateData.success) {
+                    throw new Error(updateData.error || 'Failed to update question');
+                }
+                return newQuestionId; // Return the ID for later use
+            });
+        });
+    });
+    
+    promises.push(...addPromises);
     
     // Save edited questions
     for (const [questionId, questionData] of Object.entries(changeTracker.pendingQuestionChanges.edited)) {
@@ -1763,16 +2040,17 @@ function saveQuestionChanges() {
         );
     }
     
-    // REINFORCED: Validate before attempting to reorder questions
+    // Always reorder if there are added questions OR if order changed
+    const hasAddedQuestions = changeTracker.pendingQuestionChanges.added.length > 0;
     const currentState = changeTracker.getCurrentQuestionState();
     const originalOrder = changeTracker.originalQuestionState.order.map(o => String(o.questionId));
     const currentOrder = currentState.order.map(o => String(o.questionId));
+    const hasReordering = JSON.stringify(originalOrder) !== JSON.stringify(currentOrder);
     
-    if (JSON.stringify(originalOrder) !== JSON.stringify(currentOrder)) {
-        // Check if restrictions apply - block if active OR has responses
+    if (hasAddedQuestions || hasReordering) {
+        // Check if restrictions apply
         if (typeof surveyStatus !== 'undefined' && surveyStatus === 'active') {
             showToast('Cannot reorder questions when survey is active', 'error');
-            // Reset order to original to prevent sending to backend
             return Promise.reject(new Error('Cannot reorder questions when survey is active'));
         }
         if (typeof surveyStatus !== 'undefined' && surveyStatus !== 'draft' && 
@@ -1780,36 +2058,48 @@ function saveQuestionChanges() {
             showToast('Cannot reorder questions when survey has responses', 'error');
             return Promise.reject(new Error('Cannot reorder questions when survey has responses'));
         }
-        const orders = currentState.order.map((item, index) => {
-            const questionId = item.questionId;
-            // Skip temp IDs (they'll be real IDs after being added)
-            if (String(questionId).startsWith('temp-')) {
-                return null;
-            }
-            return {
-                question_id: parseInt(questionId),
-                order: index
-            };
-        }).filter(o => o !== null);
         
-        if (orders.length > 0) {
-            promises.push(
-                fetch(`/api/survey/${surveyId}/questions/reorder/`, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': csrfToken,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ orders: orders })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (!data.success) {
-                        throw new Error(data.error || 'Failed to reorder questions');
+        // Wait for all add/edit/delete operations to complete, then reorder
+        promises.push(
+            Promise.all(promises.slice()).then(() => {
+                // Build final order based on current DOM
+                const questionElements = Array.from(document.querySelectorAll('.draggable-question'));
+                const orders = questionElements.map((el, index) => {
+                    let questionId = el.dataset.questionId;
+                    
+                    // If it's a temp ID, convert to real ID
+                    if (String(questionId).startsWith('temp-')) {
+                        questionId = tempIdToRealId[questionId];
+                        if (!questionId) {
+                            console.error(`No real ID found for temp ID: ${el.dataset.questionId}`);
+                            return null;
+                        }
                     }
-                })
-            );
-        }
+                    
+                    return {
+                        question_id: parseInt(questionId),
+                        order: index
+                    };
+                }).filter(o => o !== null);
+                
+                if (orders.length > 0) {
+                    return fetch(`/api/survey/${surveyId}/questions/reorder/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': csrfToken,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ orders: orders })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (!data.success) {
+                            throw new Error(data.error || 'Failed to reorder questions');
+                        }
+                    });
+                }
+            })
+        );
     }
     
     return Promise.all(promises);
@@ -1846,6 +2136,28 @@ function saveQuestionEdit(questionId, questionData) {
         if (!data.success) {
             throw new Error(data.error || 'Failed to update question');
         }
+        
+        // Reload the question from the server to get updated HTML
+        return fetch(`/api/survey/question/${questionId}/html/`)
+            .then(response => response.json())
+            .then(htmlData => {
+                if (htmlData.success && htmlData.html) {
+                    const questionElement = document.querySelector(`[data-question-id="${questionId}"]`);
+                    if (questionElement) {
+                        // Replace the question HTML
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = htmlData.html;
+                        const newQuestionElement = tempDiv.firstElementChild;
+                        questionElement.replaceWith(newQuestionElement);
+                        showToast('Question updated successfully', 'success');
+                    }
+                }
+            });
+    })
+    .catch(error => {
+        console.error('Error updating question:', error);
+        showToast('Error updating question: ' + error.message, 'error');
+        throw error;
     });
 }
 
@@ -2226,6 +2538,17 @@ function confirmActivationProceed() {
 function closeSurvey() {
     // Show confirmation modal
     document.getElementById('close-survey-modal').classList.remove('hidden');
+}
+
+function previewSurvey() {
+    // Check for unsaved changes
+    if (changeTracker.hasUnsavedChanges) {
+        showToast('Please save or discard your changes before previewing the survey.', 'error');
+        return;
+    }
+    
+    // Open preview in new tab
+    window.open(`/teacher/survey/${surveyId}/preview/`, '_blank');
 }
 
 function closeCloseSurveyModal() {

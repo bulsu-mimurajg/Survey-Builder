@@ -1,0 +1,644 @@
+{% extends 'teacher/base_teacher.html' %}
+{% load static %}
+
+{% block title %}{{ survey.title }} - Responses{% endblock %}
+
+{% block content %}
+<div class="flex flex-col h-screen bg-gray-50">
+    <!-- Header -->
+    <div class="bg-white border-b border-gray-200 px-6 py-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <a href="{% url 'teacher-survey-builder-detail' survey.id %}" class="text-gray-600 hover:text-gray-900">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                    </svg>
+                </a>
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">{{ survey.title }}</h1>
+                    <p class="text-sm text-gray-500">{{ total_responses }} response{{ total_responses|pluralize }}</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button onclick="exportResponses()" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    Export to CSV
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="bg-white border-b border-gray-200 px-6">
+        <div class="flex space-x-8">
+            <button onclick="switchTab('summary')" id="tab-summary" class="py-4 px-1 border-b-2 border-indigo-600 text-indigo-600 font-medium text-sm">
+                Summary
+            </button>
+            <button onclick="switchTab('question')" id="tab-question" class="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm">
+                Question
+            </button>
+            <button onclick="switchTab('individual')" id="tab-individual" class="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm">
+                Individual
+            </button>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="flex-1 overflow-auto px-6 py-6">
+        <!-- Summary Tab -->
+        <div id="content-summary" class="tab-content">
+            <div class="max-w-5xl mx-auto space-y-6">
+                {% for question in questions %}
+                <div class="bg-white rounded-lg border border-gray-200 p-6">
+                    <div class="mb-4">
+                        <div class="flex items-start justify-between mb-2">
+                            <h3 class="text-lg font-medium text-gray-900">{{ question.question_text }}</h3>
+                            <span class="text-sm text-gray-500">{{ question.response_count }} response{{ question.response_count|pluralize }}</span>
+                        </div>
+                        <p class="text-sm text-gray-500">{{ question.get_question_type_display }}</p>
+                    </div>
+                    
+                    <div class="chart-container" data-question-id="{{ question.id }}" data-question-type="{{ question.question_type }}">
+                        <!-- Chart will be rendered here by JavaScript -->
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-12">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">No questions</h3>
+                    <p class="mt-1 text-sm text-gray-500">This survey doesn't have any questions yet.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Question Tab -->
+        <div id="content-question" class="tab-content hidden">
+            <div class="max-w-5xl mx-auto">
+                <div class="bg-white rounded-lg border border-gray-200 p-6">
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Select question</label>
+                        <select id="question-selector" onchange="loadQuestionAnalytics(this.value)" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="">Choose a question...</option>
+                            {% for question in questions %}
+                            <option value="{{ question.id }}">{{ forloop.counter }}. {{ question.question_text|truncatewords:10 }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div id="question-analytics-container">
+                        <div class="text-center py-12 text-gray-400">
+                            <svg class="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                            </svg>
+                            <p class="mt-2 text-sm">Select a question to view detailed analytics</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Individual Tab -->
+        <div id="content-individual" class="tab-content hidden">
+            <div class="max-w-7xl mx-auto">
+                <div class="bg-white rounded-lg border border-gray-200">
+                    <!-- Search and Filter -->
+                    <div class="p-4 border-b border-gray-200">
+                        <div class="flex items-center space-x-4">
+                            <div class="flex-1">
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                        </svg>
+                                    </div>
+                                    <input type="text" id="search-input" onkeyup="filterResponses()" placeholder="Search by student name or email..." class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                </div>
+                            </div>
+                            <div>
+                                <select id="filter-status" onchange="filterResponses()" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="">All responses</option>
+                                    <option value="complete">Complete</option>
+                                    <option value="incomplete">Incomplete</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Responses Table -->
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attempt</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="responses-tbody" class="bg-white divide-y divide-gray-200">
+                                {% for response in responses %}
+                                <tr class="response-row hover:bg-gray-50" data-student="{{ response.student.email }}" data-status="{% if response.is_complete %}complete{% else %}incomplete{% endif %}">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-gray-900">{{ response.student.first_name }} {{ response.student.last_name }}</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-500">{{ response.student.email }}</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        {% if response.is_complete %}
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                            Complete
+                                        </span>
+                                        {% else %}
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                            In Progress
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {% if response.submitted_at %}
+                                        {{ response.submitted_at|date:"M d, Y g:i A" }}
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {{ response.attempt_number }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <button onclick="viewResponse({{ response.id }})" class="text-indigo-600 hover:text-indigo-900">View</button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="px-6 py-12 text-center">
+                                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+                                        </svg>
+                                        <h3 class="mt-2 text-sm font-medium text-gray-900">No responses yet</h3>
+                                        <p class="mt-1 text-sm text-gray-500">Responses will appear here once students submit the survey.</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    {% if responses.has_other_pages %}
+                    <div class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
+                        <div class="flex items-center justify-between">
+                            <div class="text-sm text-gray-700">
+                                Showing <span class="font-medium">{{ responses.start_index }}</span> to <span class="font-medium">{{ responses.end_index }}</span> of <span class="font-medium">{{ responses.paginator.count }}</span> results
+                            </div>
+                            <div class="flex space-x-2">
+                                {% if responses.has_previous %}
+                                <a href="?page={{ responses.previous_page_number }}" class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">Previous</a>
+                                {% endif %}
+                                {% if responses.has_next %}
+                                <a href="?page={{ responses.next_page_number }}" class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">Next</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Response Detail Modal -->
+<div id="response-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 overflow-y-auto">
+    <div class="relative p-4 w-full max-w-4xl max-h-full">
+        <div class="relative bg-white rounded-lg shadow">
+            <div class="flex items-center justify-between p-4 border-b rounded-t">
+                <h3 class="text-xl font-semibold text-gray-900" id="response-modal-title">Response Details</h3>
+                <button type="button" onclick="closeResponseModal()" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center">
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 14 14">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                    </svg>
+                </button>
+            </div>
+            <div id="response-modal-content" class="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                <!-- Content loaded via AJAX -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const surveyId = {{ survey.id }};
+let currentTab = 'summary';
+let charts = {};
+
+// Tab switching
+function switchTab(tab) {
+    currentTab = tab;
+    
+    // Hide all content
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    
+    // Remove active from all tabs
+    document.querySelectorAll('[id^="tab-"]').forEach(el => {
+        el.classList.remove('border-indigo-600', 'text-indigo-600');
+        el.classList.add('border-transparent', 'text-gray-500');
+    });
+    
+    // Show selected content
+    document.getElementById(`content-${tab}`).classList.remove('hidden');
+    
+    // Add active to selected tab
+    const tabBtn = document.getElementById(`tab-${tab}`);
+    tabBtn.classList.remove('border-transparent', 'text-gray-500');
+    tabBtn.classList.add('border-indigo-600', 'text-indigo-600');
+    
+    // Load charts for summary tab
+    if (tab === 'summary') {
+        setTimeout(() => {
+            loadAllCharts();
+        }, 100);
+    }
+}
+
+// Load all charts
+function loadAllCharts() {
+    document.querySelectorAll('.chart-container').forEach(container => {
+        const questionId = container.dataset.questionId;
+        const questionType = container.dataset.questionType;
+        
+        if (!charts[questionId]) {
+            loadChartData(questionId, questionType, container);
+        }
+    });
+}
+
+// Load chart data
+function loadChartData(questionId, questionType, container) {
+    fetch(`/api/survey/question/${questionId}/analytics/`)
+        .then(response => response.json())
+        .then(data => {
+            renderChart(questionId, questionType, data, container);
+        })
+        .catch(error => {
+            console.error('Error loading chart:', error);
+            container.innerHTML = '<p class="text-sm text-gray-500">Error loading chart data</p>';
+        });
+}
+
+// Render chart based on question type
+function renderChart(questionId, questionType, data, container) {
+    container.innerHTML = '';
+    
+    if (data.response_count === 0) {
+        container.innerHTML = '<p class="text-sm text-gray-500 text-center py-8">No responses yet</p>';
+        return;
+    }
+    
+    switch(questionType) {
+        case 'multiple_choice':
+        case 'dropdown':
+            renderPieChart(questionId, data, container);
+            break;
+        case 'checkboxes':
+            renderBarChart(questionId, data, container);
+            break;
+        case 'rating':
+        case 'scale':
+            renderRatingChart(questionId, data, container);
+            break;
+        case 'short_text':
+        case 'long_text':
+            renderTextResponses(data, container);
+            break;
+        case 'date':
+        case 'time':
+            renderTimelineChart(questionId, data, container);
+            break;
+        case 'file_upload':
+            renderFileList(data, container);
+            break;
+        default:
+            container.innerHTML = '<p class="text-sm text-gray-500">Chart not available for this question type</p>';
+    }
+}
+
+// Pie chart for single-choice questions
+function renderPieChart(questionId, data, container) {
+    const canvas = document.createElement('canvas');
+    container.appendChild(canvas);
+    
+    charts[questionId] = new Chart(canvas, {
+        type: 'pie',
+        data: {
+            labels: data.labels,
+            datasets: [{
+                data: data.values,
+                backgroundColor: [
+                    '#4F46E5', '#7C3AED', '#EC4899', '#F59E0B', 
+                    '#10B981', '#3B82F6', '#8B5CF6', '#F97316'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'right',
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return `${label}: ${value} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Bar chart for multiple-choice questions
+function renderBarChart(questionId, data, container) {
+    const canvas = document.createElement('canvas');
+    container.appendChild(canvas);
+    
+    charts[questionId] = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: data.labels,
+            datasets: [{
+                label: 'Responses',
+                data: data.values,
+                backgroundColor: '#4F46E5'
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+}
+
+// Rating/Scale chart
+function renderRatingChart(questionId, data, container) {
+    const canvas = document.createElement('canvas');
+    container.appendChild(canvas);
+    
+    const avgDiv = document.createElement('div');
+    avgDiv.className = 'text-center mb-4';
+    avgDiv.innerHTML = `
+        <p class="text-3xl font-bold text-indigo-600">${data.average.toFixed(2)}</p>
+        <p class="text-sm text-gray-500">Average rating</p>
+    `;
+    container.insertBefore(avgDiv, canvas);
+    
+    charts[questionId] = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: data.labels,
+            datasets: [{
+                label: 'Responses',
+                data: data.values,
+                backgroundColor: '#10B981'
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+}
+
+// Text responses
+function renderTextResponses(data, container) {
+    const div = document.createElement('div');
+    div.className = 'space-y-2';
+    
+    if (data.responses && data.responses.length > 0) {
+        data.responses.slice(0, 10).forEach(response => {
+            const responseDiv = document.createElement('div');
+            responseDiv.className = 'p-3 bg-gray-50 rounded-lg border border-gray-200';
+            responseDiv.innerHTML = `<p class="text-sm text-gray-700">${response}</p>`;
+            div.appendChild(responseDiv);
+        });
+        
+        if (data.responses.length > 10) {
+            const moreDiv = document.createElement('div');
+            moreDiv.className = 'text-center text-sm text-gray-500';
+            moreDiv.textContent = `+ ${data.responses.length - 10} more responses`;
+            div.appendChild(moreDiv);
+        }
+    } else {
+        div.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">No text responses yet</p>';
+    }
+    
+    container.appendChild(div);
+}
+
+// Timeline chart for date/time
+function renderTimelineChart(questionId, data, container) {
+    const canvas = document.createElement('canvas');
+    container.appendChild(canvas);
+    
+    charts[questionId] = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: data.labels,
+            datasets: [{
+                label: 'Responses',
+                data: data.values,
+                borderColor: '#4F46E5',
+                backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+}
+
+// File list
+function renderFileList(data, container) {
+    const div = document.createElement('div');
+    div.className = 'space-y-2';
+    
+    if (data.files && data.files.length > 0) {
+        data.files.forEach(file => {
+            const fileDiv = document.createElement('div');
+            fileDiv.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200';
+            fileDiv.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd"/>
+                    </svg>
+                    <span class="text-sm text-gray-700">${file.name}</span>
+                </div>
+                <a href="${file.url}" target="_blank" class="text-indigo-600 hover:text-indigo-700 text-sm">Download</a>
+            `;
+            div.appendChild(fileDiv);
+        });
+    } else {
+        div.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">No files uploaded yet</p>';
+    }
+    
+    container.appendChild(div);
+}
+
+// Question analytics (detailed view)
+function loadQuestionAnalytics(questionId) {
+    if (!questionId) return;
+    
+    const container = document.getElementById('question-analytics-container');
+    container.innerHTML = '<div class="text-center py-8"><div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>';
+    
+    fetch(`/api/survey/question/${questionId}/analytics/`)
+        .then(response => response.json())
+        .then(data => {
+            // Render detailed analytics
+            container.innerHTML = `
+                <div class="space-y-6">
+                    <div class="chart-container" data-question-id="${questionId}"></div>
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="bg-gray-50 rounded-lg p-4 text-center">
+                            <p class="text-2xl font-bold text-gray-900">${data.response_count}</p>
+                            <p class="text-sm text-gray-500">Total Responses</p>
+                        </div>
+                        ${data.average !== undefined ? `
+                        <div class="bg-gray-50 rounded-lg p-4 text-center">
+                            <p class="text-2xl font-bold text-indigo-600">${data.average.toFixed(2)}</p>
+                            <p class="text-sm text-gray-500">Average</p>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+            
+            const chartContainer = container.querySelector('.chart-container');
+            const questionType = data.question_type;
+            renderChart(questionId, questionType, data, chartContainer);
+        });
+}
+
+// Filter responses
+function filterResponses() {
+    const searchTerm = document.getElementById('search-input').value.toLowerCase();
+    const statusFilter = document.getElementById('filter-status').value;
+    
+    document.querySelectorAll('.response-row').forEach(row => {
+        const studentText = row.dataset.student.toLowerCase();
+        const status = row.dataset.status;
+        
+        const matchesSearch = studentText.includes(searchTerm);
+        const matchesStatus = !statusFilter || status === statusFilter;
+        
+        row.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
+    });
+}
+
+// View response detail
+function viewResponse(responseId) {
+    document.getElementById('response-modal').classList.remove('hidden');
+    
+    const content = document.getElementById('response-modal-content');
+    content.innerHTML = '<div class="text-center py-8"><div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>';
+    
+    fetch(`/api/survey/response/${responseId}/detail/`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('response-modal-title').textContent = `${data.student_name}'s Response`;
+            
+            let html = `
+                <div class="mb-6 p-4 bg-gray-50 rounded-lg">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-sm text-gray-500">Student</p>
+                            <p class="text-sm font-medium text-gray-900">${data.student_name}</p>
+                            <p class="text-sm text-gray-500">${data.student_email}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Submitted</p>
+                            <p class="text-sm font-medium text-gray-900">${data.submitted_at || 'In progress'}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            data.answers.forEach((answer, index) => {
+                html += `
+                    <div class="mb-6">
+                        <h4 class="text-sm font-medium text-gray-900 mb-2">${index + 1}. ${answer.question}</h4>
+                        <div class="pl-4">
+                            ${answer.answer || '<p class="text-sm text-gray-400 italic">No answer</p>'}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            content.innerHTML = html;
+        });
+}
+
+function closeResponseModal() {
+    document.getElementById('response-modal').classList.add('hidden');
+}
+
+// Export responses
+function exportResponses() {
+    window.location.href = `/api/survey/${surveyId}/export/csv/`;
+}
+
+// Load charts on page load
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(() => {
+        loadAllCharts();
+    }, 500);
+});
+</script>
+{% endblock %}

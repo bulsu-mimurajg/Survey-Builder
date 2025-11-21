@@ -3,13 +3,17 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
 from django.db import IntegrityError
-from django.db.models import Count, Q, Max
-from django.http import JsonResponse
+from django.db.models import Count, Q, Max, Avg
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.template.loader import render_to_string
-from datetime import datetime
+from django.utils import timezone
+from django.core.paginator import Paginator
+from datetime import datetime, timedelta
+from collections import Counter
 import json
-from .models import User, Course, CourseEnrollment, Survey, SurveyCourseAssignment, Question, QuestionOption, SurveyResponse
+import csv
+from .models import User, Course, CourseEnrollment, Survey, SurveyCourseAssignment, Question, QuestionOption, SurveyResponse, QuestionResponse
 
 # Authentication Views
 def landing_page(request):
@@ -321,76 +325,108 @@ def student_survey_board(request):
 @login_required
 def student_survey_detail(request, survey_id):
     """Student survey detail page view"""
-    # Mock survey data
-    surveys = {
-        '1': {
-            'id': '1',
-            'title': 'Quiz # 67',
-            'course': 'CAP 301',
-            'type': 'Exam',
-            'status': 'Not Started',
-            'progress': 0,
-            'due_date': 'Nov 8, 5:00 PM',
-            'duration': '30 minutes',
-            'passing_score': '70%',
-            'total_questions': 25,
-            'attempts_remaining': 1,
-            'description': 'This weekly assessment covers the key concepts discussed in lectures 5-7. Please ensure you complete all questions before the deadline.',
-            'instructions': [
-                'Read each question carefully before answering',
-                'You must complete the survey in one sitting',
-                'Ensure stable internet connection throughout',
-                'Click \'Submit\' when you\'re done to save your responses'
-            ]
-        },
-        '2': {
-            'id': '2',
-            'title': 'Weekly Assessment',
-            'course': 'CAP 301',
-            'type': 'Exam',
-            'status': 'In Progress',
-            'progress': 50,
-            'due_date': 'Nov 8, 5:00 PM',
-            'duration': '30 minutes',
-            'passing_score': '70%',
-            'total_questions': 25,
-            'attempts_remaining': 1,
-            'description': 'This weekly assessment covers the key concepts discussed in lectures 5-7. Please ensure you complete all questions before the deadline.',
-            'instructions': [
-                'Read each question carefully before answering',
-                'You must complete the survey in one sitting',
-                'Ensure stable internet connection throughout',
-                'Click \'Submit\' when you\'re done to save your responses'
-            ]
-        },
-        '3': {
-            'id': '3',
-            'title': 'Feedback Form',
-            'course': 'SSP101C',
-            'type': 'Survey',
-            'status': 'Not Started',
-            'progress': 0,
-            'due_date': '--',
-            'duration': '15 minutes',
-            'passing_score': 'N/A',
-            'total_questions': 10,
-            'attempts_remaining': 1,
-            'description': 'Share your feedback about the course content, teaching methodology, and overall experience.',
-            'instructions': [
-                'Be honest and constructive in your feedback',
-                'All responses are anonymous',
-                'Take your time to provide detailed responses',
-                'Your feedback helps improve the course'
-            ]
-        },
+    if request.user.role != 'student':
+        messages.error(request, 'Access denied.')
+        return redirect('student-home')
+    
+    # Get the survey
+    survey = get_object_or_404(Survey, id=survey_id)
+    
+    # Check if survey should be auto-closed due to due date
+    if survey.should_auto_close():
+        survey.status = 'closed'
+        survey.save()
+    
+    # Verify student is enrolled in at least one course this survey is assigned to
+    enrolled_courses = request.user.enrolled_courses.values_list('course_id', flat=True)
+    survey_courses = survey.courses.values_list('id', flat=True)
+    
+    if not set(enrolled_courses).intersection(set(survey_courses)):
+        messages.error(request, 'You are not enrolled in any course for this survey.')
+        return redirect('student-home')
+    
+    # Get student's response for this survey
+    response = SurveyResponse.objects.filter(
+        survey=survey,
+        student=request.user
+    ).order_by('-started_at').first()
+    
+    # Determine status and progress
+    if response and response.is_complete:
+        status = 'Completed'
+        progress = 100
+    elif response:
+        # Calculate progress based on questions answered
+        total_questions = survey.questions.count()
+        answered_questions = response.question_responses.count()
+        progress = int((answered_questions / total_questions * 100) if total_questions > 0 else 0)
+        # If survey is closed in database and not completed, show as Closed
+        if survey.status == 'closed':
+            status = 'Closed'
+        else:
+            status = 'In Progress' if progress < 100 else 'Completed'
+    else:
+        # Student hasn't started
+        # If survey is closed in database, show as Closed, otherwise Not Started
+        if survey.status == 'closed':
+            status = 'Closed'
+        else:
+            status = 'Not Started'
+        progress = 0
+    
+    # Format due date
+    if survey.due_date_enabled and survey.due_date:
+        due_date = survey.due_date.strftime('%b %d, %I:%M %p')
+    else:
+        due_date = '--'
+    
+    # Format duration
+    if survey.duration_enabled and survey.duration_minutes:
+        duration = f"{survey.duration_minutes} minutes"
+    else:
+        duration = '--'
+    
+    # Calculate attempts remaining
+    attempts_used = SurveyResponse.objects.filter(
+        survey=survey,
+        student=request.user,
+        is_complete=True
+    ).count()
+    
+    if survey.attempts_enabled:
+        if survey.single_attempt:
+            attempts_remaining = 0 if attempts_used > 0 else 1
+        elif survey.max_attempts:
+            attempts_remaining = max(0, survey.max_attempts - attempts_used)
+        else:
+            attempts_remaining = 999  # Unlimited
+    else:
+        attempts_remaining = 0 if attempts_used > 0 else 1
+    
+    # Get course code
+    course = survey.courses.first()
+    course_code = course.code if course else 'N/A'
+    
+    # Build survey data
+    survey_data = {
+        'id': survey.id,
+        'title': survey.title,
+        'course': course_code,
+        'type': survey.get_type_display(),
+        'status': status,
+        'progress': progress,
+        'due_date': due_date,
+        'duration': duration,
+        'passing_score': 'N/A',  # Can be calculated based on exam scoring
+        'total_questions': survey.questions.count(),
+        'attempts_remaining': attempts_remaining,
+        'description': survey.description or 'No description provided.',
+        'instructions': survey.instructions if survey.instructions else [],
+        'require_completion_in_one_sitting': survey.require_completion_in_one_sitting,
     }
     
-    survey = surveys.get(str(survey_id), surveys['1'])
-    # Add require_completion_in_one_sitting flag (mock data - will be from database when implemented)
-    survey['require_completion_in_one_sitting'] = True  # Mock: set to True for testing
-    
     context = {
-        'survey': survey,
+        'survey': survey_data,
         'unread_count': 6,
     }
     return render(request, 'student/survey_detail.html', context)
@@ -454,6 +490,350 @@ def student_join_course(request):
             return redirect('student-courses')
     
     return redirect('student-courses')
+
+
+@login_required
+def student_take_survey(request, survey_id):
+    """Take survey view - start or continue a survey"""
+    if request.user.role != 'student':
+        messages.error(request, 'Access denied.')
+        return redirect('student-home')
+    
+    survey = get_object_or_404(Survey, id=survey_id)
+    
+    # Check if survey should be auto-closed due to due date
+    if survey.should_auto_close():
+        survey.status = 'closed'
+        survey.save()
+        messages.error(request, 'This survey has closed because the due date has passed.')
+        return redirect('student-survey-detail', survey_id=survey.id)
+    
+    # Check if survey is active
+    if survey.status != 'active':
+        messages.error(request, 'This survey is not currently active.')
+        return redirect('student-survey-detail', survey_id=survey.id)
+    
+    # Verify student is enrolled in at least one course this survey is assigned to
+    enrolled_courses = request.user.enrolled_courses.values_list('course_id', flat=True)
+    survey_courses = survey.courses.values_list('id', flat=True)
+    
+    if not set(enrolled_courses).intersection(set(survey_courses)):
+        messages.error(request, 'You are not enrolled in any course for this survey.')
+        return redirect('student-home')
+    
+    # Check if survey has due date and if it's passed
+    if survey.due_date_enabled and survey.due_date and survey.due_date < timezone.now():
+        messages.error(request, 'This survey has passed its due date.')
+        return redirect('student-survey-board')
+    
+    # Check for existing response
+    response = SurveyResponse.objects.filter(
+        survey=survey,
+        student=request.user
+    ).order_by('-started_at').first()
+    
+    # Check if already completed
+    if response and response.is_complete:
+        # Check if multiple attempts are allowed
+        if survey.attempts_enabled:
+            if survey.single_attempt:
+                messages.info(request, 'You have already completed this survey.')
+                return redirect('student-survey-detail', survey_id=survey.id)
+            elif survey.max_attempts and response.attempt_number >= survey.max_attempts:
+                messages.info(request, 'You have used all your attempts for this survey.')
+                return redirect('student-survey-detail', survey_id=survey.id)
+            else:
+                # Create new attempt
+                new_attempt_number = SurveyResponse.objects.filter(
+                    survey=survey,
+                    student=request.user
+                ).aggregate(Max('attempt_number'))['attempt_number__max'] or 0
+                response = SurveyResponse.objects.create(
+                    survey=survey,
+                    student=request.user,
+                    attempt_number=new_attempt_number + 1
+                )
+        else:
+            messages.info(request, 'You have already completed this survey.')
+            return redirect('student-survey-detail', survey_id=survey.id)
+    
+    # Create new response if none exists
+    if not response:
+        response = SurveyResponse.objects.create(
+            survey=survey,
+            student=request.user,
+            attempt_number=1
+        )
+    
+    # Check if require completion in one sitting and response was started but not submitted
+    if survey.require_completion_in_one_sitting and response and not response.is_complete:
+        # Check if duration has expired
+        if survey.duration_enabled and survey.duration_minutes:
+            elapsed_time = (timezone.now() - response.started_at).total_seconds()
+            if elapsed_time > (survey.duration_minutes * 60):
+                # Auto-submit the survey as incomplete
+                response.submitted_at = timezone.now()
+                response.is_complete = True
+                response.save()
+                messages.warning(request, 'The survey duration has expired. Your responses have been submitted.')
+                return redirect('student-survey-detail', survey_id=survey.id)
+    
+    # Get questions
+    questions = survey.questions.all().order_by('order')
+    
+    # Get existing responses
+    question_responses_dict = {}
+    for qr in response.question_responses.all():
+        question_id = qr.question.id
+        if qr.question.question_type in ['multiple_choice', 'dropdown']:
+            # Store first option ID
+            option = qr.response_options.first()
+            question_responses_dict[question_id] = [option.id] if option else []
+        elif qr.question.question_type == 'checkboxes':
+            # Store all option IDs
+            question_responses_dict[question_id] = list(qr.response_options.values_list('id', flat=True))
+        else:
+            # Store text response
+            question_responses_dict[question_id] = qr.response_text
+    
+    # Calculate time remaining for timer
+    time_remaining_seconds = None
+    duration_remaining = None
+    if survey.duration_enabled and survey.duration_minutes:
+        elapsed_time = (timezone.now() - response.started_at).total_seconds()
+        time_remaining_seconds = max(0, (survey.duration_minutes * 60) - elapsed_time)
+        minutes_remaining = int(time_remaining_seconds / 60)
+        seconds_remaining = int(time_remaining_seconds % 60)
+        duration_remaining = f"{minutes_remaining}:{seconds_remaining:02d}"
+    
+    # Count answered questions
+    answered_count = response.question_responses.count()
+    
+    context = {
+        'survey': survey,
+        'response': response,
+        'questions': questions,
+        'question_responses': question_responses_dict,
+        'total_questions': questions.count(),
+        'answered_count': answered_count,
+        'time_remaining_seconds': int(time_remaining_seconds) if time_remaining_seconds else 0,
+        'duration_remaining': duration_remaining,
+        'unread_count': 6,
+    }
+    
+    return render(request, 'student/survey_take.html', context)
+
+
+@login_required
+def student_view_response(request, survey_id):
+    """View completed survey responses (read-only)"""
+    if request.user.role != 'student':
+        messages.error(request, 'Access denied.')
+        return redirect('student-home')
+    
+    survey = get_object_or_404(Survey, id=survey_id)
+    
+    # Verify student is enrolled in at least one course this survey is assigned to
+    enrolled_courses = request.user.enrolled_courses.values_list('course_id', flat=True)
+    survey_courses = survey.courses.values_list('id', flat=True)
+    
+    if not set(enrolled_courses).intersection(set(survey_courses)):
+        messages.error(request, 'You are not enrolled in any course for this survey.')
+        return redirect('student-home')
+    
+    # Get the most recent completed response
+    response = SurveyResponse.objects.filter(
+        survey=survey,
+        student=request.user,
+        is_complete=True
+    ).order_by('-submitted_at').first()
+    
+    if not response:
+        messages.error(request, 'No completed response found for this survey.')
+        return redirect('student-survey-detail', survey_id=survey.id)
+    
+    # Get questions
+    questions = survey.questions.all().order_by('order')
+    
+    # Get existing responses
+    question_responses_dict = {}
+    for qr in response.question_responses.all():
+        question_id = qr.question.id
+        if qr.question.question_type in ['multiple_choice', 'dropdown']:
+            # Store first option ID
+            option = qr.response_options.first()
+            question_responses_dict[question_id] = [option.id] if option else []
+        elif qr.question.question_type == 'checkboxes':
+            # Store all option IDs
+            question_responses_dict[question_id] = list(qr.response_options.values_list('id', flat=True))
+        elif qr.question.question_type == 'file_upload':
+            # Store file URL if exists
+            question_responses_dict[question_id] = qr.file_upload.url if qr.file_upload else None
+        else:
+            # Store text response
+            question_responses_dict[question_id] = qr.response_text
+    
+    # Count answered questions
+    answered_count = response.question_responses.count()
+    
+    # Get the first course for back navigation
+    first_course = survey.courses.first()
+    
+    context = {
+        'survey': survey,
+        'response': response,
+        'questions': questions,
+        'question_responses': question_responses_dict,
+        'total_questions': questions.count(),
+        'answered_count': answered_count,
+        'view_only': True,  # Flag to indicate read-only mode
+        'course_id': first_course.id if first_course else None,
+        'unread_count': 6,
+    }
+    
+    return render(request, 'student/survey_take.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def student_submit_survey(request, survey_id):
+    """Submit survey responses"""
+    if request.user.role != 'student':
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+    
+    survey = get_object_or_404(Survey, id=survey_id, status='active')
+    response_id = request.POST.get('response_id')
+    
+    if not response_id:
+        messages.error(request, 'Invalid survey response.')
+        return redirect('student-survey-detail', survey_id=survey.id)
+    
+    response = get_object_or_404(SurveyResponse, id=response_id, survey=survey, student=request.user)
+    
+    # Check if already completed
+    if response.is_complete:
+        messages.info(request, 'This survey has already been submitted.')
+        return redirect('student-survey-detail', survey_id=survey.id)
+    
+    # Process each question
+    questions = survey.questions.all()
+    
+    for question in questions:
+        question_key = f'question_{question.id}'
+        
+        # Get or create question response
+        question_response, created = QuestionResponse.objects.get_or_create(
+            survey_response=response,
+            question=question
+        )
+        
+        # Clear existing responses
+        question_response.response_options.clear()
+        
+        # Process based on question type
+        if question.question_type in ['short_text', 'long_text', 'date', 'time']:
+            question_response.response_text = request.POST.get(question_key, '')
+        
+        elif question.question_type in ['multiple_choice', 'dropdown']:
+            option_id = request.POST.get(question_key)
+            if option_id:
+                try:
+                    option = QuestionOption.objects.get(id=option_id, question=question)
+                    question_response.response_options.add(option)
+                except QuestionOption.DoesNotExist:
+                    pass
+        
+        elif question.question_type == 'checkboxes':
+            option_ids = request.POST.getlist(question_key)
+            for option_id in option_ids:
+                try:
+                    option = QuestionOption.objects.get(id=option_id, question=question)
+                    question_response.response_options.add(option)
+                except QuestionOption.DoesNotExist:
+                    pass
+        
+        elif question.question_type in ['rating', 'scale']:
+            question_response.response_text = request.POST.get(question_key, '')
+        
+        elif question.question_type == 'file_upload':
+            uploaded_file = request.FILES.get(question_key)
+            if uploaded_file:
+                question_response.file_upload = uploaded_file
+        
+        question_response.save()
+    
+    # Mark response as complete
+    response.is_complete = True
+    response.submitted_at = timezone.now()
+    response.save()
+    
+    messages.success(request, 'Survey submitted successfully!')
+    
+    # Redirect to the first course this survey belongs to
+    first_course = survey.courses.first()
+    if first_course:
+        return redirect('student-course-detail', course_id=first_course.id)
+    else:
+        return redirect('student-survey-board')
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_save_survey_draft(request, survey_id, response_id):
+    """API endpoint to save survey draft"""
+    if request.user.role != 'student':
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+    
+    survey = get_object_or_404(Survey, id=survey_id, status='active')
+    response = get_object_or_404(SurveyResponse, id=response_id, survey=survey, student=request.user)
+    
+    # Check if already completed
+    if response.is_complete:
+        return JsonResponse({'success': False, 'error': 'Survey already submitted'}, status=400)
+    
+    # Process each question (same as submit but don't mark as complete)
+    questions = survey.questions.all()
+    
+    for question in questions:
+        question_key = f'question_{question.id}'
+        
+        # Get or create question response
+        question_response, created = QuestionResponse.objects.get_or_create(
+            survey_response=response,
+            question=question
+        )
+        
+        # Clear existing responses
+        question_response.response_options.clear()
+        
+        # Process based on question type
+        if question.question_type in ['short_text', 'long_text', 'date', 'time']:
+            question_response.response_text = request.POST.get(question_key, '')
+        
+        elif question.question_type in ['multiple_choice', 'dropdown']:
+            option_id = request.POST.get(question_key)
+            if option_id:
+                try:
+                    option = QuestionOption.objects.get(id=option_id, question=question)
+                    question_response.response_options.add(option)
+                except QuestionOption.DoesNotExist:
+                    pass
+        
+        elif question.question_type == 'checkboxes':
+            option_ids = request.POST.getlist(question_key)
+            for option_id in option_ids:
+                try:
+                    option = QuestionOption.objects.get(id=option_id, question=question)
+                    question_response.response_options.add(option)
+                except QuestionOption.DoesNotExist:
+                    pass
+        
+        elif question.question_type in ['rating', 'scale']:
+            question_response.response_text = request.POST.get(question_key, '')
+        
+        question_response.save()
+    
+    return JsonResponse({'success': True, 'message': 'Draft saved successfully'})
 
 
 # Teacher Views
@@ -949,6 +1329,84 @@ def teacher_survey_builder(request, survey_id):
     return render(request, 'teacher/survey_builder.html', context)
 
 
+@login_required
+def teacher_preview_survey(request, survey_id):
+    """Preview survey as it will appear to students"""
+    if request.user.role != 'teacher':
+        messages.error(request, 'Access denied.')
+        return redirect('student-home')
+    
+    survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
+    questions = survey.questions.all().order_by('order')
+    
+    # Format due date
+    if survey.due_date_enabled and survey.due_date:
+        due_date = survey.due_date.strftime('%b %d, %I:%M %p')
+    else:
+        due_date = None
+    
+    # Format duration
+    if survey.duration_enabled and survey.duration_minutes:
+        duration = f"{survey.duration_minutes} minutes"
+    else:
+        duration = None
+    
+    # Group questions into pages based on section breaks
+    pages = []
+    current_page = []
+    section_info = None
+    question_counter = 1
+    
+    for question in questions:
+        if question.question_type == 'section':
+            # Save current page if it has questions
+            if current_page:
+                pages.append({
+                    'questions': current_page,
+                    'section_info': section_info
+                })
+            # Start new page with section info
+            section_info = {
+                'title': question.question_text,
+                'description': question.settings.get('description', '') if question.settings else ''
+            }
+            current_page = []
+        else:
+            # Add question to current page with its counter
+            question_with_counter = {
+                'question': question,
+                'counter': question_counter
+            }
+            current_page.append(question_with_counter)
+            question_counter += 1
+    
+    # Add final page if it has questions
+    if current_page:
+        pages.append({
+            'questions': current_page,
+            'section_info': section_info
+        })
+    
+    # If no pages were created (no questions), create empty state
+    if not pages and questions.exists():
+        # Survey has only sections with no regular questions
+        pages = []
+    elif not pages:
+        # No questions at all
+        pages = []
+    
+    context = {
+        'survey': survey,
+        'questions': questions,
+        'pages': pages,
+        'due_date': due_date,
+        'duration': duration,
+        'is_preview': True,
+        'total_pages': len(pages),
+    }
+    return render(request, 'teacher/survey_preview.html', context)
+
+
 # API Endpoints
 @login_required
 @require_http_methods(["POST"])
@@ -1024,6 +1482,25 @@ def api_add_question(request, survey_id):
 
 @login_required
 @require_http_methods(["GET", "POST"])
+@login_required
+@require_http_methods(["GET"])
+def api_get_question_html(request, question_id):
+    """API endpoint to get question HTML"""
+    if request.user.role != 'teacher':
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+    
+    question = get_object_or_404(Question, id=question_id, survey__created_by=request.user)
+    
+    # Return question HTML
+    question_html = render_to_string('includes/question_component.html', {
+        'question': question
+    }, request=request)
+    
+    return JsonResponse({'success': True, 'html': question_html})
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
 def api_update_question(request, question_id):
     """API endpoint to update a question"""
     if request.user.role != 'teacher':
@@ -1048,6 +1525,7 @@ def api_update_question(request, question_id):
         # Update question
         question_text = request.POST.get('question_text', '').strip()
         required = request.POST.get('required') == 'on'
+        new_question_type = request.POST.get('question_type')
         
         if not question_text:
             return JsonResponse({'success': False, 'error': 'Question text is required'})
@@ -1057,17 +1535,34 @@ def api_update_question(request, question_id):
         # If survey is closed but has responses, apply restrictions
         if was_ever_activated and has_responses:
             # Check if question type is being changed (not allowed)
-            new_question_type = request.POST.get('question_type')
             if new_question_type and new_question_type != question.question_type:
                 return JsonResponse({
                     'success': False,
                     'error': 'Cannot change question type when survey has responses'
                 }, status=400)
         
+        # Update basic question fields
         question.question_text = question_text
         question.required = required
         
-        # Handle question-specific settings
+        # Update question type if changed and allowed
+        if new_question_type and new_question_type != question.question_type:
+            # Delete old options if changing from a choice-based question
+            if question.question_type in ['multiple_choice', 'checkboxes', 'dropdown']:
+                question.options.all().delete()
+            
+            # Update the question type
+            question.question_type = new_question_type
+            
+            # Initialize settings for new type
+            if new_question_type == 'rating':
+                question.settings = {'max': 5}
+            elif new_question_type == 'scale':
+                question.settings = {'min': 1, 'max': 10}
+            else:
+                question.settings = {}
+        
+        # Handle question-specific settings based on current type
         if question.question_type in ['multiple_choice', 'checkboxes', 'dropdown']:
             # Update options
             option_texts = request.POST.getlist('options[]')
@@ -1140,6 +1635,13 @@ def api_update_question(request, question_id):
                     question.settings['max'] = int(max_value)
                 except ValueError:
                     pass
+        
+        # Handle section description
+        if question.question_type == 'section':
+            if not question.settings:
+                question.settings = {}
+            section_description = request.POST.get('section_description', '')
+            question.settings['description'] = section_description
         
         question.save()
         
@@ -1355,6 +1857,27 @@ def teacher_update_survey_parameters(request, survey_id):
             duration_minutes = request.POST.get('duration_minutes')
             if duration_minutes:
                 survey.duration_minutes = int(duration_minutes)
+            
+            # If duration is enabled, automatically enforce single attempt and completion in one sitting
+            survey.attempts_enabled = True
+            survey.single_attempt = True
+            survey.max_attempts = None
+            survey.require_completion_in_one_sitting = True
+        else:
+            # If duration is disabled, use the provided attempt settings
+            survey.attempts_enabled = request.POST.get('attempts_enabled') == 'on'
+            if survey.attempts_enabled:
+                attempt_type = request.POST.get('attempt_type')
+                if attempt_type == 'single':
+                    survey.single_attempt = True
+                    survey.max_attempts = None
+                else:
+                    survey.single_attempt = False
+                    max_attempts = request.POST.get('max_attempts')
+                    if max_attempts:
+                        survey.max_attempts = int(max_attempts)
+            
+            survey.require_completion_in_one_sitting = request.POST.get('require_completion_in_one_sitting') == 'on'
         
         # Due date
         survey.due_date_enabled = request.POST.get('due_date_enabled') == 'on'
@@ -1362,7 +1885,19 @@ def teacher_update_survey_parameters(request, survey_id):
             due_date_str = request.POST.get('due_date')
             if due_date_str:
                 from django.utils.dateparse import parse_datetime
-                survey.due_date = parse_datetime(due_date_str)
+                from django.utils import timezone
+                new_due_date = parse_datetime(due_date_str)
+                
+                # If survey was closed due to past due date, and teacher extends/updates due date to future
+                # automatically reopen the survey
+                if survey.status == 'closed' and survey.due_date and new_due_date:
+                    if new_due_date > timezone.now():
+                        survey.status = 'active'
+                
+                survey.due_date = new_due_date
+        else:
+            # If due date is disabled, clear the due date
+            survey.due_date = None
         
         # Description
         survey.description = request.POST.get('description', '')
@@ -1370,21 +1905,6 @@ def teacher_update_survey_parameters(request, survey_id):
         # Instructions
         instructions = request.POST.getlist('instructions[]')
         survey.instructions = [inst.strip() for inst in instructions if inst.strip()]
-        
-        # Attempts
-        survey.attempts_enabled = request.POST.get('attempts_enabled') == 'on'
-        if survey.attempts_enabled:
-            attempt_type = request.POST.get('attempt_type')
-            if attempt_type == 'single':
-                survey.single_attempt = True
-                survey.max_attempts = None
-            else:
-                survey.single_attempt = False
-                max_attempts = request.POST.get('max_attempts')
-                if max_attempts:
-                    survey.max_attempts = int(max_attempts)
-        
-        survey.require_completion_in_one_sitting = request.POST.get('require_completion_in_one_sitting') == 'on'
         
         survey.save()
         
@@ -1409,27 +1929,26 @@ def api_toggle_survey_status(request, survey_id):
         action = request.POST.get('action', 'activate')  # 'activate' or 'close'
         
         if action == 'activate':
-            # Validate that ALL three required parameters are set
-            missing_params = []
+            # Validate that enabled parameters have valid values
+            validation_errors = []
             
-            # Check duration
-            if not survey.duration_enabled or not survey.duration_minutes:
-                missing_params.append('Duration')
+            # Check duration - only if enabled
+            if survey.duration_enabled and not survey.duration_minutes:
+                validation_errors.append('Duration is enabled but no duration value is set')
             
-            # Check attempts
-            if not survey.attempts_enabled:
-                missing_params.append('Attempts')
-            elif not survey.single_attempt and (not survey.max_attempts or survey.max_attempts < 1):
-                missing_params.append('Attempts (max attempts must be set)')
+            # Check attempts - only if enabled
+            if survey.attempts_enabled:
+                if not survey.single_attempt and (not survey.max_attempts or survey.max_attempts < 1):
+                    validation_errors.append('Attempts is enabled but max attempts value is not set')
             
-            # Check due date
-            if not survey.due_date_enabled or not survey.due_date:
-                missing_params.append('Due Date')
+            # Check due date - only if enabled
+            if survey.due_date_enabled and not survey.due_date:
+                validation_errors.append('Due Date is enabled but no date is set')
             
-            if missing_params:
+            if validation_errors:
                 return JsonResponse({
                     'success': False,
-                    'error': f'Please set the following parameters before activating: {", ".join(missing_params)}'
+                    'error': '. '.join(validation_errors)
                 }, status=400)
             
             # Check if survey has existing responses
@@ -1624,3 +2143,270 @@ def teacher_remove_student(request, course_id, student_id):
     messages.success(request, f'{student.get_full_name() or student.username} has been removed from the course.')
     
     return redirect('teacher-course-detail', course_id=course.id)
+
+
+@login_required
+def teacher_survey_submissions(request, survey_id):
+    """View survey submissions with analytics"""
+    if request.user.role != 'teacher':
+        messages.error(request, 'Access denied.')
+        return redirect('student-home')
+    
+    survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
+    questions = survey.questions.exclude(question_type='section').order_by('order')
+    
+    # Get all complete responses
+    all_responses = survey.responses.filter(is_complete=True).select_related('student').order_by('-submitted_at')
+    total_responses = all_responses.count()
+    
+    # Paginate responses for Individual tab
+    page = request.GET.get('page', 1)
+    paginator = Paginator(all_responses, 20)
+    responses = paginator.get_page(page)
+    
+    # Add response count for each question
+    questions_with_count = []
+    for question in questions:
+        response_count = QuestionResponse.objects.filter(
+            question=question,
+            survey_response__is_complete=True
+        ).count()
+        question.response_count = response_count
+        questions_with_count.append(question)
+    
+    context = {
+        'survey': survey,
+        'questions': questions_with_count,
+        'responses': responses,
+        'total_responses': total_responses,
+        'unread_count': 6,
+    }
+    return render(request, 'teacher/survey_submissions.html', context)
+
+
+@login_required
+def api_question_analytics(request, question_id):
+    """Get analytics data for a specific question"""
+    question = get_object_or_404(Question, id=question_id)
+    
+    # Verify ownership
+    if question.survey.created_by != request.user:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+    
+    # Get all responses for this question from complete surveys
+    responses = QuestionResponse.objects.filter(
+        question=question,
+        survey_response__is_complete=True
+    ).select_related('survey_response__student')
+    
+    response_count = responses.count()
+    data = {
+        'question_type': question.question_type,
+        'response_count': response_count,
+        'labels': [],
+        'values': []
+    }
+    
+    if question.question_type in ['multiple_choice', 'dropdown']:
+        # Count responses for each option
+        option_counts = {}
+        for response in responses:
+            selected_options = response.response_options.all()
+            for option in selected_options:
+                option_counts[option.option_text] = option_counts.get(option.option_text, 0) + 1
+        
+        data['labels'] = list(option_counts.keys())
+        data['values'] = list(option_counts.values())
+    
+    elif question.question_type == 'checkboxes':
+        # Count responses for each option (multiple selections possible)
+        option_counts = {}
+        for response in responses:
+            selected_options = response.response_options.all()
+            for option in selected_options:
+                option_counts[option.option_text] = option_counts.get(option.option_text, 0) + 1
+        
+        data['labels'] = list(option_counts.keys())
+        data['values'] = list(option_counts.values())
+    
+    elif question.question_type == 'rating':
+        # Count rating values (1-5)
+        rating_counts = {str(i): 0 for i in range(1, 6)}
+        total = 0
+        sum_ratings = 0
+        
+        for response in responses:
+            if response.response_text:
+                try:
+                    rating = int(response.response_text)
+                    if 1 <= rating <= 5:
+                        rating_counts[str(rating)] += 1
+                        sum_ratings += rating
+                        total += 1
+                except ValueError:
+                    pass
+        
+        data['labels'] = ['1', '2', '3', '4', '5']
+        data['values'] = [rating_counts[str(i)] for i in range(1, 6)]
+        data['average'] = sum_ratings / total if total > 0 else 0
+    
+    elif question.question_type == 'scale':
+        # Get scale range from settings
+        min_val = question.settings.get('min', 1)
+        max_val = question.settings.get('max', 10)
+        
+        scale_counts = {str(i): 0 for i in range(min_val, max_val + 1)}
+        total = 0
+        sum_values = 0
+        
+        for response in responses:
+            if response.response_text:
+                try:
+                    value = int(response.response_text)
+                    if min_val <= value <= max_val:
+                        scale_counts[str(value)] += 1
+                        sum_values += value
+                        total += 1
+                except ValueError:
+                    pass
+        
+        data['labels'] = [str(i) for i in range(min_val, max_val + 1)]
+        data['values'] = [scale_counts[str(i)] for i in range(min_val, max_val + 1)]
+        data['average'] = sum_values / total if total > 0 else 0
+    
+    elif question.question_type in ['short_text', 'long_text']:
+        # Return text responses
+        text_responses = [r.response_text for r in responses if r.response_text]
+        data['responses'] = text_responses
+    
+    elif question.question_type == 'date':
+        # Group by date
+        date_counts = Counter()
+        for response in responses:
+            if response.response_text:
+                date_counts[response.response_text] += 1
+        
+        sorted_dates = sorted(date_counts.items())
+        data['labels'] = [d[0] for d in sorted_dates]
+        data['values'] = [d[1] for d in sorted_dates]
+    
+    elif question.question_type == 'time':
+        # Group by time
+        time_counts = Counter()
+        for response in responses:
+            if response.response_text:
+                time_counts[response.response_text] += 1
+        
+        sorted_times = sorted(time_counts.items())
+        data['labels'] = [t[0] for t in sorted_times]
+        data['values'] = [t[1] for t in sorted_times]
+    
+    elif question.question_type == 'file_upload':
+        # Return file information
+        files = []
+        for response in responses:
+            if response.file_upload:
+                files.append({
+                    'name': response.file_upload.name.split('/')[-1],
+                    'url': response.file_upload.url,
+                    'student': response.survey_response.student.get_full_name() or response.survey_response.student.email
+                })
+        data['files'] = files
+    
+    return JsonResponse(data)
+
+
+@login_required
+def api_response_detail(request, response_id):
+    """Get detailed information about a specific response"""
+    response = get_object_or_404(SurveyResponse, id=response_id)
+    
+    # Verify ownership
+    if response.survey.created_by != request.user:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+    
+    # Get all question responses
+    question_responses = response.question_responses.select_related('question').order_by('question__order')
+    
+    answers = []
+    for qr in question_responses:
+        answer_text = ''
+        
+        if qr.question.question_type in ['multiple_choice', 'checkboxes', 'dropdown']:
+            selected = qr.response_options.all()
+            if selected:
+                answer_text = ', '.join([opt.option_text for opt in selected])
+        elif qr.question.question_type == 'file_upload':
+            if qr.file_upload:
+                answer_text = f'<a href="{qr.file_upload.url}" target="_blank" class="text-indigo-600 hover:text-indigo-700">Download file</a>'
+        else:
+            answer_text = qr.response_text or ''
+        
+        if qr.question.question_type != 'section':
+            answers.append({
+                'question': qr.question.question_text,
+                'answer': answer_text
+            })
+    
+    data = {
+        'student_name': response.student.get_full_name() or response.student.username,
+        'student_email': response.student.email,
+        'submitted_at': response.submitted_at.strftime('%b %d, %Y %I:%M %p') if response.submitted_at else None,
+        'attempt_number': response.attempt_number,
+        'answers': answers
+    }
+    
+    return JsonResponse(data)
+
+
+@login_required
+def api_export_survey_csv(request, survey_id):
+    """Export survey responses to CSV"""
+    survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
+    
+    # Create the HttpResponse object with CSV header
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="survey_{survey_id}_responses.csv"'
+    
+    writer = csv.writer(response)
+    
+    # Get all questions (excluding sections)
+    questions = survey.questions.exclude(question_type='section').order_by('order')
+    
+    # Write header row
+    header = ['Student Name', 'Student Email', 'Submitted At', 'Attempt']
+    for question in questions:
+        header.append(question.question_text)
+    writer.writerow(header)
+    
+    # Get all complete responses
+    responses = survey.responses.filter(is_complete=True).select_related('student').order_by('-submitted_at')
+    
+    # Write data rows
+    for survey_response in responses:
+        row = [
+            survey_response.student.get_full_name() or survey_response.student.username,
+            survey_response.student.email,
+            survey_response.submitted_at.strftime('%Y-%m-%d %H:%M:%S') if survey_response.submitted_at else '',
+            survey_response.attempt_number
+        ]
+        
+        # Get responses for each question
+        for question in questions:
+            qr = survey_response.question_responses.filter(question=question).first()
+            
+            if qr:
+                if question.question_type in ['multiple_choice', 'checkboxes', 'dropdown']:
+                    selected = qr.response_options.all()
+                    answer = ', '.join([opt.option_text for opt in selected]) if selected else ''
+                elif question.question_type == 'file_upload':
+                    answer = qr.file_upload.name if qr.file_upload else ''
+                else:
+                    answer = qr.response_text or ''
+                row.append(answer)
+            else:
+                row.append('')
+        
+        writer.writerow(row)
+    
+    return response

@@ -1,6 +1,6 @@
 <!-- Parameters Modal -->
-<div id="parameters-modal" tabindex="-1" aria-hidden="true" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 overflow-y-auto">
-    <div class="relative p-4 w-full max-w-3xl max-h-full">
+<div id="parameters-modal" tabindex="-1" aria-hidden="true" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 overflow-y-auto" onclick="handleParametersBackdropClick(event)">
+    <div class="relative p-4 w-full max-w-3xl max-h-full" onclick="event.stopPropagation()">
         <div class="relative bg-white rounded-lg shadow">
             <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t">
                 <div>
@@ -47,7 +47,7 @@
                 <!-- Duration Tab -->
                 <div id="tab-content-duration" class="parameter-tab-content">
                     <div class="mb-4">
-                        <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center justify-between mb-6">
                             <label class="text-sm font-medium text-gray-900">Duration</label>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input type="checkbox" name="duration_enabled" id="duration_toggle" class="sr-only peer" {% if survey.duration_enabled %}checked{% endif %}>
@@ -56,28 +56,17 @@
                         </div>
                         
                         <div id="duration-settings" class="{% if not survey.duration_enabled %}hidden{% endif %}">
-                            <div class="mb-4">
-                                <div class="flex border border-gray-300 rounded-lg mb-4">
-                                    <button type="button" onclick="switchDurationUnit('minutes')" id="duration-unit-minutes" class="flex-1 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-l-lg">
-                                        Minutes
-                                    </button>
-                                    <button type="button" onclick="switchDurationUnit('hours')" id="duration-unit-hours" class="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white rounded-r-lg hover:bg-gray-50">
-                                        Hours
-                                    </button>
+                            <div class="mb-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <label class="block text-base font-medium text-gray-900">
+                                        <span id="duration-value" class="text-indigo-600">{{ survey.duration_minutes|default:20 }} min</span>
+                                    </label>
                                 </div>
-                                
-                                <div class="mb-4">
-                                    <label class="block text-sm font-medium text-gray-900 mb-2">Duration: <span id="duration-value">{{ survey.duration_minutes|default:20 }} min</span></label>
-                                    <input type="range" name="duration_minutes" id="duration-slider" min="10" max="120" step="5" value="{{ survey.duration_minutes|default:20 }}" oninput="updateDurationValue(this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
-                                    <div class="flex justify-between text-xs text-gray-500 mt-1">
-                                        <span>10 min</span>
-                                        <span>60 min</span>
-                                        <span>2 hours</span>
-                                    </div>
-                                </div>
-                                
-                                <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-600">
-                                    Perfect for short surveys and precise timing. Adjust in 5-minute increments from 10 minutes to 2 hours.
+                                <input type="range" name="duration_minutes" id="duration-slider" min="10" max="120" step="5" value="{{ survey.duration_minutes|default:20 }}" oninput="updateDurationValue(this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                                <div class="flex justify-between text-xs text-gray-500 mt-2">
+                                    <span>10 min</span>
+                                    <span>60 min</span>
+                                    <span>2 hours</span>
                                 </div>
                             </div>
                         </div>
@@ -96,13 +85,29 @@
                         </div>
                         
                         <div id="due-date-settings" class="{% if not survey.due_date_enabled %}hidden{% endif %}">
-                            <div class="relative">
+                            <div class="relative mb-4">
                                 <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                                     <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
                                     </svg>
                                 </div>
                                 <input type="datetime-local" name="due_date" id="due_date_input" value="{% if survey.due_date %}{{ survey.due_date|date:'Y-m-d\TH:i' }}{% endif %}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-10 p-2.5" placeholder="MM/DD/YYYY hh:mm aa">
+                            </div>
+                            
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                <div class="flex items-start space-x-2">
+                                    <svg class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                                    </svg>
+                                    <div class="text-sm text-blue-700">
+                                        <p class="font-medium mb-1">Automatic closing & reopening:</p>
+                                        <ul class="list-disc ml-4 space-y-1">
+                                            <li>Survey automatically closes when due date/time is reached</li>
+                                            <li>To reopen: Either extend the due date to a future time or disable the due date</li>
+                                            <li>Extending to a future date will automatically reactivate a closed survey</li>
+                                        </ul>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -185,6 +190,22 @@
                                         <p class="text-sm text-gray-600">Students can only submit the survey once. Best for assessments and final submissions.</p>
                                     </div>
                                 </div>
+                                
+                                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                    <div class="flex items-start space-x-2">
+                                        <svg class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <div class="text-sm text-blue-700">
+                                            <p class="font-medium mb-1">How attempts work with duration:</p>
+                                            <ul class="list-disc ml-4 space-y-1">
+                                                <li>If duration is enabled: Not finishing within the time limit will reduce attempts by 1</li>
+                                                <li>If attempts are disabled but duration is enabled: Students get only one chance (no retries after timeout)</li>
+                                                <li>If both are disabled: Students can save progress and return anytime</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             
                             <div class="mt-4">
@@ -218,9 +239,31 @@
     </div>
 </div>
 
+<!-- Discard Changes Confirmation Modal -->
+<div id="discard-parameters-modal" tabindex="-1" aria-hidden="true" class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50">
+    <div class="relative p-4 w-full max-w-md">
+        <div class="relative bg-white rounded-lg shadow">
+            <div class="p-6 text-center">
+                <svg class="mx-auto mb-4 text-gray-400 w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <h3 class="mb-2 text-lg font-normal text-gray-900">Discard unsaved changes?</h3>
+                <p class="mb-5 text-sm text-gray-500">You have unsaved changes. Are you sure you want to close without saving?</p>
+                <div class="flex items-center justify-center space-x-3">
+                    <button type="button" onclick="cancelDiscardParameters()" class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900">
+                        Cancel
+                    </button>
+                    <button type="button" onclick="confirmDiscardParameters()" class="text-white bg-red-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">
+                        Discard Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 let currentParameterTab = 'duration';
-let durationUnit = 'minutes';
 let originalParameterStates = {};
 
 function openParametersModal() {
@@ -246,9 +289,82 @@ function openParametersModal() {
 }
 
 function closeParametersModal() {
-    // Restore original parameter states
-    restoreOriginalParameterStates();
+    // Check if there are unsaved changes
+    if (hasParameterChanges()) {
+        // Show discard confirmation modal
+        document.getElementById('discard-parameters-modal').classList.remove('hidden');
+        return;
+    }
     
+    // No changes, close immediately
+    document.getElementById('parameters-modal').classList.add('hidden');
+}
+
+function handleParametersBackdropClick(event) {
+    // Only trigger if clicking directly on the backdrop (not on child elements)
+    if (event.target.id === 'parameters-modal') {
+        closeParametersModal();
+    }
+}
+
+function hasParameterChanges() {
+    if (!originalParameterStates || Object.keys(originalParameterStates).length === 0) {
+        return false;
+    }
+    
+    // Check duration
+    const durationEnabled = document.getElementById('duration_toggle')?.checked || false;
+    if (durationEnabled !== originalParameterStates.duration_enabled) return true;
+    
+    const durationMinutes = document.getElementById('duration-slider')?.value;
+    if (durationMinutes != originalParameterStates.duration_minutes) return true;
+    
+    // Check attempts
+    const attemptsEnabled = document.getElementById('attempts_toggle')?.checked || false;
+    if (attemptsEnabled !== originalParameterStates.attempts_enabled) return true;
+    
+    const attemptType = document.querySelector('input[name="attempt_type"]:checked')?.value;
+    if (attemptType !== originalParameterStates.attempt_type) return true;
+    
+    const maxAttempts = document.getElementById('max_attempts')?.value;
+    if (maxAttempts != originalParameterStates.max_attempts) return true;
+    
+    const oneSitting = document.getElementById('one_sitting_toggle')?.checked || false;
+    if (oneSitting !== originalParameterStates.require_completion_in_one_sitting) return true;
+    
+    // Check due date
+    const dueDateEnabled = document.getElementById('due_date_toggle')?.checked || false;
+    if (dueDateEnabled !== originalParameterStates.due_date_enabled) return true;
+    
+    const dueDate = document.getElementById('due_date_input')?.value || null;
+    if (dueDate !== originalParameterStates.due_date) return true;
+    
+    // Check description
+    const description = document.getElementById('survey_description')?.value || '';
+    if (description !== originalParameterStates.description) return true;
+    
+    // Check instructions
+    const instructionsEnabled = document.getElementById('instructions_toggle')?.checked || false;
+    if (instructionsEnabled !== originalParameterStates.instructions_enabled) return true;
+    
+    const currentInstructions = Array.from(document.querySelectorAll('input[name="instructions[]"]')).map(input => input.value);
+    if (currentInstructions.length !== originalParameterStates.instructions.length) return true;
+    for (let i = 0; i < currentInstructions.length; i++) {
+        if (currentInstructions[i] !== originalParameterStates.instructions[i]) return true;
+    }
+    
+    return false;
+}
+
+function cancelDiscardParameters() {
+    // Close discard modal, keep parameters modal open
+    document.getElementById('discard-parameters-modal').classList.add('hidden');
+}
+
+function confirmDiscardParameters() {
+    // Restore original states and close both modals
+    restoreOriginalParameterStates();
+    document.getElementById('discard-parameters-modal').classList.add('hidden');
     document.getElementById('parameters-modal').classList.add('hidden');
 }
 
@@ -375,31 +491,9 @@ function switchParameterTab(tab) {
     currentParameterTab = tab;
 }
 
-function switchDurationUnit(unit) {
-    durationUnit = unit;
-    const minutesBtn = document.getElementById('duration-unit-minutes');
-    const hoursBtn = document.getElementById('duration-unit-hours');
-    
-    if (unit === 'minutes') {
-        minutesBtn.classList.add('text-white', 'bg-indigo-600');
-        minutesBtn.classList.remove('text-gray-700', 'bg-white');
-        hoursBtn.classList.remove('text-white', 'bg-indigo-600');
-        hoursBtn.classList.add('text-gray-700', 'bg-white');
-    } else {
-        hoursBtn.classList.add('text-white', 'bg-indigo-600');
-        hoursBtn.classList.remove('text-gray-700', 'bg-white');
-        minutesBtn.classList.remove('text-white', 'bg-indigo-600');
-        minutesBtn.classList.add('text-gray-700', 'bg-white');
-    }
-}
-
 function updateDurationValue(value) {
     const display = document.getElementById('duration-value');
-    if (durationUnit === 'minutes') {
-        display.textContent = value + ' min';
-    } else {
-        display.textContent = (value / 60).toFixed(1) + ' hours';
-    }
+    display.textContent = value + ' min';
 }
 
 function addInstruction() {

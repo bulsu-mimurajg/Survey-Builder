@@ -1,0 +1,263 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preview: {{ survey.title }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <!-- Preview Banner -->
+    <div class="bg-yellow-50 border-b border-yellow-200">
+        <div class="max-w-4xl mx-auto px-4 py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                    </svg>
+                    <span class="text-sm font-medium text-yellow-800">Preview Mode - This is how students will see your survey</span>
+                </div>
+                <button onclick="window.close()" class="text-sm font-medium text-yellow-600 hover:text-yellow-800">
+                    Close Preview
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-4xl mx-auto px-4 py-8">
+        <!-- Survey Header -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8 mb-6">
+            <h1 class="text-3xl font-bold text-gray-900 mb-4">{{ survey.title }}</h1>
+            
+            {% if survey.description %}
+            <div class="mb-6">
+                <p class="text-gray-600">{{ survey.description }}</p>
+            </div>
+            {% endif %}
+            
+            <!-- Survey Info -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                {% if duration %}
+                <div class="flex items-center space-x-2 text-sm">
+                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span class="text-gray-600">Duration: <span class="font-medium text-gray-900">{{ duration }}</span></span>
+                </div>
+                {% endif %}
+                
+                {% if due_date %}
+                <div class="flex items-center space-x-2 text-sm">
+                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    <span class="text-gray-600">Due: <span class="font-medium text-gray-900">{{ due_date }}</span></span>
+                </div>
+                {% endif %}
+                
+                <div class="flex items-center space-x-2 text-sm">
+                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <span class="text-gray-600">Questions: <span class="font-medium text-gray-900">{{ questions|length }}</span></span>
+                </div>
+            </div>
+            
+            {% if survey.instructions %}
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 class="text-sm font-semibold text-blue-900 mb-2">Instructions</h3>
+                <ol class="list-decimal list-inside space-y-1 text-sm text-blue-800">
+                    {% for instruction in survey.instructions %}
+                    <li>{{ instruction }}</li>
+                    {% endfor %}
+                </ol>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Questions -->
+        <div id="survey-pages-container">
+            {% if pages %}
+                {% for page in pages %}
+                <div class="survey-page space-y-6 {% if not forloop.first %}hidden{% endif %}" data-page="{{ forloop.counter }}">
+                    <!-- Section Header Card (if this page starts with a section) -->
+                    {% if page.section_info %}
+                    <div class="bg-indigo-50 border-l-4 border-indigo-500 rounded-lg shadow-sm p-6">
+                        <h2 class="text-2xl font-bold text-indigo-900 mb-2">{{ page.section_info.title }}</h2>
+                        {% if page.section_info.description %}
+                        <p class="text-indigo-700">{{ page.section_info.description }}</p>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Page Questions -->
+                    {% for q_item in page.questions %}
+                    {% with question=q_item.question question_number=q_item.counter %}
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex-1">
+                                <div class="flex items-center space-x-2 mb-2">
+                                    <span class="text-sm font-medium text-gray-500">Question {{ question_number }}</span>
+                                    {% if question.required %}
+                                    <span class="text-red-500 text-sm">*</span>
+                                    {% endif %}
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700">
+                                        {{ question.get_question_type_display }}
+                                    </span>
+                                </div>
+                                <h3 class="text-lg font-medium text-gray-900">{{ question.question_text }}</h3>
+                            </div>
+                        </div>
+
+                        <!-- Question Response Area -->
+                        <div class="mt-4">
+                            {% if question.question_type == 'short_text' %}
+                            <input type="text" disabled class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500" placeholder="Short answer text">
+                            
+                            {% elif question.question_type == 'long_text' %}
+                            <textarea disabled rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500" placeholder="Long answer text"></textarea>
+                            
+                            {% elif question.question_type == 'multiple_choice' %}
+                            <div class="space-y-2">
+                                {% for option in question.options.all %}
+                                <label class="flex items-center space-x-3 p-3 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed">
+                                    <input type="radio" disabled class="w-4 h-4 text-indigo-600">
+                                    <span class="text-gray-600">{{ option.option_text }}</span>
+                                </label>
+                                {% empty %}
+                                <p class="text-sm text-gray-400 italic">No options added</p>
+                                {% endfor %}
+                            </div>
+                            
+                            {% elif question.question_type == 'checkboxes' %}
+                            <div class="space-y-2">
+                                {% for option in question.options.all %}
+                                <label class="flex items-center space-x-3 p-3 border border-gray-300 rounded-lg bg-gray-50 cursor-not-allowed">
+                                    <input type="checkbox" disabled class="w-4 h-4 text-indigo-600 rounded">
+                                    <span class="text-gray-600">{{ option.option_text }}</span>
+                                </label>
+                                {% empty %}
+                                <p class="text-sm text-gray-400 italic">No options added</p>
+                                {% endfor %}
+                            </div>
+                            
+                            {% elif question.question_type == 'dropdown' %}
+                            <select disabled class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+                                <option>Select an option</option>
+                                {% for option in question.options.all %}
+                                <option>{{ option.option_text }}</option>
+                                {% endfor %}
+                            </select>
+                            
+                            {% elif question.question_type == 'rating' %}
+                            <div class="flex items-center space-x-2">
+                                {% for i in "12345" %}
+                                <button disabled class="w-10 h-10 border-2 border-gray-300 rounded-full flex items-center justify-center text-gray-400 bg-gray-50">
+                                    {{ forloop.counter }}
+                                </button>
+                                {% endfor %}
+                            </div>
+                            
+                            {% elif question.question_type == 'scale' %}
+                            <div class="space-y-3">
+                                <input type="range" disabled min="{{ question.settings.min|default:1 }}" max="{{ question.settings.max|default:10 }}" class="w-full accent-indigo-600">
+                                <div class="flex justify-between text-xs text-gray-500">
+                                    <span>{{ question.settings.min|default:1 }}</span>
+                                    <span>{{ question.settings.max|default:10 }}</span>
+                                </div>
+                            </div>
+                            
+                            {% elif question.question_type == 'date' %}
+                            <input type="date" disabled class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+                            
+                            {% elif question.question_type == 'time' %}
+                            <input type="time" disabled class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
+                            
+                            {% elif question.question_type == 'file_upload' %}
+                            <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50">
+                                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                                </svg>
+                                <p class="mt-2 text-sm text-gray-500">Click to upload or drag and drop</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endwith %}
+                    {% endfor %}
+                    
+                    <!-- Page Navigation -->
+                    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <div class="flex items-center justify-between">
+                            <div class="text-sm text-gray-600">
+                                {% if total_pages > 1 %}
+                                <p>Page {{ forloop.counter }} of {{ total_pages }}</p>
+                                {% endif %}
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                {% if not forloop.first %}
+                                <button onclick="previousPage()" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                                    Back
+                                </button>
+                                {% endif %}
+                                {% if not forloop.last %}
+                                <button onclick="nextPage()" class="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                                    Continue
+                                </button>
+                                {% else %}
+                                <button disabled class="px-6 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed">
+                                    Submit Survey
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">No questions added yet</h3>
+                    <p class="mt-1 text-sm text-gray-500">Add questions to your survey to see them in the preview</p>
+                </div>
+            {% endif %}
+        </div>
+    
+    <script>
+        let currentPage = 1;
+        const totalPages = {{ total_pages|default:1 }};
+        
+        function showPage(pageNumber) {
+            // Hide all pages
+            document.querySelectorAll('.survey-page').forEach(page => {
+                page.classList.add('hidden');
+            });
+            
+            // Show the requested page
+            const pageToShow = document.querySelector(`.survey-page[data-page="${pageNumber}"]`);
+            if (pageToShow) {
+                pageToShow.classList.remove('hidden');
+                currentPage = pageNumber;
+                
+                // Scroll to top smoothly
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+        
+        function nextPage() {
+            if (currentPage < totalPages) {
+                showPage(currentPage + 1);
+            }
+        }
+        
+        function previousPage() {
+            if (currentPage > 1) {
+                showPage(currentPage - 1);
+            }
+        }
+    </script>
+</body>
+</html>

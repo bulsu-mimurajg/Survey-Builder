@@ -50,6 +50,30 @@
                             <path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                         </svg>
                     </div>
+                    {% elif question.question_type == 'date' %}
+                    <div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center">
+                        <svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    {% elif question.question_type == 'time' %}
+                    <div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center">
+                        <svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    {% elif question.question_type == 'file_upload' %}
+                    <div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center">
+                        <svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M5.5 13a3.5 3.5 0 01-.369-6.98 4 4 0 117.753-1.977A4.5 4.5 0 1113.5 13H11V9.413l1.293 1.293a1 1 0 001.414-1.414l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13H5.5z"/>
+                        </svg>
+                    </div>
+                    {% elif question.question_type == 'section' %}
+                    <div class="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center">
+                        <svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
+                        </svg>
+                    </div>
                     {% else %}
                     <div class="w-6 h-6 bg-gray-100 rounded flex items-center justify-center">
                         <svg class="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
@@ -58,9 +82,13 @@
                     </div>
                     {% endif %}
                 </div>
+                {% if question.question_type == 'section' %}
+                <span class="text-sm font-medium text-gray-500" data-is-section="true">Section 2</span>
+                {% else %}
                 <span class="text-sm font-medium text-gray-500">Question {{ question.order|add:1 }}</span>
                 {% if question.required %}
                 <span class="text-xs text-red-600">* Required</span>
+                {% endif %}
                 {% endif %}
                 <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">{{ question.get_question_type_display }}</span>
             </div>
@@ -101,6 +129,42 @@
                         <option>{{ option.option_text }}</option>
                         {% endfor %}
                     </select>
+                {% elif question.question_type == 'rating' %}
+                    <div class="flex space-x-2">
+                        {% for i in "12345" %}
+                        <button disabled class="w-8 h-8 border border-gray-300 rounded hover:bg-indigo-50">⭐</button>
+                        {% endfor %}
+                    </div>
+                {% elif question.question_type == 'scale' %}
+                    <div class="flex space-x-2">
+                        {% for i in "0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789" %}
+                            {% with scale_min=question.settings.min|default:1 scale_max=question.settings.max|default:10 %}
+                                {% if forloop.counter >= scale_min and forloop.counter <= scale_max %}
+                                <button disabled class="w-8 h-8 border border-gray-300 rounded hover:bg-indigo-50">{{ forloop.counter }}</button>
+                                {% endif %}
+                            {% endwith %}
+                        {% endfor %}
+                    </div>
+                {% elif question.question_type == 'date' %}
+                    <input type="date" class="w-full px-3 py-2 border border-gray-300 rounded-lg" disabled>
+                {% elif question.question_type == 'time' %}
+                    <input type="time" class="w-full px-3 py-2 border border-gray-300 rounded-lg" disabled>
+                {% elif question.question_type == 'file_upload' %}
+                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                        <svg class="w-12 h-12 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                        </svg>
+                        <p class="mt-2 text-sm text-gray-500">Click to upload or drag and drop</p>
+                    </div>
+                {% elif question.question_type == 'section' %}
+                    <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                        <p class="text-sm text-indigo-600 font-medium mb-1">Section Break</p>
+                        {% if question.settings.description %}
+                        <p class="text-sm text-gray-700">{{ question.settings.description }}</p>
+                        {% else %}
+                        <p class="text-xs text-gray-500">Add a description to provide context for the next set of questions</p>
+                        {% endif %}
+                    </div>
                 {% elif question.question_type == 'heading' %}
                     <h3 class="text-xl font-bold text-gray-900">{{ question.question_text }}</h3>
                 {% elif question.question_type == 'paragraph' %}
