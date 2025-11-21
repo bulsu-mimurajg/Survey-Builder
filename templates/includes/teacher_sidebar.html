@@ -1,0 +1,100 @@
+<!-- Teacher Sidebar Navigation -->
+<aside id="sidebar" class="fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 flex flex-col z-40 transition-transform -translate-x-full sm:translate-x-0">
+    <!-- Logo -->
+    <div class="p-6 border-b border-gray-200">
+        <div class="flex items-center space-x-2">
+            <div class="text-2xl font-bold text-indigo-600">
+                <svg class="w-8 h-8" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 12C8 10.8954 8.89543 10 10 10H15C16.1046 10 17 10.8954 17 12V15C17 16.1046 16.1046 17 15 17H10C8.89543 17 8 16.1046 8 15V12Z" fill="currentColor"/>
+                    <path d="M23 12C23 10.8954 23.8954 10 25 10H30C31.1046 10 32 10.8954 32 12V15C32 16.1046 31.1046 17 30 17H25C23.8954 17 23 16.1046 23 15V12Z" fill="currentColor"/>
+                    <path d="M10 23C8.89543 23 8 23.8954 8 25V28C8 29.1046 8.89543 30 10 30H15C16.1046 30 17 29.1046 17 28V25C17 23.8954 16.1046 23 15 23H10Z" fill="currentColor"/>
+                    <path d="M23 25C23 23.8954 23.8954 23 25 23H30C31.1046 23 32 23.8954 32 25V28C32 29.1046 31.1046 30 30 30H25C23.8954 30 23 29.1046 23 28V25Z" fill="currentColor"/>
+                </svg>
+            </div>
+            <span class="text-sm font-bold text-indigo-600">sixsayvensurvey.io</span>
+        </div>
+    </div>
+
+    <!-- Menu -->
+    <nav class="flex-1 p-4 overflow-y-auto">
+        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-3">Menu</div>
+        <div class="space-y-1">
+            <a href="{% url 'teacher-home' %}" class="flex items-center px-3 py-2.5 rounded-lg {% if request.resolver_match.url_name == 'teacher-home' %}bg-gradient-to-r from-indigo-50 to-white text-indigo-600 border-l-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                <svg class="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+                </svg>
+                <span class="font-medium text-sm">Home</span>
+            </a>
+            <a href="{% url 'teacher-notifications' %}" class="flex items-center px-3 py-2.5 rounded-lg {% if request.resolver_match.url_name == 'teacher-notifications' %}bg-gradient-to-r from-indigo-50 to-white text-indigo-600 border-l-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                <svg class="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
+                </svg>
+                <span class="font-medium text-sm">Notifications</span>
+                {% if unread_count %}
+                <span class="ml-auto bg-indigo-100 text-indigo-600 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                    {{ unread_count }}
+                </span>
+                {% endif %}
+            </a>
+            <a href="{% url 'teacher-courses' %}" class="flex items-center px-3 py-2.5 rounded-lg {% if request.resolver_match.url_name == 'teacher-courses' %}bg-gradient-to-r from-indigo-50 to-white text-indigo-600 border-l-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                <svg class="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z"/>
+                </svg>
+                <span class="font-medium text-sm">My Courses</span>
+            </a>
+            <a href="{% url 'teacher-survey-builder' %}" class="flex items-center px-3 py-2.5 rounded-lg {% if request.resolver_match.url_name == 'teacher-survey-builder' %}bg-gradient-to-r from-indigo-50 to-white text-indigo-600 border-l-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                <svg class="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/>
+                </svg>
+                <span class="font-medium text-sm">Survey Builder</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Account Section -->
+    <div class="p-4 border-t border-gray-200">
+        <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-3">Account</div>
+        <div class="space-y-1">
+            <a href="{% url 'teacher-settings' %}" class="flex items-center px-3 py-2.5 rounded-lg {% if request.resolver_match.url_name == 'teacher-settings' %}bg-gradient-to-r from-indigo-50 to-white text-indigo-600 border-l-4 border-indigo-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">
+                <svg class="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/>
+                </svg>
+                <span class="font-medium text-sm">Account Settings</span>
+            </a>
+            <a href="{% url 'teacher-help' %}" class="flex items-center px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-50">
+                <svg class="w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                </svg>
+                <span class="font-medium text-sm">Help</span>
+            </a>
+        </div>
+
+        <!-- User Profile -->
+        <div class="mt-4 flex items-center space-x-3 p-3 rounded-lg bg-gray-50">
+            <div class="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-semibold">
+                {{ user.first_name.0|default:"U" }}
+            </div>
+            <div class="flex-1 min-w-0">
+                <div class="font-medium text-sm text-gray-900 truncate">{{ user.get_full_name|default:"User" }}</div>
+                <div class="text-xs text-gray-500 truncate">{{ user.email }}</div>
+            </div>
+            <button type="button" onclick="document.getElementById('logout-form').submit()" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+            </button>
+        </div>
+        <form id="logout-form" method="post" action="{% url 'logout' %}" class="hidden">
+            {% csrf_token %}
+        </form>
+    </div>
+</aside>
+
+<!-- Mobile menu button -->
+<button data-drawer-target="sidebar" data-drawer-toggle="sidebar" aria-controls="sidebar" type="button" class="inline-flex items-center p-2 mt-2 ml-3 text-sm text-gray-500 rounded-lg sm:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200">
+    <span class="sr-only">Open sidebar</span>
+    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+        <path clip-rule="evenodd" fill-rule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zm0 10.5a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5a.75.75 0 01-.75-.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10z"></path>
+    </svg>
+</button>
+

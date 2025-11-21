@@ -20,7 +20,8 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    # Admin route disabled - teachers use custom interface at /teacher/home/
+    # path('admin/', admin.site.urls),
     path('', include('survey.urls')),
 ]
 

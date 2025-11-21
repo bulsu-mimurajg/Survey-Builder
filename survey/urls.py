@@ -20,4 +20,31 @@ urlpatterns = [
     path('student/settings/', views.student_settings, name='student-settings'),
     path('student/help/', views.student_help, name='student-help'),
     path('student/join-course/', views.student_join_course, name='student-join-course'),
+    
+    # Teacher URLs
+    path('teacher/home/', views.teacher_home, name='teacher-home'),
+    path('teacher/courses/', views.teacher_courses, name='teacher-courses'),
+    path('teacher/courses/create/', views.teacher_create_course, name='teacher-create-course'),
+    path('teacher/courses/<int:course_id>/', views.teacher_course_detail, name='teacher-course-detail'),
+    path('teacher/courses/<int:course_id>/edit/', views.teacher_edit_course, name='teacher-edit-course'),
+    path('teacher/courses/<int:course_id>/regenerate-invite/', views.teacher_regenerate_invite_code, name='teacher-regenerate-invite'),
+    path('teacher/courses/<int:course_id>/add-student/', views.teacher_add_student, name='teacher-add-student'),
+    path('teacher/courses/<int:course_id>/student/<int:student_id>/submissions/', views.teacher_student_submissions, name='teacher-student-submissions'),
+    path('teacher/courses/<int:course_id>/student/<int:student_id>/remove/', views.teacher_remove_student, name='teacher-remove-student'),
+    path('teacher/survey-builder/', views.teacher_survey_board, name='teacher-survey-builder'),
+    path('teacher/survey/create/', views.teacher_create_survey, name='teacher-create-survey'),
+    path('teacher/survey/<int:survey_id>/builder/', views.teacher_survey_builder, name='teacher-survey-builder-detail'),
+    path('teacher/survey/<int:survey_id>/edit/', views.teacher_edit_survey, name='teacher-edit-survey'),
+    path('teacher/survey/<int:survey_id>/parameters/', views.teacher_update_survey_parameters, name='teacher-update-survey-parameters'),
+    path('api/survey/<int:survey_id>/question/add/', views.api_add_question, name='api-add-question'),
+    path('api/survey/question/<int:question_id>/update/', views.api_update_question, name='api-update-question'),
+    path('api/survey/question/<int:question_id>/delete/', views.api_delete_question, name='api-delete-question'),
+    path('api/survey/<int:survey_id>/questions/reorder/', views.api_reorder_questions, name='api-reorder-questions'),
+    path('api/survey/<int:survey_id>/save/', views.api_save_survey, name='api-save-survey'),
+    path('api/survey/<int:survey_id>/courses/update/', views.api_update_course_assignments, name='api-update-course-assignments'),
+    path('api/survey/<int:survey_id>/status/toggle/', views.api_toggle_survey_status, name='api-toggle-survey-status'),
+    path('api/survey/<int:survey_id>/status/confirm-activate/', views.api_confirm_activate_survey, name='api-confirm-activate-survey'),
+    path('teacher/notifications/', views.teacher_home, name='teacher-notifications'),  # Placeholder
+    path('teacher/settings/', views.teacher_home, name='teacher-settings'),  # Placeholder
+    path('teacher/help/', views.teacher_home, name='teacher-help'),  # Placeholder
 ]
