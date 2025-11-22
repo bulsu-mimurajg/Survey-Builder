@@ -1,178 +1,267 @@
 {% extends 'teacher/base_teacher.html' %}
+{% load survey_filters %}
 
-{% block title %}Home - sixsayvensurvey.io{% endblock %}
+{% block title %}Dashboard - sixsayvensurvey.io{% endblock %}
 
 {% block teacher_content %}
+<!-- ApexCharts -->
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
 <!-- Header -->
-<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 gap-4">
-    <div>
-        <h1 class="text-xl sm:text-2xl leading-8 font-normal text-gray-600 flex items-center">
-            <span class="mr-2">👋</span> Welcome, {{ user.first_name|default:"Teacher" }}!
-        </h1>
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+    <div class="flex items-center gap-2">
+        <span class="text-2xl">👋</span>
+        <h1 class="text-2xl font-semibold text-gray-800">Welcome back, Instructor {{ user.first_name|default:"Juan" }}!</h1>
     </div>
-    <div class="text-xs leading-4 font-extrabold text-gray-500">
+    <div class="text-gray-500 font-medium text-sm">
         {{ current_date|date:"F d, Y, l" }}
     </div>
 </div>
 
-<!-- Get Started Card -->
-<div class="mb-6 sm:mb-8 p-4 sm:p-8 bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-lg">
-    <div class="flex items-center justify-between">
-        <div class="flex-1">
-            <h2 class="text-lg sm:text-xl font-bold text-gray-900 mb-2">Teacher Dashboard</h2>
-            <p class="text-sm sm:text-base text-gray-600 mb-4 max-w-2xl">
-                Manage your courses, create surveys, and track student responses. This is your central hub for all teaching activities.
-            </p>
-            <button type="button" class="text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:outline-none focus:ring-indigo-300 font-medium rounded-lg text-sm px-4 sm:px-5 py-2 sm:py-2.5 text-center inline-flex items-center">
-                Create New Survey
-                <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- My Courses -->
-<div class="mb-8">
-    <div class="flex items-center justify-between mb-4 pb-4 border-b border-gray-300">
-        <div class="flex items-center space-x-2">
-            <svg class="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84L5.25 8.051a.999.999 0 01.356-.257l4-1.714a1 1 0 11.788 1.838L7.667 9.088l1.94.831a1 1 0 00.787 0l7-3a1 1 0 000-1.838l-7-3zM3.31 9.397L5 10.12v4.102a8.969 8.969 0 00-1.05-.174 1 1 0 01-.89-.89 11.115 11.115 0 01.25-3.762zM9.3 16.573A9.026 9.026 0 007 14.935v-3.957l1.818.78a3 3 0 002.364 0l5.508-2.361a11.026 11.026 0 01.25 3.762 1 1 0 01-.89.89 8.968 8.968 0 00-5.35 2.524 1 1 0 01-1.4 0zM6 18a1 1 0 001-1v-2.065a8.935 8.935 0 00-2-.712V17a1 1 0 001 1z"/>
-            </svg>
-            <h2 class="text-lg font-semibold text-gray-900">My Courses</h2>
-        </div>
-        <a href="{% url 'teacher-courses' %}" class="text-indigo-600 hover:text-indigo-700 font-medium text-sm inline-flex items-center">
-            View All
-            <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-            </svg>
-        </a>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {% for course in my_courses %}
-        <div class="bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
-            <div class="flex items-center">
-                <div class="w-24 h-20 bg-{{ course.color }}-500 flex items-center justify-center text-white font-bold text-xl flex-shrink-0 rounded-l-lg">
-                    {{ course.code }}
-                </div>
-                <div class="flex-1 px-4 min-w-0">
-                    <h3 class="font-semibold text-gray-900 text-sm truncate mb-1">{{ course.name }}</h3>
-                    <p class="text-xs text-gray-500">{{ course.members }} Students</p>
-                </div>
-                <div class="mr-2 relative">
-                    <button id="course-dropdown-{{ course.id }}" data-dropdown-toggle="dropdown-{{ course.id }}" data-dropdown-placement="bottom-end" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 inline-flex items-center justify-center p-2 text-sm font-medium text-center rounded-lg transition-colors" type="button">
-                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
-                        </svg>
-                    </button>
-                    <div id="dropdown-{{ course.id }}" class="z-50 hidden bg-white border border-gray-200 rounded-lg shadow-lg w-48" data-popper-placement="bottom-end">
-                        <ul class="py-1 text-sm text-gray-700" aria-labelledby="course-dropdown-{{ course.id }}">
-                            <li>
-                                <a href="#" class="flex items-center px-4 py-2.5 hover:bg-gray-50 text-gray-700 hover:text-gray-900 transition-colors">
-                                    <svg class="w-4 h-4 mr-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                    </svg>
-                                    View Details
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
+<!-- Top Stats Row -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
+    <!-- Card 1: Active Surveys -->
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 flex justify-between items-center">
+        <div>
+            <p class="text-gray-500 text-sm font-medium mb-1">Active Surveys</p>
+            <div class="flex items-center gap-2">
+                <h2 class="text-3xl font-bold text-gray-900">{{ active_surveys }}</h2>
+                <span class="bg-green-100 text-green-700 text-xs font-semibold px-2 py-0.5 rounded">↑ +2</span>
             </div>
         </div>
-        {% empty %}
-        <div class="col-span-4 text-center py-8 text-gray-500">
-            No courses yet. Create a course to get started!
+        <div class="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
         </div>
+    </div>
+
+    <!-- Card 2: Total Responses -->
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 flex justify-between items-center">
+        <div>
+            <p class="text-gray-500 text-sm font-medium mb-1">Total Responses</p>
+            <div class="flex items-center gap-2">
+                <h2 class="text-3xl font-bold text-gray-900">{{ total_responses }}</h2>
+                <span class="bg-green-100 text-green-700 text-xs font-semibold px-2 py-0.5 rounded">↑ +48</span>
+            </div>
+        </div>
+        <div class="w-12 h-12 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        </div>
+    </div>
+
+    <!-- Card 3: Average Completion Rate -->
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 flex justify-between items-center">
+        <div>
+            <p class="text-gray-500 text-sm font-medium mb-1">Average Completion Rate</p>
+            <div class="flex items-center gap-2">
+                <h2 class="text-3xl font-bold text-gray-900">{{ completion_rate }}%</h2>
+                <span class="bg-green-100 text-green-700 text-xs font-semibold px-2 py-0.5 rounded">↑ +4%</span>
+            </div>
+        </div>
+        <div class="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+        </div>
+    </div>
+
+    <!-- Card 4: Pending Reviews -->
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 flex justify-between items-center">
+        <div>
+            <p class="text-gray-500 text-sm font-medium mb-1">Pending Reviews</p>
+            <div class="flex items-center gap-2">
+                <h2 class="text-3xl font-bold text-gray-900">{{ pending_reviews }}</h2>
+                <span class="bg-green-100 text-green-700 text-xs font-semibold px-2 py-0.5 rounded">↑ +4%</span>
+            </div>
+        </div>
+        <div class="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        </div>
+    </div>
+</div>
+
+<!-- Second Row: Bento Grid Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    
+    <!-- Course Engagement Chart -->
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 lg:col-span-2">
+        <h3 class="text-gray-900 font-semibold mb-1">Course Engagement</h3>
+        <p class="text-gray-500 text-xs mb-6">Visual summary of completed and pending survey responses.</p>
+        
+        <div id="bar-chart" class="w-full h-64"></div>
+    </div>
+
+    <!-- Students per Course (Pie Chart) -->
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 lg:col-span-1">
+        <h3 class="text-gray-900 font-semibold mb-1">Number of Students per Course</h3>
+        <p class="text-gray-500 text-xs mb-6">Shows total enrolled students in each course.</p>
+
+        <div id="pie-chart" class="flex justify-center w-full"></div>
+    </div>
+</div>
+
+<!-- Third Row: Recent Activity (Full Width) -->
+<div class="grid grid-cols-1 gap-6">
+    
+    <!-- Recent Activity -->
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <div class="flex justify-between items-center mb-2">
+            <div class="flex items-center gap-2">
+                <h3 class="text-gray-900 font-semibold">Recent Activity</h3>
+                <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+            </div>
+            <a href="#" class="text-blue-600 text-sm font-medium flex items-center gap-1 hover:underline">
+                View All <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            </a>
+        </div>
+        <p class="text-gray-500 text-xs mb-6">A feed of the most recent updates across the platform.</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {% for activity in recent_activity %}
+            <!-- Activity Item -->
+            <div class="border border-gray-100 rounded-lg p-3">
+                <div class="flex gap-3 items-start mb-3">
+                    {% if activity.icon == 'check' %}
+                    <div class="bg-green-50 rounded-full p-2 flex-shrink-0">
+                        <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    {% elif activity.icon == 'warning' %}
+                    <div class="bg-yellow-50 rounded-full p-2 flex-shrink-0">
+                        <svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    </div>
+                    {% endif %}
+                    <div class="flex-1 min-w-0">
+                        <h4 class="text-sm font-medium text-gray-900">{{ activity.title }}</h4>
+                        <p class="text-sm text-gray-600 truncate">{{ activity.description }}</p>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-gray-400 flex items-center gap-1">
+                        {{ activity.time }} <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                    </span>
+                    <span class="bg-indigo-900 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{{ activity.course_code }}</span>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-span-full text-center py-12 text-gray-500">
+                <p>No recent activity</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Chart Scripts -->
+<script>
+    // 1. Bar Chart Configuration
+    const barData = [
+        {% for course in course_engagement %}
+        { course: '{{ course.code }}', responses: {{ course.responses }}, pending: {{ course.pending }}, students: {{ course.students }}, name: '{{ course.name|escapejs }}' }{% if not forloop.last %},{% endif %}
         {% endfor %}
-    </div>
-</div>
+    ];
 
-<!-- Survey Builder -->
-<div>
-    <div class="flex items-center justify-between mb-4 pb-4 border-b border-gray-300">
-        <div class="flex items-center space-x-2">
-            <svg class="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/>
-            </svg>
-            <h2 class="text-lg font-semibold text-gray-900">Recent Surveys</h2>
-        </div>
-        <a href="{% url 'teacher-survey-builder' %}" class="text-indigo-600 hover:text-indigo-700 font-medium text-sm inline-flex items-center">
-            View All
-            <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-            </svg>
-        </a>
-    </div>
+    const barOptions = {
+        series: [{
+            name: 'Responses',
+            data: barData.map(c => c.responses)
+        }],
+        chart: {
+            type: 'bar',
+            height: 250,
+            toolbar: { show: false },
+            fontFamily: 'Inter, sans-serif',
+        },
+        colors: ['#22c55e'],
+        plotOptions: {
+            bar: {
+                borderRadius: 6,
+                columnWidth: '25%',
+                distributed: false,
+            }
+        },
+        dataLabels: { enabled: false },
+        legend: { show: false },
+        xaxis: {
+            categories: barData.map(c => c.course),
+            labels: {
+                style: {
+                    colors: '#6b7280',
+                    fontSize: '12px'
+                }
+            },
+            axisBorder: { show: false },
+            axisTicks: { show: false }
+        },
+        yaxis: {
+            show: true,
+            labels: {
+                style: { colors: '#6b7280', fontSize: '12px' }
+            }
+        },
+        grid: {
+            strokeDashArray: 4,
+            borderColor: '#f3f4f6',
+            yaxis: { lines: { show: true } }
+        },
+        tooltip: {
+            custom: function({series, seriesIndex, dataPointIndex, w}) {
+                const data = barData[dataPointIndex];
+                return '<div class="px-3 py-2 bg-white border border-gray-200 shadow rounded">' +
+                       '<div class="text-xs text-gray-500 mb-1">Survey name: <span class="font-bold text-gray-800">' + data.name + '</span></div>' +
+                       '<div class="text-xs text-gray-500">Course: <span class="font-bold text-gray-800">'+ data.course +'</span></div>' +
+                       '<div class="text-xs text-gray-500">Responses: <span class="font-bold text-gray-800">' + data.responses + '</span></div>' +
+                       '<div class="text-xs text-gray-500">Pending: <span class="font-bold text-gray-800">' + data.pending + '</span></div>' +
+                       '<div class="text-xs text-gray-500">Students: <span class="font-bold text-gray-800">' + data.students + '</span></div>' +
+                       '</div>';
+            }
+        }
+    };
 
-    <div class="relative overflow-x-auto shadow-md sm:rounded-lg -mx-4 sm:mx-0">
-        <table class="w-full text-sm text-left text-gray-500 min-w-[640px]">
-            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
-                <tr>
-                    <th scope="col" class="px-6 py-3">Survey Title</th>
-                    <th scope="col" class="px-6 py-3">Type</th>
-                    <th scope="col" class="px-6 py-3">Status</th>
-                    <th scope="col" class="px-6 py-3">Responses</th>
-                    <th scope="col" class="px-6 py-3">Due Date</th>
-                    <th scope="col" class="px-6 py-3">
-                        <span class="sr-only">Actions</span>
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for survey in recent_surveys %}
-                <tr class="bg-white border-b hover:bg-gray-50">
-                    <th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-                        {{ survey.title }}
-                    </th>
-                    <td class="px-6 py-4">{{ survey.type }}</td>
-                    <td class="px-6 py-4">
-                        {% if survey.status == 'Active' %}
-                        <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Active</span>
-                        {% elif survey.status == 'Draft' %}
-                        <span class="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded">Draft</span>
-                        {% else %}
-                        <span class="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">Closed</span>
-                        {% endif %}
-                    </td>
-                    <td class="px-6 py-4">{{ survey.responses }} responses</td>
-                    <td class="px-6 py-4">{{ survey.due_date }}</td>
-                    <td class="px-6 py-4 text-right">
-                        <div class="relative inline-block">
-                            <button id="survey-dropdown-{{ survey.id }}" data-dropdown-toggle="survey-dropdown-menu-{{ survey.id }}" data-dropdown-placement="bottom-end" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 inline-flex items-center justify-center p-2 text-sm font-medium text-center rounded-lg transition-colors" type="button">
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
-                                </svg>
-                            </button>
-                            <div id="survey-dropdown-menu-{{ survey.id }}" class="z-50 hidden bg-white border border-gray-200 rounded-lg shadow-lg w-48" data-popper-placement="bottom-end">
-                                <ul class="py-1 text-sm text-gray-700">
-                                    <li>
-                                        <a href="#" class="flex items-center px-4 py-2.5 hover:bg-gray-50 text-gray-700 hover:text-gray-900 transition-colors">
-                                            <svg class="w-4 h-4 mr-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                            </svg>
-                                            View Details
-                                        </a>
-                                    </li>
-                                </ul>
-                            </div>
-                        </div>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="6" class="px-6 py-8 text-center text-gray-500">
-                        No surveys available
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
+    if (document.querySelector("#bar-chart")) {
+        const barChart = new ApexCharts(document.querySelector("#bar-chart"), barOptions);
+        barChart.render();
+    }
+
+    // 2. Pie Chart Configuration
+    const pieOptions = {
+        series: [{% for course in students_per_course %}{{ course.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+        labels: [{% for course in students_per_course %}'{{ course.code }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+        chart: {
+            type: 'pie',
+            height: 320,
+            fontFamily: 'Inter, sans-serif',
+        },
+        colors: [{% for course in students_per_course %}'{{ course.color }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+        legend: {
+            position: 'bottom',
+            fontFamily: 'Inter, sans-serif',
+            itemMargin: {
+                horizontal: 10,
+                vertical: 5
+            },
+            markers: {
+                width: 8,
+                height: 8,
+                radius: 2
+            }
+        },
+        dataLabels: {
+            enabled: false
+        },
+        tooltip: {
+            enabled: true,
+            y: {
+                formatter: function(value) {
+                    return value + " Students"
+                }
+            }
+        },
+        stroke: {
+            show: false
+        }
+    };
+
+    if (document.querySelector("#pie-chart")) {
+        const pieChart = new ApexCharts(document.querySelector("#pie-chart"), pieOptions);
+        pieChart.render();
+    }
+</script>
+
 {% endblock %}
-

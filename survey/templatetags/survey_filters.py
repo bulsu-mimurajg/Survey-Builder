@@ -16,3 +16,20 @@ def make_range(value):
         return range(1, int(value) + 1)
     except (ValueError, TypeError):
         return range(1, 6)  # default to 5
+
+@register.filter
+def multiply(value, arg):
+    """Multiply the value by the arg"""
+    try:
+        return float(value) * float(arg)
+    except (ValueError, TypeError):
+        return 0
+
+@register.filter
+def divide(value, arg):
+    """Divide the value by the arg"""
+    try:
+        return float(value) / float(arg) if float(arg) != 0 else 0
+    except (ValueError, TypeError):
+        return 0
+

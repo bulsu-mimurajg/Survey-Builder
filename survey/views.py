@@ -844,34 +844,172 @@ def teacher_home(request):
         messages.error(request, 'Access denied.')
         return redirect('student-home')
     
+    # Get all surveys created by this teacher
+    all_surveys = Survey.objects.filter(created_by=request.user)
+    active_surveys = all_surveys.filter(status='active')
+    
+    # Calculate statistics
+    total_responses = SurveyResponse.objects.filter(
+        survey__created_by=request.user,
+        is_complete=True
+    ).count()
+    
+    # Calculate completion rate
+    total_enrollments = CourseEnrollment.objects.filter(
+        course__teacher=request.user
+    ).count()
+    
+    if total_enrollments > 0 and active_surveys.count() > 0:
+        expected_responses = total_enrollments * active_surveys.count()
+        completion_rate = int((total_responses / expected_responses) * 100) if expected_responses > 0 else 0
+    else:
+        completion_rate = 0
+    
+    # Pending reviews (incomplete responses or drafts)
+    pending_reviews = SurveyResponse.objects.filter(
+        survey__created_by=request.user,
+        is_complete=False
+    ).count()
+    
     # Get courses created by this teacher
     courses = Course.objects.filter(teacher=request.user)
     
-    # Format courses for template (with member count and color)
-    colors = ['pink', 'orange', 'green', 'cyan', 'blue', 'purple', 'yellow', 'red']
-    my_courses = []
-    for idx, course in enumerate(courses[:8]):  # Limit to 8 for home page
-        member_count = CourseEnrollment.objects.filter(course=course).count()
-        code_abbrev = course.code[:2] if len(course.code) >= 2 else course.code[0] if course.code else 'CO'
-        my_courses.append({
-            'id': course.id,
-            'code': code_abbrev,
-            'name': course.name[:30] + '..' if len(course.name) > 30 else course.name,
-            'members': member_count,
-            'color': colors[idx % len(colors)]
+    # Course engagement data
+    course_engagement = []
+    for course in courses:
+        enrollments = CourseEnrollment.objects.filter(course=course)
+        course_surveys = Survey.objects.filter(courses=course, created_by=request.user)
+        responses_count = SurveyResponse.objects.filter(
+            survey__in=course_surveys,
+            is_complete=True
+        ).count()
+        pending_count = SurveyResponse.objects.filter(
+            survey__in=course_surveys,
+            is_complete=False
+        ).count()
+        
+        course_engagement.append({
+            'code': course.code,
+            'name': course.name,
+            'students': enrollments.count(),
+            'responses': responses_count,
+            'pending': pending_count,
+        })
+    
+    # Survey performance (top surveys by satisfaction/completion)
+    survey_performance = []
+    for survey in active_surveys[:5]:
+        responses = SurveyResponse.objects.filter(survey=survey, is_complete=True)
+        response_count = responses.count()
+        
+        # Mock satisfaction score (in real scenario, calculate from ratings)
+        satisfaction = 85 + (response_count % 15)
+        
+        survey_performance.append({
+            'id': survey.id,
+            'title': survey.title,
+            'code': survey.courses.first().code if survey.courses.exists() else 'N/A',
+            'responses': response_count,
+            'satisfaction': satisfaction,
+        })
+    
+    # Recent activity
+    recent_activity = []
+    
+    # Recent responses
+    recent_responses = SurveyResponse.objects.filter(
+        survey__created_by=request.user,
+        is_complete=True
+    ).order_by('-submitted_at')[:10]
+    
+    for response in recent_responses:
+        time_ago = timezone.now() - response.submitted_at
+        if time_ago.seconds < 3600:
+            time_str = f"{time_ago.seconds // 60} min ago"
+        elif time_ago.seconds < 86400:
+            time_str = f"{time_ago.seconds // 3600} hours ago"
+        else:
+            time_str = f"{time_ago.days} days ago"
+        
+        recent_activity.append({
+            'type': 'response',
+            'title': 'New Response',
+            'description': f"{response.survey.title} - {response.student.first_name} {response.student.last_name}",
+            'course_code': response.survey.courses.first().code if response.survey.courses.exists() else 'N/A',
+            'time': time_str,
+            'icon': 'check',
+        })
+    
+    # Surveys closing soon
+    closing_soon = Survey.objects.filter(
+        created_by=request.user,
+        status='active',
+        due_date_enabled=True,
+        due_date__isnull=False,
+        due_date__gt=timezone.now(),
+        due_date__lte=timezone.now() + timedelta(hours=6)
+    ).order_by('due_date')[:5]
+    
+    for survey in closing_soon:
+        time_until = survey.due_date - timezone.now()
+        hours_until = int(time_until.total_seconds() / 3600)
+        
+        recent_activity.append({
+            'type': 'warning',
+            'title': 'Exam closing soon',
+            'description': f"{survey.title} - {survey.due_date.strftime('%I:%M%p')}",
+            'course_code': survey.courses.first().code if survey.courses.exists() else 'N/A',
+            'time': f"{hours_until} hours ago",
+            'icon': 'warning',
+        })
+    
+    # Completed surveys (all students finished)
+    completed_surveys = []
+    for survey in all_surveys.filter(status='active'):
+        survey_courses = survey.courses.all()
+        total_students = CourseEnrollment.objects.filter(course__in=survey_courses).count()
+        completed_responses = SurveyResponse.objects.filter(survey=survey, is_complete=True).count()
+        
+        if total_students > 0 and completed_responses >= total_students:
+            time_ago = timezone.now() - survey.created_at
+            if time_ago.seconds < 86400:
+                time_str = f"{time_ago.seconds // 3600} hours ago"
+            else:
+                time_str = f"{time_ago.days} days ago"
+            
+            recent_activity.append({
+                'type': 'complete',
+                'title': 'Survey Completed',
+                'description': f"{survey.title} - All students",
+                'course_code': survey.courses.first().code if survey.courses.exists() else 'N/A',
+                'time': time_str,
+                'icon': 'check',
+            })
+    
+    # Sort activity by most recent (limit to 3)
+    recent_activity = sorted(recent_activity, key=lambda x: x['time'])[:3]
+    
+    # Students per course (pie chart data)
+    students_per_course = []
+    colors_pie = ['#0D9488', '#F97316', '#EAB308', '#3B82F6', '#1F2937']
+    for idx, course in enumerate(courses[:5]):
+        student_count = CourseEnrollment.objects.filter(course=course).count()
+        students_per_course.append({
+            'code': course.code,
+            'count': student_count,
+            'color': colors_pie[idx % len(colors_pie)]
         })
     
     context = {
         'current_date': datetime.now(),
-        'my_courses': my_courses,
-        'recent_surveys': [
-            {'id': 1, 'title': 'UI/UX Design Principles', 'type': 'Exam', 'status': 'Active', 
-             'responses': 15, 'due_date': 'Nov 5'},
-            {'id': 2, 'title': 'Weekly Assessment', 'type': 'Exam', 'status': 'Draft', 
-             'responses': 0, 'due_date': 'Nov 10'},
-            {'id': 3, 'title': 'Course Evaluation', 'type': 'Survey', 'status': 'Active', 
-             'responses': 8, 'due_date': '--'},
-        ],
+        'active_surveys': active_surveys.count(),
+        'total_responses': total_responses,
+        'completion_rate': completion_rate,
+        'pending_reviews': pending_reviews,
+        'course_engagement': course_engagement[:4],
+        'survey_performance': survey_performance,
+        'recent_activity': recent_activity,
+        'students_per_course': students_per_course,
         'unread_count': 6,
     }
     return render(request, 'teacher/home.html', context)
