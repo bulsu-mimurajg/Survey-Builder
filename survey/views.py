@@ -436,8 +436,60 @@ def student_notifications(request):
     """Student notifications page view"""
     context = {
         'notifications': [
-            {'id': 1, 'title': 'New survey assigned', 'message': 'Quiz #67 has been assigned', 'time': '2 hours ago', 'read': False},
-            {'id': 2, 'title': 'Survey due soon', 'message': 'Weekly Assessment is due tomorrow', 'time': '5 hours ago', 'read': False},
+            {
+                'id': 1,
+                'title': 'New section enrollment',
+                'message': 'You\'ve been added to the <span class="font-bold text-gray-800">Introduction to Marketing</span> section.',
+                'time': '2 min ago',
+                'type': 'info',
+                'course_code': 'ELEC 401',
+                'read': False
+            },
+            {
+                'id': 2,
+                'title': 'Survey graded',
+                'message': 'Your score for the <span class="font-bold text-gray-800">Final Assessment</span> survey is now available.',
+                'time': '1 hour ago',
+                'type': 'success',
+                'course_code': 'SSPc 101',
+                'read': False
+            },
+            {
+                'id': 3,
+                'title': 'Survey deadline approaching',
+                'message': 'The <span class="font-bold text-gray-800">STE # 2</span> survey closes in 2 hours — don\'t forget to submit!',
+                'time': '3 hours ago',
+                'type': 'warning',
+                'course_code': 'IT 401',
+                'read': False
+            },
+            {
+                'id': 4,
+                'title': 'New survey available',
+                'message': 'The <span class="font-bold text-gray-800">Activity Insights Survey</span> is now open for responses.',
+                'time': '1 day ago',
+                'type': 'info',
+                'course_code': 'IT 402',
+                'read': False
+            },
+            {
+                'id': 5,
+                'title': 'Survey past due',
+                'message': 'You missed the deadline for the <span class="font-bold text-gray-800">Activity # 6</span> survey. This survey is now closed.',
+                'time': '2 days ago',
+                'type': 'error',
+                'course_code': 'IT 405',
+                'read': False
+            },
+            {
+                'id': 6,
+                'title': 'New survey available',
+                'message': 'The <span class="font-bold text-gray-800">STE # 3</span> survey is now open for responses. <span class="font-bold text-gray-800">Deadline: November 9, 2025</span>',
+                'time': '3 days ago',
+                'type': 'info',
+                'course_code': 'IT 401',
+                'read': False
+            },
         ],
         'unread_count': 6,
     }
@@ -989,10 +1041,10 @@ def teacher_home(request):
     # Sort activity by most recent (limit to 3)
     recent_activity = sorted(recent_activity, key=lambda x: x['time'])[:3]
     
-    # Students per course (pie chart data)
+    # Students per course (pie chart data) - show all courses with distinct colors
     students_per_course = []
-    colors_pie = ['#0D9488', '#F97316', '#EAB308', '#3B82F6', '#1F2937']
-    for idx, course in enumerate(courses[:5]):
+    colors_pie = ['#2A9D8F', '#E76F51', '#264653', '#E9C46A', '#F4A261', '#8B5CF6', '#EC4899', '#10B981']
+    for idx, course in enumerate(courses):
         student_count = CourseEnrollment.objects.filter(course=course).count()
         students_per_course.append({
             'code': course.code,
@@ -1013,6 +1065,65 @@ def teacher_home(request):
         'unread_count': 6,
     }
     return render(request, 'teacher/home.html', context)
+
+
+@login_required
+def teacher_notifications(request):
+    """Teacher notifications page view"""
+    if request.user.role != 'teacher':
+        return redirect('student-home')
+    
+    context = {
+        'notifications': [
+            {
+                'id': 1,
+                'title': 'New student response',
+                'message': '<span class="font-bold text-gray-800">Maria Santos</span> completed the <span class="font-bold text-gray-800">UI/UX Design Principles</span> survey.',
+                'time': '2 min ago',
+                'type': 'success',
+                'course_code': 'ELEC 401',
+                'read': False
+            },
+            {
+                'id': 2,
+                'title': 'Survey closing soon',
+                'message': 'The <span class="font-bold text-gray-800">Test Cases</span> survey will close in 2 hours.',
+                'time': '1 hour ago',
+                'type': 'warning',
+                'course_code': 'IT401',
+                'read': False
+            },
+            {
+                'id': 3,
+                'title': 'All responses collected',
+                'message': 'All students have completed the <span class="font-bold text-gray-800">FEIN FEIN FEIN</span> survey.',
+                'time': '3 hours ago',
+                'type': 'success',
+                'course_code': 'AAP 101',
+                'read': False
+            },
+            {
+                'id': 4,
+                'title': 'Low completion rate',
+                'message': 'Only <span class="font-bold text-gray-800">45%</span> of students have completed the <span class="font-bold text-gray-800">Noob</span> survey.',
+                'time': '5 hours ago',
+                'type': 'warning',
+                'course_code': 'AAP 101',
+                'read': False
+            },
+            {
+                'id': 5,
+                'title': 'New student enrolled',
+                'message': '<span class="font-bold text-gray-800">John Doe</span> joined your <span class="font-bold text-gray-800">AAP 101</span> section.',
+                'time': '1 day ago',
+                'type': 'info',
+                'course_code': 'AAP 101',
+                'read': False
+            },
+        ],
+        'unread_count': 6,
+    }
+    return render(request, 'teacher/notifications.html', context)
 
 
 @login_required

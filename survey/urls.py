@@ -54,7 +54,7 @@ urlpatterns = [
     path('api/survey/<int:survey_id>/response/<int:response_id>/save/', views.api_save_survey_draft, name='api-save-survey-draft'),
     path('api/survey/response/<int:response_id>/detail/', views.api_response_detail, name='api-response-detail'),
     path('api/survey/<int:survey_id>/export/csv/', views.api_export_survey_csv, name='api-export-survey-csv'),
-    path('teacher/notifications/', views.teacher_home, name='teacher-notifications'),  # Placeholder
+    path('teacher/notifications/', views.teacher_notifications, name='teacher-notifications'),
     path('teacher/settings/', views.teacher_home, name='teacher-settings'),  # Placeholder
     path('teacher/help/', views.teacher_home, name='teacher-help'),  # Placeholder
 ]

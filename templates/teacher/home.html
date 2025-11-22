@@ -80,18 +80,18 @@
 <!-- Second Row: Bento Grid Layout -->
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
     
-    <!-- Course Engagement Chart -->
+    <!-- Section Engagement Chart -->
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 lg:col-span-2">
-        <h3 class="text-gray-900 font-semibold mb-1">Course Engagement</h3>
+        <h3 class="text-gray-900 font-semibold mb-1">Section Engagement</h3>
         <p class="text-gray-500 text-xs mb-6">Visual summary of completed and pending survey responses.</p>
         
         <div id="bar-chart" class="w-full h-64"></div>
     </div>
 
-    <!-- Students per Course (Pie Chart) -->
+    <!-- Students per Section (Pie Chart) -->
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 lg:col-span-1">
-        <h3 class="text-gray-900 font-semibold mb-1">Number of Students per Course</h3>
-        <p class="text-gray-500 text-xs mb-6">Shows total enrolled students in each course.</p>
+        <h3 class="text-gray-900 font-semibold mb-1">Number of Students per Section</h3>
+        <p class="text-gray-500 text-xs mb-6">Shows total enrolled students in each section.</p>
 
         <div id="pie-chart" class="flex justify-center w-full"></div>
     </div>
@@ -107,7 +107,7 @@
                 <h3 class="text-gray-900 font-semibold">Recent Activity</h3>
                 <span class="w-2 h-2 rounded-full bg-blue-500"></span>
             </div>
-            <a href="#" class="text-blue-600 text-sm font-medium flex items-center gap-1 hover:underline">
+            <a href="{% url 'teacher-notifications' %}" class="text-blue-600 text-sm font-medium flex items-center gap-1 hover:underline">
                 View All <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
             </a>
         </div>
@@ -204,8 +204,8 @@
             custom: function({series, seriesIndex, dataPointIndex, w}) {
                 const data = barData[dataPointIndex];
                 return '<div class="px-3 py-2 bg-white border border-gray-200 shadow rounded">' +
-                       '<div class="text-xs text-gray-500 mb-1">Survey name: <span class="font-bold text-gray-800">' + data.name + '</span></div>' +
-                       '<div class="text-xs text-gray-500">Course: <span class="font-bold text-gray-800">'+ data.course +'</span></div>' +
+                       '<div class="text-xs text-gray-500 mb-1">Section name: <span class="font-bold text-gray-800">' + data.name + '</span></div>' +
+                       '<div class="text-xs text-gray-500">Section: <span class="font-bold text-gray-800">'+ data.course +'</span></div>' +
                        '<div class="text-xs text-gray-500">Responses: <span class="font-bold text-gray-800">' + data.responses + '</span></div>' +
                        '<div class="text-xs text-gray-500">Pending: <span class="font-bold text-gray-800">' + data.pending + '</span></div>' +
                        '<div class="text-xs text-gray-500">Students: <span class="font-bold text-gray-800">' + data.students + '</span></div>' +
