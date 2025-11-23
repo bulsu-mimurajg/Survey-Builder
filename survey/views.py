@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from collections import Counter
 import json
 import csv
-from .models import User, Course, CourseEnrollment, Survey, SurveyCourseAssignment, Question, QuestionOption, SurveyResponse, QuestionResponse
+from .models import User, Course, CourseEnrollment, Survey, SurveyCourseAssignment, Question, QuestionOption, SurveyResponse, QuestionResponse, DashboardMetrics
 
 # Authentication Views
 def landing_page(request):
@@ -1153,10 +1153,11 @@ def teacher_home(request):
     
     # Get all surveys created by this teacher
     all_surveys = Survey.objects.filter(created_by=request.user)
-    active_surveys = all_surveys.filter(status='active')
+    active_surveys_qs = all_surveys.filter(status='active')
     
-    # Calculate statistics
-    total_responses = SurveyResponse.objects.filter(
+    # Calculate current statistics
+    current_active_surveys = active_surveys_qs.count()
+    current_total_responses = SurveyResponse.objects.filter(
         survey__created_by=request.user,
         is_complete=True
     ).count()
@@ -1166,17 +1167,66 @@ def teacher_home(request):
         course__teacher=request.user
     ).count()
     
-    if total_enrollments > 0 and active_surveys.count() > 0:
-        expected_responses = total_enrollments * active_surveys.count()
-        completion_rate = int((total_responses / expected_responses) * 100) if expected_responses > 0 else 0
+    if total_enrollments > 0 and current_active_surveys > 0:
+        expected_responses = total_enrollments * current_active_surveys
+        current_completion_rate = int((current_total_responses / expected_responses) * 100) if expected_responses > 0 else 0
     else:
-        completion_rate = 0
+        current_completion_rate = 0
     
     # Pending reviews (incomplete responses or drafts)
-    pending_reviews = SurveyResponse.objects.filter(
+    current_pending_reviews = SurveyResponse.objects.filter(
         survey__created_by=request.user,
         is_complete=False
     ).count()
+    
+    # Get or create today's metrics
+    from django.utils import timezone
+    today = timezone.now().date()
+    
+    # Try to get yesterday's metrics for comparison
+    yesterday = today - timedelta(days=1)
+    yesterday_metrics = DashboardMetrics.objects.filter(
+        teacher=request.user,
+        date=yesterday
+    ).first()
+    
+    # Calculate changes
+    def calculate_change(current, previous):
+        """Calculate percentage change from previous value"""
+        if previous == 0:
+            return '+100' if current > 0 else '+0'
+        change = ((current - previous) / previous) * 100
+        if change > 0:
+            return f'+{int(change)}'
+        elif change < 0:
+            return f'{int(change)}'
+        else:
+            return '+0'
+    
+    # Calculate changes for each metric
+    if yesterday_metrics:
+        active_surveys_change = calculate_change(current_active_surveys, yesterday_metrics.active_surveys)
+        total_responses_change = calculate_change(current_total_responses, yesterday_metrics.total_responses)
+        completion_rate_change = calculate_change(current_completion_rate, yesterday_metrics.completion_rate)
+        pending_reviews_change = calculate_change(current_pending_reviews, yesterday_metrics.pending_reviews)
+    else:
+        # No previous data - show as new/first day
+        active_surveys_change = '+0'
+        total_responses_change = '+0'
+        completion_rate_change = '+0'
+        pending_reviews_change = '+0'
+    
+    # Store today's metrics (update if exists, create if not)
+    DashboardMetrics.objects.update_or_create(
+        teacher=request.user,
+        date=today,
+        defaults={
+            'active_surveys': current_active_surveys,
+            'total_responses': current_total_responses,
+            'completion_rate': current_completion_rate,
+            'pending_reviews': current_pending_reviews,
+        }
+    )
     
     # Get courses created by this teacher
     courses = Course.objects.filter(teacher=request.user)
@@ -1185,7 +1235,7 @@ def teacher_home(request):
     course_engagement = []
     for course in courses:
         enrollments = CourseEnrollment.objects.filter(course=course)
-        course_surveys = Survey.objects.filter(courses=course, created_by=request.user)
+        course_surveys = Survey.objects.filter(courses=course, created_by=request.user, status='active')
         responses_count = SurveyResponse.objects.filter(
             survey__in=course_surveys,
             is_complete=True
@@ -1203,31 +1253,14 @@ def teacher_home(request):
             'pending': pending_count,
         })
     
-    # Survey performance (top surveys by satisfaction/completion)
-    survey_performance = []
-    for survey in active_surveys[:5]:
-        responses = SurveyResponse.objects.filter(survey=survey, is_complete=True)
-        response_count = responses.count()
-        
-        # Mock satisfaction score (in real scenario, calculate from ratings)
-        satisfaction = 85 + (response_count % 15)
-        
-        survey_performance.append({
-            'id': survey.id,
-            'title': survey.title,
-            'code': survey.courses.first().code if survey.courses.exists() else 'N/A',
-            'responses': response_count,
-            'satisfaction': satisfaction,
-        })
-    
-    # Recent activity
+    # Recent activity - get real data
     recent_activity = []
     
-    # Recent responses
+    # Recent responses (limit to last 6)
     recent_responses = SurveyResponse.objects.filter(
         survey__created_by=request.user,
         is_complete=True
-    ).order_by('-submitted_at')[:10]
+    ).select_related('student', 'survey').order_by('-submitted_at')[:6]
     
     for response in recent_responses:
         time_ago = timezone.now() - response.submitted_at
@@ -1247,15 +1280,15 @@ def teacher_home(request):
             'icon': 'check',
         })
     
-    # Surveys closing soon
+    # Surveys closing soon (within next 24 hours)
     closing_soon = Survey.objects.filter(
         created_by=request.user,
         status='active',
         due_date_enabled=True,
         due_date__isnull=False,
         due_date__gt=timezone.now(),
-        due_date__lte=timezone.now() + timedelta(hours=6)
-    ).order_by('due_date')[:5]
+        due_date__lte=timezone.now() + timedelta(hours=24)
+    ).select_related().order_by('due_date')[:3]
     
     for survey in closing_soon:
         time_until = survey.due_date - timezone.now()
@@ -1263,58 +1296,42 @@ def teacher_home(request):
         
         recent_activity.append({
             'type': 'warning',
-            'title': 'Exam closing soon',
+            'title': 'Survey closing soon',
             'description': f"{survey.title} - {survey.due_date.strftime('%I:%M%p')}",
             'course_code': survey.courses.first().code if survey.courses.exists() else 'N/A',
-            'time': f"{hours_until} hours ago",
+            'time': f"{hours_until} hours",
             'icon': 'warning',
         })
     
-    # Completed surveys (all students finished)
-    completed_surveys = []
-    for survey in all_surveys.filter(status='active'):
-        survey_courses = survey.courses.all()
-        total_students = CourseEnrollment.objects.filter(course__in=survey_courses).count()
-        completed_responses = SurveyResponse.objects.filter(survey=survey, is_complete=True).count()
-        
-        if total_students > 0 and completed_responses >= total_students:
-            time_ago = timezone.now() - survey.created_at
-            if time_ago.seconds < 86400:
-                time_str = f"{time_ago.seconds // 3600} hours ago"
-            else:
-                time_str = f"{time_ago.days} days ago"
-            
-            recent_activity.append({
-                'type': 'complete',
-                'title': 'Survey Completed',
-                'description': f"{survey.title} - All students",
-                'course_code': survey.courses.first().code if survey.courses.exists() else 'N/A',
-                'time': time_str,
-                'icon': 'check',
-            })
-    
-    # Sort activity by most recent (limit to 3)
-    recent_activity = sorted(recent_activity, key=lambda x: x['time'])[:3]
+    # Sort activity by most recent (limit to 6 total)
+    recent_activity = sorted(recent_activity, 
+                            key=lambda x: x['time'], 
+                            reverse=False)[:6]
     
     # Students per course (pie chart data) - show all courses with distinct colors
     students_per_course = []
     colors_pie = ['#2A9D8F', '#E76F51', '#264653', '#E9C46A', '#F4A261', '#8B5CF6', '#EC4899', '#10B981']
     for idx, course in enumerate(courses):
         student_count = CourseEnrollment.objects.filter(course=course).count()
-        students_per_course.append({
-            'code': course.code,
-            'count': student_count,
-            'color': colors_pie[idx % len(colors_pie)]
-        })
+        if student_count > 0:  # Only include courses with students
+            students_per_course.append({
+                'code': course.code,
+                'count': student_count,
+                'color': colors_pie[idx % len(colors_pie)]
+            })
     
     context = {
         'current_date': datetime.now(),
-        'active_surveys': active_surveys.count(),
-        'total_responses': total_responses,
-        'completion_rate': completion_rate,
-        'pending_reviews': pending_reviews,
-        'course_engagement': course_engagement[:4],
-        'survey_performance': survey_performance,
+        'user': request.user,
+        'active_surveys': current_active_surveys,
+        'active_surveys_change': active_surveys_change,
+        'total_responses': current_total_responses,
+        'total_responses_change': total_responses_change,
+        'completion_rate': current_completion_rate,
+        'completion_rate_change': completion_rate_change,
+        'pending_reviews': current_pending_reviews,
+        'pending_reviews_change': pending_reviews_change,
+        'course_engagement': course_engagement,
         'recent_activity': recent_activity,
         'students_per_course': students_per_course,
         'unread_count': 6,
@@ -2597,9 +2614,9 @@ def teacher_student_submissions(request, course_id, student_id):
                                 correct_options = set(question.options.filter(is_correct=True))
                                 if selected_options == correct_options and len(correct_options) > 0:
                                     correct_answers += 1
-                    score = correct_answers
-                    total_points = total_questions
-                    percentage = int((score / total_points * 100) if total_points > 0 else 0)
+                score = correct_answers
+                total_points = total_questions
+                percentage = int((score / total_points * 100) if total_points > 0 else 0)
             
             # Format due date
             if survey.due_date_enabled and survey.due_date:
