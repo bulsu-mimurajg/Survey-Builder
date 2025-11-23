@@ -271,6 +271,40 @@
             </div>
             {% endwith %}
             {% endfor %}
+                    
+                    <!-- Page Navigation -->
+                    {% if total_pages > 1 %}
+                    <div class="mt-6 bg-white rounded-lg p-6 border border-gray-200 flex items-center justify-between sticky bottom-0 shadow-lg">
+                        <button 
+                            type="button"
+                            onclick="previousPage()"
+                            class="px-6 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                            {% if forloop.first %}disabled{% endif %}
+                        >
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                            </svg>
+                            Previous
+                        </button>
+                        
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm text-gray-600">Page</span>
+                            <span class="text-sm font-semibold text-gray-900">{{ forloop.counter }} of {{ total_pages }}</span>
+                        </div>
+                        
+                        <button 
+                            type="button"
+                            onclick="nextPage()"
+                            class="px-6 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                            {% if forloop.last %}disabled{% endif %}
+                        >
+                            Next
+                            <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </button>
+                    </div>
+                    {% endif %}
                 </div>
                 {% endfor %}
             {% else %}
