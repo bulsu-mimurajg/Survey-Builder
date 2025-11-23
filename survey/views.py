@@ -173,17 +173,66 @@ def student_home(request):
             'color': colors[idx % len(colors)]
         })
     
+    # Get recent surveys from enrolled courses
+    enrolled_course_ids = [e.course.id for e in enrollments]
+    
+    # Get surveys assigned to enrolled courses (only active and closed, not draft)
+    recent_surveys_qs = Survey.objects.filter(
+        courses__id__in=enrolled_course_ids
+    ).exclude(status='draft').distinct().select_related('created_by').prefetch_related('courses', 'questions', 'responses')[:5]
+    
+    recent_surveys = []
+    now = timezone.now()
+    
+    for survey in recent_surveys_qs:
+        # Get student's response for this survey
+        response = survey.responses.filter(student=request.user).order_by('-started_at').first()
+        
+        # Determine status and progress
+        if response and response.is_complete:
+            status = 'Completed'
+            progress = 100
+        elif response:
+            # Calculate progress based on questions answered (excluding section breaks)
+            total_questions = survey.questions.exclude(question_type='section').count()
+            answered_questions = response.question_responses.exclude(question__question_type='section').count()
+            progress = int((answered_questions / total_questions * 100) if total_questions > 0 else 0)
+            # If survey is closed in database and not completed, show as Closed
+            if survey.status == 'closed':
+                status = 'Closed'
+            else:
+                status = 'In Progress' if progress < 100 else 'Completed'
+        else:
+            # Student hasn't started
+            # If survey is closed in database, show as Closed, otherwise Not Started
+            if survey.status == 'closed':
+                status = 'Closed'
+            else:
+                status = 'Not Started'
+            progress = 0
+        
+        # Format due date
+        if survey.due_date_enabled and survey.due_date:
+            due_date = survey.due_date.strftime('%b %d')
+        else:
+            due_date = '--'
+        
+        # Map survey type
+        survey_type = survey.get_type_display()
+        
+        recent_surveys.append({
+            'id': survey.id,
+            'title': survey.title,
+            'type': survey_type,
+            'status': status,
+            'progress': progress,
+            'due_date': due_date,
+        })
+    
     context = {
         'current_date': datetime.now(),
         'enrolled_courses': enrolled_courses,
-        'recent_surveys': [
-            {'id': 1, 'title': 'UI/UX Design Principles', 'type': 'Exam', 'status': 'Completed', 
-             'progress': 100, 'due_date': 'Nov 5', 'score': '10/10'},
-            {'id': 2, 'title': 'Weekly Assessment', 'type': 'Exam', 'status': 'In Progress', 
-             'progress': 50, 'due_date': 'Nov 10', 'score': None},
-            {'id': 3, 'title': 'Course Evaluation', 'type': 'Survey', 'status': 'In Progress', 
-             'progress': 50, 'due_date': '--', 'score': None},
-        ],
+        'recent_surveys': recent_surveys,
         'unread_count': 6,
     }
     return render(request, 'student/home.html', context)
