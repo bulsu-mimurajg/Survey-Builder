@@ -176,6 +176,7 @@ class Question(models.Model):
     order = models.IntegerField(default=0)
     required = models.BooleanField(default=False)
     settings = models.JSONField(default=dict, blank=True)  # Type-specific settings (e.g., scale min/max, rating max)
+    points = models.DecimalField(max_digits=5, decimal_places=2, default=1.00)  # Points for exam questions
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -242,6 +243,12 @@ class QuestionResponse(models.Model):
     response_text = models.TextField(blank=True)
     response_options = models.ManyToManyField(QuestionOption, blank=True, related_name='responses')
     file_upload = models.FileField(upload_to='survey_responses/', blank=True, null=True)
+    
+    # Exam grading fields
+    is_correct = models.BooleanField(null=True, blank=True)  # None = not graded, True/False = graded
+    awarded_points = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)  # Actual points awarded
+    needs_review = models.BooleanField(default=False)  # True for short_text, long_text, file_upload
+    
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):

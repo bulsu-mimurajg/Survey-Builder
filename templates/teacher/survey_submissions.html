@@ -584,7 +584,9 @@ function filterResponses() {
 
 // View response detail
 function viewResponse(responseId) {
-    document.getElementById('response-modal').classList.remove('hidden');
+    const modal = document.getElementById('response-modal');
+    modal.classList.remove('hidden');
+    modal.dataset.responseId = responseId; // Store response ID for grading functions
     
     const content = document.getElementById('response-modal-content');
     content.innerHTML = '<div class="text-center py-8"><div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>';
@@ -624,8 +626,36 @@ function renderQuestionResponse(answer, questionNumber) {
     const userAnswer = answer.answer;
     const questionText = answer.question;
     const options = answer.options || [];
+    const isExam = answer.points !== undefined;
+    const correctAnswer = answer.correct_answer || [];
+    const isCorrect = answer.is_correct;
+    const needsReview = answer.needs_review;
+    const awardedPoints = answer.awarded_points;
+    const maxPoints = answer.points || 0;
+    const qrId = answer.question_response_id;
     
     let responseHTML = '';
+    
+    // Grading status badge
+    let gradingBadge = '';
+    if (isExam && isCorrect !== null && isCorrect !== undefined) {
+        if (isCorrect) {
+            gradingBadge = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                Correct
+            </span>`;
+        } else {
+            gradingBadge = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
+                Incorrect
+            </span>`;
+        }
+    } else if (isExam && needsReview) {
+        gradingBadge = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+            Needs Review
+        </span>`;
+    }
     
     // Question header
     let headerHTML = `
@@ -637,6 +667,8 @@ function renderQuestionResponse(answer, questionNumber) {
                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700">
                             ${formatQuestionType(questionType)}
                         </span>
+                        ${isExam ? `<span class="text-sm font-medium text-gray-700">${maxPoints} pts</span>` : ''}
+                        ${gradingBadge}
                     </div>
                     <h3 class="text-lg font-medium text-gray-900">${questionText}</h3>
                 </div>
@@ -661,13 +693,34 @@ function renderQuestionResponse(answer, questionNumber) {
     }
     else if (questionType === 'multiple_choice') {
         responseHTML = '<div class="space-y-2">';
+        const correctOpts = Array.isArray(correctAnswer) ? correctAnswer : [correctAnswer];
         options.forEach(option => {
             const isSelected = userAnswer === option;
+            const isCorrectOption = correctOpts.includes(option);
+            let borderColor = 'border-gray-200 bg-gray-50';
+            let icon = '';
+            
+            if (isExam && isCorrect !== null) {
+                if (isSelected && isCorrectOption) {
+                    borderColor = 'border-green-500 bg-green-50';
+                    icon = '<span class="ml-auto"><svg class="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></span>';
+                } else if (isSelected && !isCorrectOption) {
+                    borderColor = 'border-red-500 bg-red-50';
+                    icon = '<span class="ml-auto"><svg class="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg></span>';
+                } else if (!isSelected && isCorrectOption) {
+                    borderColor = 'border-green-300 bg-green-50';
+                    icon = '<span class="ml-auto text-xs text-green-600 font-medium">(Correct answer)</span>';
+                }
+            } else if (isSelected) {
+                borderColor = 'border-indigo-500 bg-indigo-50';
+                icon = '<span class="ml-auto"><svg class="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></span>';
+            }
+            
             responseHTML += `
-                <label class="flex items-center space-x-3 p-3 border-2 ${isSelected ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 bg-gray-50'} rounded-lg">
+                <label class="flex items-center space-x-3 p-3 border-2 ${borderColor} rounded-lg">
                     <input type="radio" ${isSelected ? 'checked' : ''} disabled class="w-5 h-5 text-indigo-600">
                     <span class="text-gray-900 ${isSelected ? 'font-semibold' : ''}">${option}</span>
-                    ${isSelected ? '<span class="ml-auto"><svg class="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></span>' : ''}
+                    ${icon}
                 </label>
             `;
         });
@@ -675,14 +728,35 @@ function renderQuestionResponse(answer, questionNumber) {
     }
     else if (questionType === 'checkboxes') {
         const selectedAnswers = Array.isArray(userAnswer) ? userAnswer : (userAnswer ? userAnswer.split(',').map(a => a.trim()) : []);
+        const correctOpts = Array.isArray(correctAnswer) ? correctAnswer : [];
         responseHTML = '<div class="space-y-2">';
         options.forEach(option => {
             const isSelected = selectedAnswers.includes(option);
+            const isCorrectOption = correctOpts.includes(option);
+            let borderColor = 'border-gray-200 bg-gray-50';
+            let icon = '';
+            
+            if (isExam && isCorrect !== null) {
+                if (isSelected && isCorrectOption) {
+                    borderColor = 'border-green-500 bg-green-50';
+                    icon = '<span class="ml-auto"><svg class="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></span>';
+                } else if (isSelected && !isCorrectOption) {
+                    borderColor = 'border-red-500 bg-red-50';
+                    icon = '<span class="ml-auto"><svg class="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg></span>';
+                } else if (!isSelected && isCorrectOption) {
+                    borderColor = 'border-green-300 bg-green-50';
+                    icon = '<span class="ml-auto text-xs text-green-600 font-medium">(Correct answer)</span>';
+                }
+            } else if (isSelected) {
+                borderColor = 'border-indigo-500 bg-indigo-50';
+                icon = '<span class="ml-auto"><svg class="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></span>';
+            }
+            
             responseHTML += `
-                <label class="flex items-center space-x-3 p-3 border-2 ${isSelected ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 bg-gray-50'} rounded-lg">
+                <label class="flex items-center space-x-3 p-3 border-2 ${borderColor} rounded-lg">
                     <input type="checkbox" ${isSelected ? 'checked' : ''} disabled class="w-5 h-5 text-indigo-600 rounded">
                     <span class="text-gray-900 ${isSelected ? 'font-semibold' : ''}">${option}</span>
-                    ${isSelected ? '<span class="ml-auto"><svg class="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></span>' : ''}
+                    ${icon}
                 </label>
             `;
         });
@@ -734,6 +808,7 @@ function renderQuestionResponse(answer, questionNumber) {
         `;
     }
     else if (questionType === 'file_upload') {
+        const fileUrl = answer.file_url;
         if (userAnswer) {
             responseHTML = `
                 <div class="border-2 border-indigo-200 bg-indigo-50 rounded-lg p-4">
@@ -745,7 +820,7 @@ function renderQuestionResponse(answer, questionNumber) {
                             <p class="text-sm font-medium text-gray-900">${userAnswer}</p>
                             <p class="text-xs text-gray-500">File uploaded</p>
                         </div>
-                        <a href="#" class="text-indigo-600 hover:text-indigo-700 text-sm font-medium">Download</a>
+                        ${fileUrl ? `<a href="${fileUrl}" target="_blank" class="text-indigo-600 hover:text-indigo-700 text-sm font-medium">Download</a>` : ''}
                     </div>
                 </div>
             `;
@@ -769,7 +844,41 @@ function renderQuestionResponse(answer, questionNumber) {
         `;
     }
     
-    return headerHTML + responseHTML + '</div></div>';
+    // Add grading controls for subjective questions that need review
+    let gradingControls = '';
+    if (isExam && needsReview && (questionType === 'short_text' || questionType === 'long_text' || questionType === 'file_upload')) {
+        const halfPoints = maxPoints / 2;
+        gradingControls = `
+            <div class="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <p class="text-sm font-medium text-gray-700 mb-3">Grade this answer:</p>
+                <div class="flex items-center space-x-3">
+                    <button onclick="gradeQuestion(${qrId}, true, ${maxPoints})" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center space-x-2">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                        <span>Correct (${maxPoints} pts)</span>
+                    </button>
+                    <button onclick="gradeQuestion(${qrId}, false, 0)" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition flex items-center space-x-2">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                        <span>Incorrect (0 pts)</span>
+                    </button>
+                    <button onclick="gradeQuestion(${qrId}, false, ${halfPoints})" class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition flex items-center space-x-2">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z" clip-rule="evenodd"/></svg>
+                        <span>Partial Credit (${halfPoints} pts)</span>
+                    </button>
+                </div>
+            </div>
+        `;
+    } else if (isExam && awardedPoints !== null) {
+        // Show awarded points if already graded
+        gradingControls = `
+            <div class="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <p class="text-sm font-medium text-gray-700">
+                    Points Awarded: <span class="text-lg font-bold ${isCorrect ? 'text-green-600' : 'text-red-600'}">${awardedPoints} / ${maxPoints}</span>
+                </p>
+            </div>
+        `;
+    }
+    
+    return headerHTML + responseHTML + gradingControls + '</div></div>';
 }
 
 // Helper function to format question type display names
@@ -812,6 +921,13 @@ window.addEventListener('DOMContentLoaded', function() {
             viewResponse(responseId);
         }, 300);
     }
+    
+    // Load grading queue if exam
+    {% if survey.type == 'exam' %}
+    if (currentTab === 'grading') {
+        loadGradingQueue();
+    }
+    {% endif %}
 });
 
 // Load charts on page load
@@ -820,5 +936,269 @@ document.addEventListener('DOMContentLoaded', function() {
         loadAllCharts();
     }, 500);
 });
+
+{% if survey.type == 'exam' %}
+// Grading functions
+function loadGradingQueue(filter = 'needs_review') {
+    fetch(`/api/survey/${surveyId}/grading-queue/?filter=${filter}`)
+        .then(response => response.json())
+        .then(data => {
+            renderGradingQueue(data);
+            updateGradingBadge(data.needs_review_count);
+        })
+        .catch(error => console.error('Error loading grading queue:', error));
+}
+
+function renderGradingQueue(data) {
+    const container = document.getElementById('grading-queue-container');
+    
+    if (!data.responses || data.responses.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-12">
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <h3 class="mt-2 text-sm font-medium text-gray-900">All caught up!</h3>
+                <p class="mt-1 text-sm text-gray-500">No responses need grading at the moment.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="divide-y divide-gray-200">';
+    
+    data.responses.forEach(resp => {
+        const statusClass = resp.needs_review ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800';
+        const statusText = resp.needs_review ? 'Needs Review' : 'Graded';
+        
+        html += `
+            <div class="p-6 hover:bg-gray-50">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <h4 class="text-lg font-medium text-gray-900">${resp.student_name}</h4>
+                        <p class="text-sm text-gray-500">${resp.student_email}</p>
+                        <span class="mt-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${statusClass}">
+                            ${statusText}
+                        </span>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-medium text-gray-900">Score: ${resp.score}/${resp.total_points}</p>
+                        <p class="text-sm text-gray-500">${resp.percentage}%</p>
+                    </div>
+                </div>
+                
+                <div class="space-y-4">
+                    ${resp.questions_to_grade.map(q => `
+                        <div class="border border-gray-200 rounded-lg p-4 bg-white">
+                            <div class="mb-3">
+                                <p class="text-sm font-medium text-gray-900">${q.question_text}</p>
+                                <p class="text-xs text-gray-500 mt-1">${q.points} points</p>
+                            </div>
+                            <div class="mb-3 p-3 bg-gray-50 rounded border border-gray-200">
+                                <p class="text-sm text-gray-700">${q.student_answer || '<span class="italic text-gray-400">No answer</span>'}</p>
+                                ${q.file_url ? `<a href="${q.file_url}" target="_blank" class="text-indigo-600 hover:text-indigo-700 text-sm">View uploaded file →</a>` : ''}
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <button onclick="gradeResponse(${resp.response_id}, ${q.question_response_id}, 'correct', ${q.points})" 
+                                    class="flex-1 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 ${q.is_graded && q.is_correct ? 'ring-2 ring-green-600' : ''}">
+                                    ✓ Correct (${q.points} pts)
+                                </button>
+                                <button onclick="gradeResponse(${resp.response_id}, ${q.question_response_id}, 'incorrect', 0)" 
+                                    class="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 ${q.is_graded && !q.is_correct ? 'ring-2 ring-red-600' : ''}">
+                                    ✗ Incorrect (0 pts)
+                                </button>
+                                <button onclick="gradeResponse(${resp.response_id}, ${q.question_response_id}, 'partial', null)" 
+                                    class="flex-1 px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700">
+                                    Partial Credit
+                                </button>
+                            </div>
+                            <div id="partial-input-${q.question_response_id}" class="hidden mt-3">
+                                <input type="number" step="0.5" min="0" max="${q.points}" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg" 
+                                    placeholder="Enter points (0-${q.points})">
+                                <button onclick="savePartialGrade(${resp.response_id}, ${q.question_response_id})" 
+                                    class="mt-2 w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">
+                                    Save Partial Grade
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function gradeResponse(responseId, questionResponseId, gradeType, points) {
+    if (gradeType === 'partial') {
+        // Show partial credit input
+        document.getElementById(`partial-input-${questionResponseId}`).classList.remove('hidden');
+        return;
+    }
+    
+    const isCorrect = gradeType === 'correct';
+    
+    fetch(`/api/grade-response/${questionResponseId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            is_correct: isCorrect,
+            awarded_points: points
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Reload grading queue
+            const filter = document.getElementById('grading-filter').value;
+            loadGradingQueue(filter);
+        } else {
+            alert('Error grading response: ' + data.error);
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+function savePartialGrade(responseId, questionResponseId) {
+    const input = document.querySelector(`#partial-input-${questionResponseId} input`);
+    const points = parseFloat(input.value);
+    
+    if (isNaN(points) || points < 0) {
+        alert('Please enter a valid point value');
+        return;
+    }
+    
+    fetch(`/api/grade-response/${questionResponseId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            is_correct: null, // Partial credit
+            awarded_points: points
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const filter = document.getElementById('grading-filter').value;
+            loadGradingQueue(filter);
+        } else {
+            alert('Error grading response: ' + data.error);
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+function filterGradingQueue() {
+    const filter = document.getElementById('grading-filter').value;
+    loadGradingQueue(filter);
+}
+
+function updateGradingBadge(count) {
+    const badge = document.getElementById('grading-badge');
+    if (badge) {
+        if (count > 0) {
+            badge.textContent = count;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+    }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// New grading functions for modal-based grading
+function gradeQuestion(questionResponseId, isCorrect, points) {
+    fetch(`/api/grade-response/${questionResponseId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            is_correct: isCorrect,
+            awarded_points: points
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Get the current response ID from modal
+            const modal = document.getElementById('response-modal');
+            const responseId = modal.dataset.responseId;
+            
+            // Reload the response details to show updated grading
+            viewResponse(responseId);
+        } else {
+            alert('Error grading response: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to save grade. Please try again.');
+    });
+}
+
+function gradeQuestionPartial(questionResponseId, maxPoints) {
+    const input = document.getElementById(`partial-points-${questionResponseId}`);
+    const points = parseFloat(input.value);
+    
+    if (isNaN(points) || points < 0 || points > maxPoints) {
+        alert(`Please enter a valid point value between 0 and ${maxPoints}`);
+        return;
+    }
+    
+    fetch(`/api/grade-response/${questionResponseId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            is_correct: false, // Partial credit means not fully correct
+            awarded_points: points
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Get the current response ID from modal
+            const modal = document.getElementById('response-modal');
+            const responseId = modal.dataset.responseId;
+            
+            // Reload the response details to show updated grading
+            viewResponse(responseId);
+        } else {
+            alert('Error grading response: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to save grade. Please try again.');
+    });
+}
+{% endif %}
 </script>
 {% endblock %}

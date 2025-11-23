@@ -33,3 +33,9 @@ def divide(value, arg):
     except (ValueError, TypeError):
         return 0
 
+@register.filter
+def in_list(value, list_var):
+    """Check if value is in list"""
+    if list_var is None:
+        return False
+    return value in list_var
