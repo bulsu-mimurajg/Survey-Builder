@@ -240,7 +240,7 @@
             View Response
         </a>
         {% endif %}
-    {% elif survey.status != 'Completed' and survey.status != 'Closed' %}
+    {% elif survey.status != 'Completed' and survey.status != 'Closed' and not survey.is_past_due %}
     <a 
         href="{% url 'student-take-survey' survey.id %}"
         class="inline-flex items-center px-6 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition-colors"
@@ -251,6 +251,8 @@
         Continue Survey
         {% endif %}
     </a>
+    {% elif survey.is_past_due %}
+    <!-- Survey past due date - no action button shown -->
     {% endif %}
 </div>
 

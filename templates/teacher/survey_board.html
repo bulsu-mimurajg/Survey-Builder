@@ -304,7 +304,7 @@
                 </div>
                 
                 <div class="mb-4">
-                    <label for="survey_course" class="block mb-2 text-sm font-medium text-gray-900">Course</label>
+                    <label for="survey_course" class="block mb-2 text-sm font-medium text-gray-900">Section</label>
                     <select name="courses" id="survey_course" multiple class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" required>
                         {% for course in courses %}
                         <option value="{{ course.id }}">{{ course.code }} - {{ course.name }}</option>

@@ -123,13 +123,7 @@ class Survey(models.Model):
     due_date_enabled = models.BooleanField(default=False)
     due_date = models.DateTimeField(null=True, blank=True)
     
-    # Attempts settings
-    attempts_enabled = models.BooleanField(default=False)
-    max_attempts = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
-    single_attempt = models.BooleanField(default=False)
-    require_completion_in_one_sitting = models.BooleanField(default=False)
-    
-    # Modification settings (mutually exclusive with attempts)
+    # Modification settings
     allow_modifications = models.BooleanField(default=False)
     
     # Status and metadata
@@ -242,8 +236,19 @@ class SurveyResponse(models.Model):
     submitted_at = models.DateTimeField(null=True, blank=True)
     is_complete = models.BooleanField(default=False)
     
+    def save(self, *args, **kwargs):
+        """Override save to ensure is_complete can never be True if submitted_at is None"""
+        # CRITICAL: A survey response can only be complete if it has a submitted_at timestamp
+        # This prevents drafts (which have submitted_at=None) from being marked as complete
+        # Even if all questions are answered, a response without submitted_at is always a draft
+        if self.is_complete and self.submitted_at is None:
+            # Force is_complete to False if submitted_at is None
+            # This is a safeguard to prevent accidental completion of drafts
+            self.is_complete = False
+        super().save(*args, **kwargs)
+    
     def __str__(self):
-        return f"{self.student.email} - {self.survey.title} (Attempt {self.attempt_number})"
+        return f"{self.student.email} - {self.survey.title}"
     
     class Meta:
         db_table = 'survey_responses'

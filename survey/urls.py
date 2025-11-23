@@ -19,7 +19,6 @@ urlpatterns = [
     path('student/survey/<int:survey_id>/take/', views.student_take_survey, name='student-take-survey'),
     path('student/survey/<int:survey_id>/view/', views.student_view_response, name='student-view-response'),
     path('student/survey/<int:survey_id>/submit/', views.student_submit_survey, name='student-survey-submit'),
-    path('student/notifications/', views.student_notifications, name='student-notifications'),
     path('student/settings/', views.student_settings, name='student-settings'),
     path('student/help/', views.student_help, name='student-help'),
     path('student/join-section/', views.student_join_course, name='student-join-course'),
@@ -59,7 +58,6 @@ urlpatterns = [
     path('api/survey/<int:survey_id>/export/csv/', views.api_export_survey_csv, name='api-export-survey-csv'),
     path('api/survey/<int:survey_id>/grading-queue/', views.api_grading_queue, name='api-grading-queue'),
     path('api/grade-response/<int:question_response_id>/', views.api_grade_response, name='api-grade-response'),
-    path('teacher/notifications/', views.teacher_notifications, name='teacher-notifications'),
     path('teacher/settings/', views.teacher_home, name='teacher-settings'),  # Placeholder
     path('teacher/help/', views.teacher_home, name='teacher-help'),  # Placeholder
 ]

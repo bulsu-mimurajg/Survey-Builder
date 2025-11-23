@@ -247,7 +247,8 @@ def student_home(request):
         response = survey.responses.filter(student=request.user).order_by('-started_at').first()
         
         # Determine status and progress
-        if response and response.is_complete:
+        # Only mark as Completed if both is_complete is True AND submitted_at exists (not a draft)
+        if response and response.is_complete and response.submitted_at is not None:
             status = 'Completed'
             progress = 100
         elif response:
@@ -259,7 +260,8 @@ def student_home(request):
             if survey.status == 'closed':
                 status = 'Closed'
             else:
-                status = 'In Progress' if progress < 100 else 'Completed'
+                # Always show as "In Progress" if not actually submitted (draft), even if progress is 100%
+                status = 'In Progress'
         else:
             # Student hasn't started
             # If survey is closed in database, show as Closed, otherwise Not Started
@@ -337,7 +339,8 @@ def student_course_detail(request, course_id):
         response = survey.responses.filter(student=request.user).order_by('-started_at').first()
         
         # Determine status and progress
-        if response and response.is_complete:
+        # Only mark as Completed if both is_complete is True AND submitted_at exists (not a draft)
+        if response and response.is_complete and response.submitted_at is not None:
             # Student completed the survey
             status = 'Completed'
             progress = 100
@@ -351,7 +354,8 @@ def student_course_detail(request, course_id):
             if survey.status == 'closed':
                 status = 'Closed'
             else:
-                status = 'In Progress' if progress < 100 else 'Completed'
+                # Always show as "In Progress" if not actually submitted (draft), even if progress is 100%
+                status = 'In Progress'
         else:
             # Student hasn't started
             # If survey is closed in database, show as Closed, otherwise Not Started
@@ -478,7 +482,8 @@ def student_survey_board(request):
         # Calculate progress
         progress = 0
         if has_responded:
-            if student_response.is_complete:
+            # Only count as 100% progress if actually submitted (not a draft)
+            if student_response.is_complete and student_response.submitted_at is not None:
                 progress = 100
             else:
                 # Calculate based on answered questions (excluding section breaks)
@@ -502,7 +507,7 @@ def student_survey_board(request):
         
         # Calculate score for exams (if completed)
         score = None
-        if has_responded and student_response.is_complete and survey.type == 'exam':
+        if has_responded and student_response.is_complete and student_response.submitted_at is not None and survey.type == 'exam':
             total_questions = survey.questions.exclude(question_type='section').count()
             if total_questions > 0:
                 correct_answers = 0
@@ -527,7 +532,8 @@ def student_survey_board(request):
         }
         
         # Categorize surveys
-        if has_responded and student_response.is_complete:
+        # Only mark as Completed if both is_complete is True AND submitted_at exists (not a draft)
+        if has_responded and student_response.is_complete and student_response.submitted_at is not None:
             # Completed surveys
             survey_data['status'] = 'Completed'
             completed_surveys.append(survey_data)
@@ -579,6 +585,15 @@ def student_survey_detail(request, survey_id):
         survey.status = 'closed'
         survey.save()
     
+    # Check if survey has passed its due date (explicit check even if auto-close didn't run)
+    is_past_due = False
+    if survey.due_date_enabled and survey.due_date and survey.due_date < timezone.now():
+        is_past_due = True
+        # Ensure survey is closed if due date has passed
+        if survey.status == 'active':
+            survey.status = 'closed'
+            survey.save()
+    
     # Verify student is enrolled in at least one course this survey is assigned to
     enrolled_courses = request.user.enrolled_courses.values_list('course_id', flat=True)
     survey_courses = survey.courses.values_list('id', flat=True)
@@ -594,7 +609,8 @@ def student_survey_detail(request, survey_id):
     ).order_by('-started_at').first()
     
     # Determine status and progress
-    if response and response.is_complete:
+    # Only mark as Completed if both is_complete is True AND submitted_at exists (not a draft)
+    if response and response.is_complete and response.submitted_at is not None:
         status = 'Completed'
         progress = 100
     elif response:
@@ -602,15 +618,20 @@ def student_survey_detail(request, survey_id):
         total_questions = survey.questions.exclude(question_type='section').count()
         answered_questions = response.question_responses.exclude(question__question_type='section').count()
         progress = int((answered_questions / total_questions * 100) if total_questions > 0 else 0)
-        # If survey is closed in database and not completed, show as Closed
-        if survey.status == 'closed':
+        # If survey is closed in database or past due date and not completed, show as Closed
+        if survey.status == 'closed' or is_past_due:
             status = 'Closed'
         else:
-            status = 'In Progress' if progress < 100 else 'Completed'
+            # CRITICAL: Only show as Completed if BOTH progress is 100% AND submitted_at exists
+            # Even if all questions are answered, if submitted_at is None, it's still a draft
+            if progress == 100 and response.submitted_at is not None:
+                status = 'Completed'
+            else:
+                status = 'In Progress'
     else:
         # Student hasn't started
-        # If survey is closed in database, show as Closed, otherwise Not Started
-        if survey.status == 'closed':
+        # If survey is closed in database or past due date, show as Closed, otherwise Not Started
+        if survey.status == 'closed' or is_past_due:
             status = 'Closed'
         else:
             status = 'Not Started'
@@ -622,35 +643,12 @@ def student_survey_detail(request, survey_id):
     else:
         due_date = '--'
     
-    # Format duration
-    if survey.duration_enabled and survey.duration_minutes:
-        duration = f"{survey.duration_minutes} minutes"
-    else:
-        duration = '--'
-    
-    # Calculate attempts remaining
-    attempts_used = SurveyResponse.objects.filter(
-        survey=survey,
-        student=request.user,
-        is_complete=True
-    ).count()
-    
     # Check if modifications are allowed
     can_modify = False
     if survey.allow_modifications and survey.status == 'active':
-        # Student can modify if they have a completed response
-        if response and response.is_complete:
+        # Student can modify if they have a completed response (actually submitted, not a draft)
+        if response and response.is_complete and response.submitted_at is not None:
             can_modify = True
-    
-    if survey.attempts_enabled:
-        if survey.single_attempt:
-            attempts_remaining = 0 if attempts_used > 0 else 1
-        elif survey.max_attempts:
-            attempts_remaining = max(0, survey.max_attempts - attempts_used)
-        else:
-            attempts_remaining = 999  # Unlimited
-    else:
-        attempts_remaining = 0 if attempts_used > 0 else 1
     
     # Get course code
     course = survey.courses.first()
@@ -662,7 +660,7 @@ def student_survey_detail(request, survey_id):
     percentage = None
     needs_grading = False
     
-    if survey.type == 'exam' and response and response.is_complete:
+    if survey.type == 'exam' and response and response.is_complete and response.submitted_at is not None:
         # Calculate total points and awarded points
         question_responses = response.question_responses.exclude(question__question_type='section')
         total_points = sum(float(qr.question.points) for qr in question_responses)
@@ -684,20 +682,17 @@ def student_survey_detail(request, survey_id):
         'status': status,
         'progress': progress,
         'due_date': due_date,
-        'duration': duration,
         'passing_score': 'N/A',  # Can be calculated based on exam scoring
         'total_questions': survey.questions.count(),
-        'attempts_enabled': survey.attempts_enabled,
-        'attempts_remaining': attempts_remaining,
         'allow_modifications': survey.allow_modifications,
         'can_modify': can_modify,
         'description': survey.description or 'No description provided.',
         'instructions': survey.instructions if survey.instructions else [],
-        'require_completion_in_one_sitting': survey.require_completion_in_one_sitting,
         'score': score,
         'total_points': total_points,
         'percentage': percentage,
         'needs_grading': needs_grading,
+        'is_past_due': is_past_due,  # Flag to prevent showing "Take Survey" button
     }
     
     context = {
@@ -705,70 +700,6 @@ def student_survey_detail(request, survey_id):
         'unread_count': 6,
     }
     return render(request, 'student/survey_detail.html', context)
-
-@login_required
-def student_notifications(request):
-    """Student notifications page view"""
-    context = {
-        'notifications': [
-            {
-                'id': 1,
-                'title': 'New section enrollment',
-                'message': 'You\'ve been added to the <span class="font-bold text-gray-800">Introduction to Marketing</span> section.',
-                'time': '2 min ago',
-                'type': 'info',
-                'course_code': 'ELEC 401',
-                'read': False
-            },
-            {
-                'id': 2,
-                'title': 'Survey graded',
-                'message': 'Your score for the <span class="font-bold text-gray-800">Final Assessment</span> survey is now available.',
-                'time': '1 hour ago',
-                'type': 'success',
-                'course_code': 'SSPc 101',
-                'read': False
-            },
-            {
-                'id': 3,
-                'title': 'Survey deadline approaching',
-                'message': 'The <span class="font-bold text-gray-800">STE # 2</span> survey closes in 2 hours — don\'t forget to submit!',
-                'time': '3 hours ago',
-                'type': 'warning',
-                'course_code': 'IT 401',
-                'read': False
-            },
-            {
-                'id': 4,
-                'title': 'New survey available',
-                'message': 'The <span class="font-bold text-gray-800">Activity Insights Survey</span> is now open for responses.',
-                'time': '1 day ago',
-                'type': 'info',
-                'course_code': 'IT 402',
-                'read': False
-            },
-            {
-                'id': 5,
-                'title': 'Survey past due',
-                'message': 'You missed the deadline for the <span class="font-bold text-gray-800">Activity # 6</span> survey. This survey is now closed.',
-                'time': '2 days ago',
-                'type': 'error',
-                'course_code': 'IT 405',
-                'read': False
-            },
-            {
-                'id': 6,
-                'title': 'New survey available',
-                'message': 'The <span class="font-bold text-gray-800">STE # 3</span> survey is now open for responses. <span class="font-bold text-gray-800">Deadline: November 9, 2025</span>',
-                'time': '3 days ago',
-                'type': 'info',
-                'course_code': 'IT 401',
-                'read': False
-            },
-        ],
-        'unread_count': 6,
-    }
-    return render(request, 'student/notifications.html', context)
 
 @login_required
 def student_settings(request):
@@ -835,6 +766,16 @@ def student_take_survey(request, survey_id):
         messages.error(request, 'This survey has closed because the due date has passed.')
         return redirect('student-survey-detail', survey_id=survey.id)
     
+    # Check if survey has due date and if it's passed (explicit check even if auto-close didn't run)
+    # This must happen before any response creation or form rendering
+    if survey.due_date_enabled and survey.due_date and survey.due_date < timezone.now():
+        # Ensure survey is closed if due date has passed
+        if survey.status == 'active':
+            survey.status = 'closed'
+            survey.save()
+        messages.error(request, 'This survey has passed its due date and can no longer be accessed.')
+        return redirect('student-survey-detail', survey_id=survey.id)
+    
     # Check if survey is active
     if survey.status != 'active':
         messages.error(request, 'This survey is not currently active.')
@@ -848,71 +789,33 @@ def student_take_survey(request, survey_id):
         messages.error(request, 'You are not enrolled in any course for this survey.')
         return redirect('student-home')
     
-    # Check if survey has due date and if it's passed
-    if survey.due_date_enabled and survey.due_date and survey.due_date < timezone.now():
-        messages.error(request, 'This survey has passed its due date.')
-        return redirect('student-survey-board')
-    
-    # Check for existing response
-    response = SurveyResponse.objects.filter(
+    # Get or create a single response per student (one submission per student)
+    response, created = SurveyResponse.objects.get_or_create(
         survey=survey,
-        student=request.user
-    ).order_by('-started_at').first()
+        student=request.user,
+        defaults={'attempt_number': 1}
+    )
+    
+    # CRITICAL: If response exists but has no submitted_at timestamp, it's a draft
+    # Even if is_complete is True (which shouldn't happen), reset it if there's no submitted_at
+    # This prevents drafts from being treated as completed when viewing the exam again
+    if response.is_complete and not response.submitted_at:
+        response.is_complete = False
+        response.save(update_fields=['is_complete'])
     
     # Check if already completed
-    if response and response.is_complete:
+    if response.is_complete and response.submitted_at is not None:
         # Check if modifications are allowed and survey is still active
         if survey.allow_modifications and survey.status == 'active':
             # Allow student to modify their existing response
-            # Don't create a new attempt, reuse the existing response
-            # Mark it as incomplete again so they can edit
+            # Reuse the existing response and mark it as incomplete so they can edit
             response.is_complete = False
             response.submitted_at = None
             response.save()
             messages.info(request, 'You can now modify your response.')
-        # Check if multiple attempts are allowed
-        elif survey.attempts_enabled:
-            if survey.single_attempt:
-                messages.info(request, 'You have already completed this survey.')
-                return redirect('student-survey-detail', survey_id=survey.id)
-            elif survey.max_attempts and response.attempt_number >= survey.max_attempts:
-                messages.info(request, 'You have used all your attempts for this survey.')
-                return redirect('student-survey-detail', survey_id=survey.id)
-            else:
-                # Create new attempt
-                new_attempt_number = SurveyResponse.objects.filter(
-                    survey=survey,
-                    student=request.user
-                ).aggregate(Max('attempt_number'))['attempt_number__max'] or 0
-                response = SurveyResponse.objects.create(
-                    survey=survey,
-                    student=request.user,
-                    attempt_number=new_attempt_number + 1
-                )
         else:
             messages.info(request, 'You have already completed this survey.')
             return redirect('student-survey-detail', survey_id=survey.id)
-    
-    # Create new response if none exists
-    if not response:
-        response = SurveyResponse.objects.create(
-            survey=survey,
-            student=request.user,
-            attempt_number=1
-        )
-    
-    # Check if require completion in one sitting and response was started but not submitted
-    if survey.require_completion_in_one_sitting and response and not response.is_complete:
-        # Check if duration has expired
-        if survey.duration_enabled and survey.duration_minutes:
-            elapsed_time = (timezone.now() - response.started_at).total_seconds()
-            if elapsed_time > (survey.duration_minutes * 60):
-                # Auto-submit the survey as incomplete
-                response.submitted_at = timezone.now()
-                response.is_complete = True
-                response.save()
-                messages.warning(request, 'The survey duration has expired. Your responses have been submitted.')
-                return redirect('student-survey-detail', survey_id=survey.id)
     
     # Get questions
     questions = survey.questions.all().order_by('order')
@@ -968,16 +871,6 @@ def student_take_survey(request, survey_id):
             # Store text response
             question_responses_dict[question_id] = qr.response_text
     
-    # Calculate time remaining for timer
-    time_remaining_seconds = None
-    duration_remaining = None
-    if survey.duration_enabled and survey.duration_minutes:
-        elapsed_time = (timezone.now() - response.started_at).total_seconds()
-        time_remaining_seconds = max(0, (survey.duration_minutes * 60) - elapsed_time)
-        minutes_remaining = int(time_remaining_seconds / 60)
-        seconds_remaining = int(time_remaining_seconds % 60)
-        duration_remaining = f"{minutes_remaining}:{seconds_remaining:02d}"
-    
     # Count answered questions
     answered_count = response.question_responses.count()
     
@@ -996,8 +889,6 @@ def student_take_survey(request, survey_id):
         'grading_info': None,  # Not needed during survey taking, only for view mode
         'total_questions': questions.exclude(question_type='section').count(),
         'answered_count': answered_count,
-        'time_remaining_seconds': int(time_remaining_seconds) if time_remaining_seconds else 0,
-        'duration_remaining': duration_remaining,
         'due_date_timestamp': due_date_timestamp,
         'unread_count': 6,
     }
@@ -1027,6 +918,13 @@ def student_view_response(request, survey_id):
         survey=survey,
         student=request.user
     ).order_by('-started_at').first()
+    
+    # CRITICAL: If response exists but has no submitted_at timestamp, it's a draft
+    # Even if is_complete is True (which shouldn't happen), reset it if there's no submitted_at
+    # This prevents drafts from being treated as completed when viewing the exam
+    if response and response.is_complete and not response.submitted_at:
+        response.is_complete = False
+        response.save(update_fields=['is_complete'])
     
     if not response:
         messages.error(request, 'No response found for this survey.')
@@ -1107,7 +1005,8 @@ def student_view_response(request, survey_id):
     total_score = None
     max_score = None
     if survey.type == 'exam':
-        total_score = sum(qr.awarded_points for qr in response.question_responses.all() if qr.awarded_points is not None)
+        # Exclude section breaks from score calculation (sections have no points)
+        total_score = sum(qr.awarded_points for qr in response.question_responses.exclude(question__question_type='section') if qr.awarded_points is not None)
         max_score = sum(q.points for q in questions if q.question_type != 'section')
     
     # Get the first course for back navigation
@@ -1140,7 +1039,27 @@ def student_submit_survey(request, survey_id):
     if request.user.role != 'student':
         return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
     
-    survey = get_object_or_404(Survey, id=survey_id, status='active')
+    survey = get_object_or_404(Survey, id=survey_id)
+    
+    # Check if survey should be auto-closed due to due date
+    if survey.should_auto_close():
+        survey.status = 'closed'
+        survey.save()
+    
+    # Check if survey has passed its due date (explicit check even if auto-close didn't run)
+    if survey.due_date_enabled and survey.due_date and survey.due_date < timezone.now():
+        # Ensure survey is closed if due date has passed
+        if survey.status == 'active':
+            survey.status = 'closed'
+            survey.save()
+        messages.error(request, 'This survey has passed its due date and can no longer be submitted.')
+        return redirect('student-survey-detail', survey_id=survey.id)
+    
+    # Check if survey is active
+    if survey.status != 'active':
+        messages.error(request, 'This survey is not currently active.')
+        return redirect('student-survey-detail', survey_id=survey.id)
+    
     response_id = request.POST.get('response_id')
     
     if not response_id:
@@ -1149,15 +1068,26 @@ def student_submit_survey(request, survey_id):
     
     response = get_object_or_404(SurveyResponse, id=response_id, survey=survey, student=request.user)
     
-    # Check if survey has passed its due date
-    if survey.due_date_enabled and survey.due_date and survey.due_date < timezone.now():
-        messages.error(request, 'This survey has passed its due date and can no longer be submitted.')
+    # CRITICAL: Explicitly reject if this is a draft save attempt (is_draft parameter)
+    # This prevents the draft save endpoint from accidentally submitting
+    if request.POST.get('is_draft') == 'true':
+        messages.error(request, 'Cannot submit a draft. Please use the Submit button to submit your survey.')
         return redirect('student-survey-detail', survey_id=survey.id)
     
-    # Check if already completed
-    if response.is_complete:
+    # Check if already completed (submitted_at is not None means it's already been submitted)
+    if response.submitted_at is not None:
         messages.info(request, 'This survey has already been submitted.')
         return redirect('student-survey-detail', survey_id=survey.id)
+    
+    # Check if already marked as complete (additional safety check)
+    if response.is_complete:
+        # If is_complete is True but submitted_at is None, reset it (shouldn't happen due to model safeguard)
+        if response.submitted_at is None:
+            response.is_complete = False
+            response.save(update_fields=['is_complete'])
+        else:
+            messages.info(request, 'This survey has already been submitted.')
+            return redirect('student-survey-detail', survey_id=survey.id)
     
     # Process each question (exclude section breaks)
     questions = survey.questions.exclude(question_type='section')
@@ -1228,27 +1158,61 @@ def student_submit_survey(request, survey_id):
 @login_required
 @require_http_methods(["POST"])
 def api_save_survey_draft(request, survey_id, response_id):
-    """API endpoint to save survey draft"""
+    """API endpoint to save survey draft
+    
+    CRITICAL: This endpoint is ONLY for saving drafts. It must NEVER mark a survey as complete,
+    regardless of how many questions are answered. Even if progress is 100%, this remains a draft
+    until the user explicitly clicks the "Submit" button.
+    """
     if request.user.role != 'student':
         return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
     
-    survey = get_object_or_404(Survey, id=survey_id, status='active')
-    response = get_object_or_404(SurveyResponse, id=response_id, survey=survey, student=request.user)
+    survey = get_object_or_404(Survey, id=survey_id)
     
-    # Check if survey has passed its due date - prevent saving drafts after due date
+    # Check if survey should be auto-closed due to due date
+    if survey.should_auto_close():
+        survey.status = 'closed'
+        survey.save()
+    
+    # Check if survey has passed its due date (explicit check even if auto-close didn't run)
     if survey.due_date_enabled and survey.due_date and survey.due_date < timezone.now():
+        # Ensure survey is closed if due date has passed
+        if survey.status == 'active':
+            survey.status = 'closed'
+            survey.save()
         return JsonResponse({
             'success': False,
             'error': 'This survey has passed its due date and can no longer be modified.'
         }, status=400)
     
-    # IMPORTANT: Explicitly ensure is_complete is False for draft saves
-    # Even if the survey was somehow marked as complete, a draft save should reset it
-    # This prevents accidental completion when saving drafts
-    if response.is_complete:
-        response.is_complete = False
-        response.submitted_at = None
-        response.save()
+    # Check if survey is active
+    if survey.status != 'active':
+        return JsonResponse({
+            'success': False,
+            'error': 'This survey is not currently active.'
+        }, status=400)
+    
+    response = get_object_or_404(SurveyResponse, id=response_id, survey=survey, student=request.user)
+    
+    # Verify this is actually a draft save request
+    is_draft = request.POST.get('is_draft')
+    if is_draft not in ['true', 'True', '1']:
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid draft save request. This endpoint is only for saving drafts.'
+        }, status=400)
+    
+    # CRITICAL: Explicitly set is_complete to False at the START of draft save
+    # This prevents any possibility of the survey being marked as complete during draft save
+    # Even if all questions are answered (100% progress), a draft save should NEVER mark the survey as complete
+    # Also ensure submitted_at is None - a response without submitted_at is always a draft
+    # This is a DRAFT save operation - it must NEVER result in submission
+    response.is_complete = False
+    response.submitted_at = None
+    response.save(update_fields=['is_complete', 'submitted_at'])
+    
+    # Refresh from database to ensure we have the latest state
+    response.refresh_from_db()
     
     # Process each question (same as submit but don't mark as complete)
     # Only save responses that have actual answers
@@ -1320,12 +1284,28 @@ def api_save_survey_draft(request, survey_id, response_id):
                 question=question
             ).delete()
     
-    # IMPORTANT: Ensure is_complete is False for draft saves
-    # Even if all questions are answered, a draft save should never mark the survey as complete
-    if response.is_complete:
-        response.is_complete = False
-        response.submitted_at = None
-        response.save()
+    # CRITICAL: Explicitly ensure is_complete is False at the END of draft save
+    # Refresh from database to avoid any stale data, then ensure it's False
+    # This is a double-check to prevent any race conditions or accidental completion
+    # IMPORTANT: Even if ALL questions are answered (100% progress), a draft save must NEVER mark as complete
+    response.refresh_from_db()
+    
+    # Calculate if all questions are answered (for logging/debugging, but never auto-complete)
+    total_questions = survey.questions.exclude(question_type='section').count()
+    answered_questions = response.question_responses.exclude(question__question_type='section').count()
+    all_answered = (total_questions > 0 and answered_questions == total_questions)
+    
+    # CRITICAL: Regardless of whether all questions are answered, this is a DRAFT save
+    # Never mark as complete, never set submitted_at, even if progress is 100%
+    response.is_complete = False
+    response.submitted_at = None
+    response.save(update_fields=['is_complete', 'submitted_at'])
+    
+    # Log for debugging (can be removed in production)
+    if all_answered:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.debug(f"Draft save with 100% progress - correctly kept as draft (is_complete=False, submitted_at=None)")
     
     return JsonResponse({'success': True, 'message': 'Draft saved successfully'})
 
@@ -1530,65 +1510,6 @@ def teacher_home(request):
         'unread_count': 6,
     }
     return render(request, 'teacher/home.html', context)
-
-
-@login_required
-def teacher_notifications(request):
-    """Teacher notifications page view"""
-    if request.user.role != 'teacher':
-        return redirect('student-home')
-    
-    context = {
-        'notifications': [
-            {
-                'id': 1,
-                'title': 'New student response',
-                'message': '<span class="font-bold text-gray-800">Maria Santos</span> completed the <span class="font-bold text-gray-800">UI/UX Design Principles</span> survey.',
-                'time': '2 min ago',
-                'type': 'success',
-                'course_code': 'ELEC 401',
-                'read': False
-            },
-            {
-                'id': 2,
-                'title': 'Survey closing soon',
-                'message': 'The <span class="font-bold text-gray-800">Test Cases</span> survey will close in 2 hours.',
-                'time': '1 hour ago',
-                'type': 'warning',
-                'course_code': 'IT401',
-                'read': False
-            },
-            {
-                'id': 3,
-                'title': 'All responses collected',
-                'message': 'All students have completed the <span class="font-bold text-gray-800">FEIN FEIN FEIN</span> survey.',
-                'time': '3 hours ago',
-                'type': 'success',
-                'course_code': 'AAP 101',
-                'read': False
-            },
-            {
-                'id': 4,
-                'title': 'Low completion rate',
-                'message': 'Only <span class="font-bold text-gray-800">45%</span> of students have completed the <span class="font-bold text-gray-800">Noob</span> survey.',
-                'time': '5 hours ago',
-                'type': 'warning',
-                'course_code': 'AAP 101',
-                'read': False
-            },
-            {
-                'id': 5,
-                'title': 'New student enrolled',
-                'message': '<span class="font-bold text-gray-800">John Doe</span> joined your <span class="font-bold text-gray-800">AAP 101</span> section.',
-                'time': '1 day ago',
-                'type': 'info',
-                'course_code': 'AAP 101',
-                'read': False
-            },
-        ],
-        'unread_count': 6,
-    }
-    return render(request, 'teacher/notifications.html', context)
 
 
 @login_required
@@ -1944,12 +1865,6 @@ def teacher_survey_board(request):
         else:
             due_date = '---'
         
-        # Format duration
-        if survey.duration_enabled and survey.duration_minutes:
-            duration = f"{survey.duration_minutes} minutes"
-        else:
-            duration = '---'
-        
         surveys_data.append({
             'id': survey.id,
             'title': survey.title,
@@ -1958,7 +1873,6 @@ def teacher_survey_board(request):
             'status': survey.get_status_display(),
             'status_code': survey.status,
             'due_date': due_date,
-            'duration': duration,
             'total_questions': survey.get_total_questions(),
             'progress': progress,
             'courses': course_names,
@@ -2087,12 +2001,6 @@ def teacher_preview_survey(request, survey_id):
     else:
         due_date = None
     
-    # Format duration
-    if survey.duration_enabled and survey.duration_minutes:
-        duration = f"{survey.duration_minutes} minutes"
-    else:
-        duration = None
-    
     # Group questions into pages based on section breaks
     pages = []
     current_page = []
@@ -2142,7 +2050,6 @@ def teacher_preview_survey(request, survey_id):
         'questions': questions,
         'pages': pages,
         'due_date': due_date,
-        'duration': duration,
         'is_preview': True,
         'total_pages': len(pages),
     }
@@ -2759,48 +2666,9 @@ def teacher_update_survey_parameters(request, survey_id):
         }, status=400)
     
     try:
-        # Duration
-        survey.duration_enabled = request.POST.get('duration_enabled') == 'on'
-        if survey.duration_enabled:
-            duration_minutes = request.POST.get('duration_minutes')
-            if duration_minutes:
-                survey.duration_minutes = int(duration_minutes)
-            
-            # If duration is enabled, automatically enforce single attempt and completion in one sitting
-            survey.attempts_enabled = True
-            survey.single_attempt = True
-            survey.max_attempts = None
-            survey.require_completion_in_one_sitting = True
-        else:
-            # If duration is disabled, use the provided attempt settings
-            survey.attempts_enabled = request.POST.get('attempts_enabled') == 'on'
-            if survey.attempts_enabled:
-                attempt_type = request.POST.get('attempt_type')
-                if attempt_type == 'single':
-                    survey.single_attempt = True
-                    survey.max_attempts = None
-                else:
-                    survey.single_attempt = False
-                    max_attempts = request.POST.get('max_attempts')
-                    if max_attempts:
-                        survey.max_attempts = int(max_attempts)
-                
-                # If attempts are enabled, disable modifications (mutual exclusivity)
-                survey.allow_modifications = False
-            
-            # Check if allow_modifications is enabled
-            allow_modifications = request.POST.get('allow_modifications') == 'on'
-            if allow_modifications:
-                # If modifications are enabled, disable attempts (mutual exclusivity)
-                survey.allow_modifications = True
-                survey.attempts_enabled = False
-                survey.single_attempt = False
-                survey.max_attempts = None
-            elif not survey.attempts_enabled:
-                # If neither is enabled, make sure modifications is off
-                survey.allow_modifications = False
-            
-            survey.require_completion_in_one_sitting = request.POST.get('require_completion_in_one_sitting') == 'on'
+        # Modifications (only for Survey type)
+        if survey.type == 'survey':
+            survey.allow_modifications = request.POST.get('allow_modifications') == 'on'
         
         # Due date
         survey.due_date_enabled = request.POST.get('due_date_enabled') == 'on'
@@ -2854,15 +2722,6 @@ def api_toggle_survey_status(request, survey_id):
         if action == 'activate':
             # Validate that enabled parameters have valid values
             validation_errors = []
-            
-            # Check duration - only if enabled
-            if survey.duration_enabled and not survey.duration_minutes:
-                validation_errors.append('Duration is enabled but no duration value is set')
-            
-            # Check attempts - only if enabled
-            if survey.attempts_enabled:
-                if not survey.single_attempt and (not survey.max_attempts or survey.max_attempts < 1):
-                    validation_errors.append('Attempts is enabled but max attempts value is not set')
             
             # Check due date - only if enabled
             if survey.due_date_enabled and not survey.due_date:
