@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Home - sixsayvensurvey.io{% endblock %}
 
@@ -10,14 +11,7 @@
             <div class="flex items-center justify-between">
                 <!-- Logo -->
                 <div class="flex items-center space-x-2">
-                    <div class="text-2xl font-bold text-indigo-600">
-                        <svg class="w-8 h-8 inline-block" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M8 12C8 10.8954 8.89543 10 10 10H15C16.1046 10 17 10.8954 17 12V15C17 16.1046 16.1046 17 15 17H10C8.89543 17 8 16.1046 8 15V12Z" fill="currentColor"/>
-                            <path d="M23 12C23 10.8954 23.8954 10 25 10H30C31.1046 10 32 10.8954 32 12V15C32 16.1046 31.1046 17 30 17H25C23.8954 17 23 16.1046 23 15V12Z" fill="currentColor"/>
-                            <path d="M10 23C8.89543 23 8 23.8954 8 25V28C8 29.1046 8.89543 30 10 30H15C16.1046 30 17 29.1046 17 28V25C17 23.8954 16.1046 23 15 23H10Z" fill="currentColor"/>
-                            <path d="M23 25C23 23.8954 23.8954 23 25 23H30C31.1046 23 32 23.8954 32 25V28C32 29.1046 31.1046 30 30 30H25C23.8954 30 23 29.1046 23 28V25Z" fill="currentColor"/>
-                        </svg>
-                    </div>
+                    <img src="{% static 'images/logo.svg' %}" alt="Logo" class="w-8 h-8" style="filter: brightness(0) saturate(100%) invert(32%) sepia(91%) saturate(2108%) hue-rotate(231deg) brightness(93%) contrast(92%);">
                     <span class="text-xl font-semibold text-gray-900">sixsayvensurvey.io</span>
                 </div>
 
@@ -89,8 +83,9 @@
 
             <!-- Right Content - Survey Builder Illustration -->
             <div class="relative">
-                <div class="rounded-3xl overflow-hidden shadow-2xl bg-gradient-to-br from-indigo-100 via-purple-100 to-indigo-200 p-8">
-                    <div class="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg overflow-hidden">
+                <div class="rounded-3xl overflow-hidden shadow-2xl p-8 relative" style="background-color: #c7d2fe;">
+                    <div class="gradient-spinner"></div>
+                    <div class="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg overflow-hidden relative z-10">
                         <!-- Survey Builder Header -->
                         <div class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
                             <div class="flex items-center space-x-3">
@@ -223,7 +218,7 @@
                 </div>
                 
                 <!-- Floating Element -->
-                <div class="absolute top-0 right-0 transform translate-x-4 -translate-y-4">
+                <div class="absolute top-0 right-0 transform translate-x-4 -translate-y-4 z-10">
                     <div class="bg-white rounded-lg shadow-lg p-3 flex items-center space-x-2">
                         <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-xs">✓</div>
                         <span class="text-sm font-medium text-gray-700">Live Analysis</span>
@@ -303,13 +298,9 @@
             <!-- For Students -->
             <div class="max-w-6xl mx-auto mb-24">
                 <div class="grid md:grid-cols-2 gap-12 items-center">
-                    <div class="order-2 md:order-1 bg-gray-100 rounded-2xl p-12 flex items-center justify-center h-80">
-                        <svg class="w-48 h-48 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                    </div>
+                    <img src="{% static 'images/Students.svg' %}" alt="Students" class="order-2 md:order-1 w-full h-auto">
                     <div class="order-1 md:order-2">
-                        <h2 class="text-4xl md:text-5xl font-bold text-gray-900 mb-6">For Students</h2>
+                        <h2 class="text-4xl md:text-5xl font-bold text-indigo-600 mb-6">For Students</h2>
                         <p class="text-lg text-gray-600 leading-relaxed">
                             Students can easily view and complete assigned surveys through a simple, organized interface. 
                             Each form supports multiple question types with progress indicators for a smooth experience. 
@@ -323,18 +314,14 @@
             <div class="max-w-6xl mx-auto">
                 <div class="grid md:grid-cols-2 gap-12 items-center">
                     <div>
-                        <h2 class="text-4xl md:text-5xl font-bold text-gray-900 mb-6">For Teachers</h2>
+                        <h2 class="text-4xl md:text-5xl font-bold text-indigo-600 mb-6">For Teachers</h2>
                         <p class="text-lg text-gray-600 leading-relaxed">
                             Teachers and administrators can create and assign surveys, monitor responses in real time, and 
                             analyze results through an interactive dashboard. The system streamlines survey management, 
                             making it easier to track participation and gain meaningful insights from student feedback.
                         </p>
                     </div>
-                    <div class="bg-gray-100 rounded-2xl p-12 flex items-center justify-center h-80">
-                        <svg class="w-48 h-48 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                        </svg>
-                    </div>
+                    <img src="{% static 'images/Teachers.svg' %}" alt="Teachers" class="w-full h-auto">
                 </div>
             </div>
         </div>
@@ -346,9 +333,7 @@
             <!-- Section Header -->
             <div class="text-center mb-4">
                 <p class="text-indigo-600 font-semibold text-sm uppercase tracking-wide mb-3">OUR TEAM</p>
-                <div class="inline-flex items-center gap-3 px-6 py-2.5 bg-gradient-to-r from-indigo-50 to-blue-50 border-2 border-indigo-200 rounded-full">
-                    <h3 class="text-xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent">Group 2 - BSIT 4EG2</h3>
-                </div>
+                <h3 class="text-xl font-bold text-gray-900">Group 2 - BSIT 4EG2</h3>
             </div>
 
             <!-- Team Cards Container -->
@@ -374,15 +359,9 @@
                             <!-- Card 1 - Ian Cruz -->
                             <div class="flex-shrink-0 w-full md:w-[calc(50%-1rem)] lg:w-[calc(33.333%-1.333rem)]">
                                 <div class="group relative overflow-hidden rounded-3xl cursor-pointer" style="height: 620px;">
-                                    <!-- Background Gradient -->
-                                    <div class="absolute inset-0 bg-gradient-to-b from-blue-900 via-blue-700 to-blue-600">
-                                        <div class="w-full h-full flex items-center justify-center">
-                                            <div class="text-center text-white opacity-30">
-                                                <svg class="w-32 h-32 mx-auto" fill="currentColor" viewBox="0 0 24 24">
-                                                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                                                </svg>
-                                            </div>
-                                        </div>
+                                    <!-- Background Image -->
+                                    <div class="absolute inset-0">
+                                        <img src="{% static 'images/teamcard1.png' %}" alt="Ian Cruz" class="w-full h-full object-cover">
                                     </div>
 
                                     <!-- Sliding Overlay -->
@@ -404,25 +383,20 @@
                             <!-- Card 2 - Aaron Christian -->
                             <div class="flex-shrink-0 w-full md:w-[calc(50%-1rem)] lg:w-[calc(33.333%-1.333rem)]">
                                 <div class="group relative overflow-hidden rounded-3xl cursor-pointer" style="height: 620px;">
-                                    <div class="absolute inset-0 bg-gradient-to-b from-blue-900 via-blue-700 to-blue-600">
-                                        <div class="w-full h-full flex items-center justify-center">
-                                            <div class="text-center text-white opacity-30">
-                                                <svg class="w-32 h-32 mx-auto" fill="currentColor" viewBox="0 0 24 24">
-                                                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                                                </svg>
-                                            </div>
-                                        </div>
+                                    <!-- Background Image -->
+                                    <div class="absolute inset-0">
+                                        <img src="{% static 'images/teamcard2.png' %}" alt="Jaden Mimura" class="w-full h-full object-cover">
                                     </div>
 
                                     <div class="absolute inset-x-0 top-full h-full bg-indigo-700/90 backdrop-blur-sm transition-all duration-500 ease-in-out group-hover:top-0 flex flex-col justify-between p-8">
                                         <div>
-                                            <h3 class="text-white text-2xl font-bold mb-1">Aaron Christian</h3>
-                                            <p class="text-white/90 text-sm">System Analyst</p>
+                                            <h3 class="text-white text-2xl font-bold mb-1">Jaden Mimura</h3>
+                                            <p class="text-white/90 text-sm">Backend Developer</p>
                                         </div>
                                         
                                         <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-200">
                                             <p class="text-white/90 text-sm leading-relaxed">
-                                                Passionate about analyzing systems and creating efficient solutions for complex problems.
+                                                programming is fun.
                                             </p>
                                         </div>
                                     </div>
@@ -432,25 +406,20 @@
                             <!-- Card 3 - Tim Carcosia -->
                             <div class="flex-shrink-0 w-full md:w-[calc(50%-1rem)] lg:w-[calc(33.333%-1.333rem)]">
                                 <div class="group relative overflow-hidden rounded-3xl cursor-pointer" style="height: 620px;">
-                                    <div class="absolute inset-0 bg-gradient-to-b from-blue-900 via-blue-700 to-blue-600">
-                                        <div class="w-full h-full flex items-center justify-center">
-                                            <div class="text-center text-white opacity-30">
-                                                <svg class="w-32 h-32 mx-auto" fill="currentColor" viewBox="0 0 24 24">
-                                                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                                                </svg>
-                                            </div>
-                                        </div>
+                                    <!-- Background Image -->
+                                    <div class="absolute inset-0">
+                                        <img src="{% static 'images/teamcard3.png' %}" alt="Rhealiza Nabong" class="w-full h-full object-cover">
                                     </div>
 
                                     <div class="absolute inset-x-0 top-full h-full bg-indigo-700/90 backdrop-blur-sm transition-all duration-500 ease-in-out group-hover:top-0 flex flex-col justify-between p-8">
                                         <div>
-                                            <h3 class="text-white text-2xl font-bold mb-1">Tim Carcosia</h3>
-                                            <p class="text-white/90 text-sm">Backend</p>
+                                            <h3 class="text-white text-2xl font-bold mb-1">Rhealiza Nabong</h3>
+                                            <p class="text-white/90 text-sm">Project Manager</p>
                                         </div>
                                         
                                         <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-200">
                                             <p class="text-white/90 text-sm leading-relaxed">
-                                                Specialized in backend development and building robust server-side applications.
+                                                I was drawn to IT for its ability to turn complex problems into practical solutions
                                             </p>
                                         </div>
                                     </div>
@@ -460,25 +429,20 @@
                             <!-- Card 4 - John Doe -->
                             <div class="flex-shrink-0 w-full md:w-[calc(50%-1rem)] lg:w-[calc(33.333%-1.333rem)]">
                                 <div class="group relative overflow-hidden rounded-3xl cursor-pointer" style="height: 620px;">
-                                    <div class="absolute inset-0 bg-gradient-to-b from-blue-900 via-blue-700 to-blue-600">
-                                        <div class="w-full h-full flex items-center justify-center">
-                                            <div class="text-center text-white opacity-30">
-                                                <svg class="w-32 h-32 mx-auto" fill="currentColor" viewBox="0 0 24 24">
-                                                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                                                </svg>
-                                            </div>
-                                        </div>
+                                    <!-- Background Image -->
+                                    <div class="absolute inset-0">
+                                        <img src="{% static 'images/teamcard4.png' %}" alt="Dan Ordonio" class="w-full h-full object-cover">
                                     </div>
 
                                     <div class="absolute inset-x-0 top-full h-full bg-indigo-700/90 backdrop-blur-sm transition-all duration-500 ease-in-out group-hover:top-0 flex flex-col justify-between p-8">
                                         <div>
-                                            <h3 class="text-white text-2xl font-bold mb-1">John Doe</h3>
-                                            <p class="text-white/90 text-sm">Full Stack Developer</p>
+                                            <h3 class="text-white text-2xl font-bold mb-1">Dan Ordonio</h3>
+                                            <p class="text-white/90 text-sm">QA Tester</p>
                                         </div>
                                         
                                         <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-200">
                                             <p class="text-white/90 text-sm leading-relaxed">
-                                                Experienced in both frontend and backend technologies, building seamless applications.
+                                                I was most engaged by computer-related subjects, which inspired me to pursue a career in Digital Technology
                                             </p>
                                         </div>
                                     </div>
@@ -488,25 +452,20 @@
                             <!-- Card 5 - Jane Smith -->
                             <div class="flex-shrink-0 w-full md:w-[calc(50%-1rem)] lg:w-[calc(33.333%-1.333rem)]">
                                 <div class="group relative overflow-hidden rounded-3xl cursor-pointer" style="height: 620px;">
-                                    <div class="absolute inset-0 bg-gradient-to-b from-blue-900 via-blue-700 to-blue-600">
-                                        <div class="w-full h-full flex items-center justify-center">
-                                            <div class="text-center text-white opacity-30">
-                                                <svg class="w-32 h-32 mx-auto" fill="currentColor" viewBox="0 0 24 24">
-                                                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                                                </svg>
-                                            </div>
-                                        </div>
+                                    <!-- Background Image -->
+                                    <div class="absolute inset-0">
+                                        <img src="{% static 'images/teamcard5.png' %}" alt="John Ruiz De Honor" class="w-full h-full object-cover">
                                     </div>
 
                                     <div class="absolute inset-x-0 top-full h-full bg-indigo-700/90 backdrop-blur-sm transition-all duration-500 ease-in-out group-hover:top-0 flex flex-col justify-between p-8">
                                         <div>
-                                            <h3 class="text-white text-2xl font-bold mb-1">Jane Smith</h3>
-                                            <p class="text-white/90 text-sm">UI Designer</p>
+                                            <h3 class="text-white text-2xl font-bold mb-1">John Ruiz De Honor</h3>
+                                            <p class="text-white/90 text-sm">QA Tester</p>
                                         </div>
                                         
                                         <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-200">
                                             <p class="text-white/90 text-sm leading-relaxed">
-                                                Creating beautiful and intuitive user interfaces that enhance user experience.
+                                                If it works, don't touch it. IT rule #1.
                                             </p>
                                         </div>
                                     </div>
@@ -532,16 +491,7 @@
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
                     <!-- Left Side - Illustration -->
                     <div class="order-2 lg:order-1">
-                        <div class="relative">
-                            <div class="bg-gradient-to-br from-indigo-100 to-blue-100 rounded-3xl p-12 flex items-center justify-center" style="min-height: 400px;">
-                                <div class="text-center">
-                                    <svg class="w-64 h-64 mx-auto text-indigo-600" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                                    </svg>
-                                    <p class="text-indigo-600 font-medium mt-4">Illustration will be added here</p>
-                                </div>
-                            </div>
-                        </div>
+                        <img src="{% static 'images/AboutUs.svg' %}" alt="About Us" class="w-full h-auto">
                     </div>
 
                     <!-- Right Side - Content -->
@@ -609,14 +559,7 @@
                 <div class="flex flex-col items-center space-y-8">
                     <!-- Logo and Brand -->
                     <div class="flex items-center space-x-3">
-                        <div class="text-2xl font-bold text-indigo-600">
-                            <svg class="w-10 h-10" viewBox="0 0 40 40" fill="none">
-                                <path d="M8 12C8 10.8954 8.89543 10 10 10H15C16.1046 10 17 10.8954 17 12V15C17 16.1046 16.1046 17 15 17H10C8.89543 17 8 16.1046 8 15V12Z" fill="currentColor"/>
-                                <path d="M23 12C23 10.8954 23.8954 10 25 10H30C31.1046 10 32 10.8954 32 12V15C32 16.1046 31.1046 17 30 17H25C23.8954 17 23 16.1046 23 15V12Z" fill="currentColor"/>
-                                <path d="M10 23C8.89543 23 8 23.8954 8 25V28C8 29.1046 8.89543 30 10 30H15C16.1046 30 17 29.1046 17 28V25C17 23.8954 16.1046 23 15 23H10Z" fill="currentColor"/>
-                                <path d="M23 25C23 23.8954 23.8954 23 25 23H30C31.1046 23 32 23.8954 32 25V28C32 29.1046 31.1046 30 30 30H25C23.8954 30 23 29.1046 23 28V25Z" fill="currentColor"/>
-                            </svg>
-                        </div>
+                        <img src="{% static 'images/logo.svg' %}" alt="Logo" class="w-10 h-10" style="filter: brightness(0) saturate(100%) invert(32%) sepia(91%) saturate(2108%) hue-rotate(231deg) brightness(93%) contrast(92%);">
                         <span class="text-2xl font-semibold text-gray-900">sixsayvensurvey.io</span>
                     </div>
 
@@ -753,4 +696,30 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 })();
 </script>
+
+<style>
+.gradient-spinner {
+    width: 150vmax;
+    height: 150vmax;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 0;
+    background: conic-gradient(
+        from 0deg, 
+        #a5b4fc, 
+        #d8b4fe, 
+        #818cf8, 
+        #a5b4fc
+    );
+    filter: blur(40px);
+    animation: spinGradient 5s linear infinite;
+}
+
+@keyframes spinGradient {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+</style>
 {% endblock %}
