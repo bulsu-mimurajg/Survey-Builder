@@ -15,7 +15,7 @@
     {# Regular question form with type selector #}
     <div class="mb-4">
         <label for="question_type" class="block mb-2 text-sm font-medium text-gray-900">Question Type</label>
-        <select name="question_type" id="question-type-select" onchange="updateQuestionTypeFields({{ question.id }})" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5">
+        <select name="question_type" id="question-type-select" onchange="updateQuestionTypeFields({{ question.id }})" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" {% if survey_is_active or has_responses %}disabled{% endif %}>
             <option value="short_text" {% if question.question_type == 'short_text' %}selected{% endif %}>Short Text</option>
             <option value="long_text" {% if question.question_type == 'long_text' %}selected{% endif %}>Long Text</option>
             <option value="multiple_choice" {% if question.question_type == 'multiple_choice' %}selected{% endif %}>Multiple Choice</option>
@@ -27,6 +27,9 @@
             <option value="time" {% if question.question_type == 'time' %}selected{% endif %}>Time</option>
             <option value="file_upload" {% if question.question_type == 'file_upload' %}selected{% endif %}>File Upload</option>
         </select>
+        {% if survey_is_active or has_responses %}
+        <p class="text-xs text-red-600 mt-1">Question type cannot be changed when survey is active or has responses</p>
+        {% endif %}
     </div>
     
     <div class="mb-4">
@@ -44,7 +47,7 @@
             {% for option in question.options.all %}
             <div class="flex items-center space-x-2 option-item">
                 <input type="text" name="options[]" value="{{ option.option_text }}" class="flex-1 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5" placeholder="Option text" required>
-                <button type="button" onclick="removeOption(this)" class="text-red-600 hover:text-red-800">
+                <button type="button" onclick="removeOption(this)" class="text-red-600 hover:text-red-800" {% if survey_is_active or has_responses %}disabled style="opacity: 0.5; cursor: not-allowed;"{% endif %}>
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
@@ -61,9 +64,12 @@
             </div>
             {% endfor %}
         </div>
-        <button type="button" onclick="addOption()" class="mt-2 text-indigo-600 hover:text-indigo-700 text-sm font-medium">
+        <button type="button" onclick="addOption()" class="mt-2 text-indigo-600 hover:text-indigo-700 text-sm font-medium" {% if survey_is_active or has_responses %}disabled style="opacity: 0.5; cursor: not-allowed;"{% endif %}>
             + Add Option
         </button>
+        {% if survey_is_active or has_responses %}
+        <p class="text-xs text-red-600 mt-1">Cannot add or remove options when survey is active or has responses</p>
+        {% endif %}
     </div>
     {% elif question.question_type == 'rating' %}
     <div class="mb-4">
@@ -76,13 +82,16 @@
     <div class="mb-4 space-y-3">
         <div>
             <label for="scale_min" class="block mb-2 text-sm font-medium text-gray-900">Minimum Value</label>
-            <input type="number" name="scale_min" id="scale_min" min="0" max="100" value="{{ question.settings.min|default:1 }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" required>
+            <input type="number" name="scale_min" id="scale_min" min="1" max="10" value="{{ question.settings.min|default:1 }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" oninput="validateScaleInputs(this)" onchange="validateScaleRange()" {% if survey_is_active or has_responses %}disabled{% endif %} required>
         </div>
         <div>
             <label for="scale_max" class="block mb-2 text-sm font-medium text-gray-900">Maximum Value</label>
-            <input type="number" name="scale_max" id="scale_max" min="1" max="100" value="{{ question.settings.max|default:10 }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" required>
+            <input type="number" name="scale_max" id="scale_max" min="1" max="10" value="{{ question.settings.max|default:10 }}" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" oninput="validateScaleInputs(this)" onchange="validateScaleRange()" {% if survey_is_active or has_responses %}disabled{% endif %} required>
         </div>
-        <p class="text-xs text-gray-500">Numeric range from minimum to maximum value</p>
+        <p class="text-xs text-gray-500">Numeric range from minimum to maximum value (1-10)</p>
+        {% if survey_is_active or has_responses %}
+        <p class="text-xs text-red-600">Scale settings cannot be changed when survey is active or has responses</p>
+        {% endif %}
     </div>
     {% endif %}
     </div>

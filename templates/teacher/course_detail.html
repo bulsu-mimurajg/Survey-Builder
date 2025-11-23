@@ -247,22 +247,41 @@
         </div>
 
         <!-- Footer / Pagination -->
-        {% if displayed_surveys|length > 10 %}
+        {% if displayed_surveys.has_other_pages %}
         <div class="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-white">
-            <span class="text-sm font-semibold text-gray-900">Page 2 <span class="font-normal text-gray-500">of 10</span></span>
+            <span class="text-sm font-semibold text-gray-900">Page {{ displayed_surveys.number }} <span class="font-normal text-gray-500">of {{ displayed_surveys.paginator.num_pages }}</span></span>
             <div class="inline-flex gap-2">
-                <button class="flex items-center justify-center px-3 py-1.5 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 hover:text-gray-700">
+                {% if displayed_surveys.has_previous %}
+                <a href="?{% if request.GET.tab %}tab={{ request.GET.tab }}&{% endif %}filter={{ survey_filter }}&page={{ displayed_surveys.previous_page_number }}" class="flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-indigo-600 transition-colors">
+                    <svg class="w-3.5 h-3.5 me-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 10">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5H1m0 0 4 4M1 5l4-4"/>
+                    </svg>
+                    Prev
+                </a>
+                {% else %}
+                <button disabled class="flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-400 bg-gray-100 border border-gray-200 rounded-lg cursor-not-allowed">
                     <svg class="w-3.5 h-3.5 me-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 10">
                         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5H1m0 0 4 4M1 5l4-4"/>
                     </svg>
                     Prev
                 </button>
-                <button class="flex items-center justify-center px-3 py-1.5 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 hover:text-gray-700">
+                {% endif %}
+                
+                {% if displayed_surveys.has_next %}
+                <a href="?{% if request.GET.tab %}tab={{ request.GET.tab }}&{% endif %}filter={{ survey_filter }}&page={{ displayed_surveys.next_page_number }}" class="flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-indigo-600 transition-colors">
+                    Next
+                    <svg class="w-3.5 h-3.5 ms-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 10">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 5h12m0 0-4 4m4-4-4-4"/>
+                    </svg>
+                </a>
+                {% else %}
+                <button disabled class="flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-400 bg-gray-100 border border-gray-200 rounded-lg cursor-not-allowed">
                     Next
                     <svg class="w-3.5 h-3.5 ms-2" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 10">
                         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 5h12m0 0-4 4m4-4-4-4"/>
                     </svg>
                 </button>
+                {% endif %}
             </div>
         </div>
         {% endif %}

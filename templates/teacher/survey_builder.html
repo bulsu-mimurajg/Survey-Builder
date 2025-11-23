@@ -63,8 +63,13 @@
     <header class="survey-builder-header">
         <div class="px-6 py-4">
             <div class="flex items-center justify-between gap-4">
-                <!-- Left: Survey Title -->
+                <!-- Left: Back Button and Survey Title -->
                 <div class="flex items-center space-x-3 flex-shrink-0 min-w-0">
+                    <button type="button" id="back-button" data-url="{% url 'teacher-survey-builder' %}" onclick="handleBackClick()" class="inline-flex items-center text-sm font-medium text-gray-600 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
                     <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
                         <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/>
@@ -106,28 +111,25 @@
                 
                 <!-- Right: Action Buttons -->
                 <div class="flex items-center gap-2 flex-shrink-0">
-                    <button type="button" id="back-button" data-url="{% url 'teacher-survey-builder' %}" onclick="handleBackClick()" class="inline-flex items-center text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors">
-                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                        </svg>
-                        Back
-                    </button>
-                    <button type="button" onclick="previewSurvey()" class="inline-flex items-center text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors" title="Preview Survey">
+                    <button type="button" onclick="previewSurvey()" class="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg border border-gray-300 transition-colors" title="Preview Survey">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
                     </button>
-                    <button type="button" class="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg" onclick="undoAction()">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                        </svg>
-                    </button>
-                    <button type="button" class="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg" onclick="redoAction()">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
-                        </svg>
-                    </button>
+                    <div class="flex items-center space-x-1 border border-gray-300 rounded-lg">
+                        <button type="button" id="undo-button" onclick="undoRedoManager.undo()" disabled class="text-gray-600 hover:text-gray-900 hover:bg-gray-50 font-medium rounded-l-lg text-sm p-2 opacity-50 cursor-not-allowed" title="Undo (Ctrl+Z)">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
+                            </svg>
+                        </button>
+                        <div class="w-px h-6 bg-gray-300"></div>
+                        <button type="button" id="redo-button" onclick="undoRedoManager.redo()" disabled class="text-gray-600 hover:text-gray-900 hover:bg-gray-50 font-medium rounded-r-lg text-sm p-2 opacity-50 cursor-not-allowed" title="Redo (Ctrl+Y)">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6"/>
+                            </svg>
+                        </button>
+                    </div>
                     {% if survey.status == 'active' %}
                     <button type="button" disabled class="text-gray-400 font-medium rounded-lg text-sm px-4 py-2 border border-gray-300 bg-gray-100 cursor-not-allowed whitespace-nowrap" title="Parameters are locked when survey is active">
                         Parameters
@@ -527,6 +529,35 @@
                 </button>
                 <button onclick="saveAndExit()" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">
                     Save & Exit
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Activation Unsaved Changes Modal -->
+<div id="activation-unsaved-changes-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 overflow-y-auto">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div class="p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-semibold text-gray-900">Unsaved Changes</h3>
+                <button onclick="closeActivationUnsavedChangesModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <p class="text-sm text-gray-600 mb-6">You have unsaved changes. Would you like to save them before activating the survey?</p>
+            <div class="flex justify-end gap-3">
+                <button onclick="discardAndActivate()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Discard Changes
+                </button>
+                <button onclick="saveAndActivate()" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <svg id="activation-save-spinner" class="hidden inline w-4 h-4 mr-2 text-white animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span id="activation-save-text">Save Changes</span>
                 </button>
             </div>
         </div>

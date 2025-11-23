@@ -595,34 +595,198 @@ function viewResponse(responseId) {
             document.getElementById('response-modal-title').textContent = `${data.student_name}'s Response`;
             
             let html = `
-                <div class="mb-6 p-4 bg-gray-50 rounded-lg">
-                    <div class="grid grid-cols-2 gap-4">
+                <div class="mb-6 p-6 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-100">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <p class="text-sm text-gray-500">Student</p>
-                            <p class="text-sm font-medium text-gray-900">${data.student_name}</p>
-                            <p class="text-sm text-gray-500">${data.student_email}</p>
+                            <p class="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-1">Student</p>
+                            <p class="text-base font-bold text-gray-900">${data.student_name}</p>
+                            <p class="text-sm text-gray-600">${data.student_email}</p>
                         </div>
                         <div>
-                            <p class="text-sm text-gray-500">Submitted</p>
-                            <p class="text-sm font-medium text-gray-900">${data.submitted_at || 'In progress'}</p>
+                            <p class="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-1">Submitted</p>
+                            <p class="text-base font-medium text-gray-900">${data.submitted_at || '<span class="text-orange-600">In progress</span>'}</p>
                         </div>
                     </div>
                 </div>
             `;
             
             data.answers.forEach((answer, index) => {
-                html += `
-                    <div class="mb-6">
-                        <h4 class="text-sm font-medium text-gray-900 mb-2">${index + 1}. ${answer.question}</h4>
-                        <div class="pl-4">
-                            ${answer.answer || '<p class="text-sm text-gray-400 italic">No answer</p>'}
-                        </div>
-                    </div>
-                `;
+                html += renderQuestionResponse(answer, index + 1);
             });
             
             content.innerHTML = html;
         });
+}
+
+// Render individual question response with proper formatting
+function renderQuestionResponse(answer, questionNumber) {
+    const questionType = answer.question_type || 'text';
+    const userAnswer = answer.answer;
+    const questionText = answer.question;
+    const options = answer.options || [];
+    
+    let responseHTML = '';
+    
+    // Question header
+    let headerHTML = `
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-4">
+            <div class="flex items-start justify-between mb-4">
+                <div class="flex-1">
+                    <div class="flex items-center space-x-2 mb-2">
+                        <span class="text-sm font-medium text-gray-500">Question ${questionNumber}</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700">
+                            ${formatQuestionType(questionType)}
+                        </span>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900">${questionText}</h3>
+                </div>
+            </div>
+            <div class="mt-4">
+    `;
+    
+    // Render based on question type
+    if (questionType === 'short_text') {
+        responseHTML = `
+            <div class="w-full px-4 py-3 border-2 border-indigo-200 bg-indigo-50 rounded-lg">
+                <p class="text-gray-900 font-medium">${userAnswer || '<span class="text-gray-400 italic">No answer provided</span>'}</p>
+            </div>
+        `;
+    } 
+    else if (questionType === 'long_text') {
+        responseHTML = `
+            <div class="w-full px-4 py-3 border-2 border-indigo-200 bg-indigo-50 rounded-lg min-h-[100px]">
+                <p class="text-gray-900 whitespace-pre-wrap">${userAnswer || '<span class="text-gray-400 italic">No answer provided</span>'}</p>
+            </div>
+        `;
+    }
+    else if (questionType === 'multiple_choice') {
+        responseHTML = '<div class="space-y-2">';
+        options.forEach(option => {
+            const isSelected = userAnswer === option;
+            responseHTML += `
+                <label class="flex items-center space-x-3 p-3 border-2 ${isSelected ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 bg-gray-50'} rounded-lg">
+                    <input type="radio" ${isSelected ? 'checked' : ''} disabled class="w-5 h-5 text-indigo-600">
+                    <span class="text-gray-900 ${isSelected ? 'font-semibold' : ''}">${option}</span>
+                    ${isSelected ? '<span class="ml-auto"><svg class="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></span>' : ''}
+                </label>
+            `;
+        });
+        responseHTML += '</div>';
+    }
+    else if (questionType === 'checkboxes') {
+        const selectedAnswers = Array.isArray(userAnswer) ? userAnswer : (userAnswer ? userAnswer.split(',').map(a => a.trim()) : []);
+        responseHTML = '<div class="space-y-2">';
+        options.forEach(option => {
+            const isSelected = selectedAnswers.includes(option);
+            responseHTML += `
+                <label class="flex items-center space-x-3 p-3 border-2 ${isSelected ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 bg-gray-50'} rounded-lg">
+                    <input type="checkbox" ${isSelected ? 'checked' : ''} disabled class="w-5 h-5 text-indigo-600 rounded">
+                    <span class="text-gray-900 ${isSelected ? 'font-semibold' : ''}">${option}</span>
+                    ${isSelected ? '<span class="ml-auto"><svg class="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></span>' : ''}
+                </label>
+            `;
+        });
+        responseHTML += '</div>';
+    }
+    else if (questionType === 'dropdown') {
+        responseHTML = `
+            <select disabled class="w-full px-4 py-3 border-2 border-indigo-200 bg-indigo-50 rounded-lg text-gray-900 font-medium">
+                <option>${userAnswer || 'No selection made'}</option>
+            </select>
+        `;
+    }
+    else if (questionType === 'rating') {
+        const rating = parseInt(userAnswer) || 0;
+        responseHTML = '<div class="flex items-center space-x-2">';
+        for (let i = 1; i <= 5; i++) {
+            const isSelected = i <= rating;
+            responseHTML += `
+                <button disabled class="w-12 h-12 border-2 ${isSelected ? 'border-indigo-500 bg-indigo-500 text-white' : 'border-gray-300 bg-gray-100 text-gray-400'} rounded-full flex items-center justify-center text-lg font-bold shadow-sm">
+                    ${i}
+                </button>
+            `;
+        }
+        responseHTML += `<span class="ml-4 text-lg font-semibold text-indigo-600">${rating}/5</span></div>`;
+    }
+    else if (questionType === 'scale') {
+        const scaleValue = parseInt(userAnswer) || 5;
+        responseHTML = `
+            <div class="space-y-3">
+                <div class="flex items-center space-x-4">
+                    <input type="range" disabled value="${scaleValue}" min="1" max="10" class="w-full accent-indigo-600">
+                    <span class="text-2xl font-bold text-indigo-600 min-w-[60px] text-center">${scaleValue}/10</span>
+                </div>
+                <div class="flex justify-between text-sm text-gray-500">
+                    <span>1</span>
+                    <span>10</span>
+                </div>
+            </div>
+        `;
+    }
+    else if (questionType === 'date') {
+        responseHTML = `
+            <input type="date" disabled value="${userAnswer || ''}" class="w-full px-4 py-3 border-2 border-indigo-200 bg-indigo-50 rounded-lg text-gray-900 font-medium">
+        `;
+    }
+    else if (questionType === 'time') {
+        responseHTML = `
+            <input type="time" disabled value="${userAnswer || ''}" class="w-full px-4 py-3 border-2 border-indigo-200 bg-indigo-50 rounded-lg text-gray-900 font-medium">
+        `;
+    }
+    else if (questionType === 'file_upload') {
+        if (userAnswer) {
+            responseHTML = `
+                <div class="border-2 border-indigo-200 bg-indigo-50 rounded-lg p-4">
+                    <div class="flex items-center space-x-3">
+                        <svg class="w-8 h-8 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd"/>
+                        </svg>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-gray-900">${userAnswer}</p>
+                            <p class="text-xs text-gray-500">File uploaded</p>
+                        </div>
+                        <a href="#" class="text-indigo-600 hover:text-indigo-700 text-sm font-medium">Download</a>
+                    </div>
+                </div>
+            `;
+        } else {
+            responseHTML = `
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50">
+                    <svg class="mx-auto h-10 w-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                    <p class="mt-2 text-sm text-gray-500">No file uploaded</p>
+                </div>
+            `;
+        }
+    }
+    else {
+        // Default text display
+        responseHTML = `
+            <div class="w-full px-4 py-3 border-2 border-indigo-200 bg-indigo-50 rounded-lg">
+                <p class="text-gray-900">${userAnswer || '<span class="text-gray-400 italic">No answer provided</span>'}</p>
+            </div>
+        `;
+    }
+    
+    return headerHTML + responseHTML + '</div></div>';
+}
+
+// Helper function to format question type display names
+function formatQuestionType(type) {
+    const typeMap = {
+        'short_text': 'Short Text',
+        'long_text': 'Long Text',
+        'multiple_choice': 'Multiple Choice',
+        'checkboxes': 'Checkboxes',
+        'dropdown': 'Dropdown',
+        'rating': 'Rating',
+        'scale': 'Scale',
+        'date': 'Date',
+        'time': 'Time',
+        'file_upload': 'File Upload'
+    };
+    return typeMap[type] || 'Text';
 }
 
 function closeResponseModal() {
@@ -633,6 +797,22 @@ function closeResponseModal() {
 function exportResponses() {
     window.location.href = `/api/survey/${surveyId}/export/csv/`;
 }
+
+// Auto-open modal if response parameter is in URL
+window.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const responseId = urlParams.get('response');
+    
+    if (responseId) {
+        // Switch to Individual tab
+        switchTab('individual');
+        
+        // Open the modal after a short delay to ensure tab is loaded
+        setTimeout(() => {
+            viewResponse(responseId);
+        }, 300);
+    }
+});
 
 // Load charts on page load
 document.addEventListener('DOMContentLoaded', function() {

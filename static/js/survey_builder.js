@@ -160,27 +160,151 @@ function handleQuestionDragStart(event, questionId) {
     event.currentTarget.style.opacity = '0.5';
     event.currentTarget.classList.add('border-indigo-500');
     
-    // Add drop zones
-    const questions = document.querySelectorAll('.draggable-question');
-    questions.forEach(q => {
-        if (q !== event.currentTarget) {
-            q.classList.add('drop-zone');
-        }
-    });
+    // Show drop zones between questions
+    showQuestionDropZonesForReorder();
 }
 
 function handleQuestionDragEnd(event) {
     event.currentTarget.style.opacity = '1';
     event.currentTarget.classList.remove('border-indigo-500');
     
-    // Remove drop zones
+    // Hide drop zones
+    hideQuestionDropZones();
+    
+    // Clean up visual states
     const questions = document.querySelectorAll('.draggable-question');
     questions.forEach(q => {
-        q.classList.remove('drop-zone', 'drag-over');
+        q.classList.remove('drop-zone', 'drag-over', 'border-indigo-400', 'bg-indigo-50');
     });
     
     draggedQuestionId = null;
     draggedQuestionElement = null;
+}
+
+// Show drop zones for reordering existing questions
+function showQuestionDropZonesForReorder() {
+    const container = document.getElementById('questions-container');
+    if (!container) return;
+    
+    // First, remove any existing drop zones to prevent duplication
+    hideQuestionDropZones();
+    
+    const questions = Array.from(document.querySelectorAll('.draggable-question'));
+    
+    // Find the dragged element to exclude its adjacent drop zones
+    const draggedElement = questions.find(q => String(q.dataset.questionId) === String(draggedQuestionId));
+    const draggedIndex = draggedElement ? questions.indexOf(draggedElement) : -1;
+    
+    // Add drop zone at the beginning (before first question)
+    // But not if it's right before the dragged question
+    if (questions.length > 0 && draggedIndex !== 0) {
+        const firstDropZone = createDropZoneForReorder(0);
+        container.insertBefore(firstDropZone, questions[0]);
+    }
+    
+    // Add drop zones between and after questions
+    questions.forEach((question, index) => {
+        // Skip drop zones immediately before and after the dragged question
+        if (draggedIndex !== -1 && (index === draggedIndex || index === draggedIndex - 1)) {
+            return;
+        }
+        
+        const dropZone = createDropZoneForReorder(index + 1);
+        if (question.nextSibling) {
+            container.insertBefore(dropZone, question.nextSibling);
+        } else {
+            container.appendChild(dropZone);
+        }
+    });
+}
+
+// Create a drop zone for reordering questions
+function createDropZoneForReorder(insertPosition) {
+    const dropZone = document.createElement('div');
+    dropZone.className = 'question-drop-zone-reorder my-2 h-4 bg-indigo-200 border-2 border-dashed border-indigo-400 rounded-lg transition-all duration-200';
+    dropZone.dataset.insertPosition = insertPosition;
+    dropZone.setAttribute('draggable', 'false');
+    
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.remove('h-4', 'bg-indigo-200');
+        dropZone.classList.add('h-8', 'bg-indigo-300');
+    });
+    
+    dropZone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('h-8', 'bg-indigo-300');
+        dropZone.classList.add('h-4', 'bg-indigo-200');
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleDropOnReorderZone(e);
+    });
+    
+    return dropZone;
+}
+
+// Handle drop on reorder zone
+function handleDropOnReorderZone(event) {
+    if (!draggedQuestionId) return;
+    
+    const dropZone = event.currentTarget;
+    const insertPosition = parseInt(dropZone.dataset.insertPosition);
+    const container = document.getElementById('questions-container');
+    
+    if (!container || !draggedQuestionElement) return;
+    
+    // Get all questions
+    const questions = Array.from(document.querySelectorAll('.draggable-question'));
+    const draggedIndex = questions.indexOf(draggedQuestionElement);
+    
+    if (draggedIndex === -1) return;
+    
+    // Don't move if dropping in the same position (before or after the dragged element)
+    if (insertPosition === draggedIndex || insertPosition === draggedIndex + 1) {
+        hideQuestionDropZones();
+        return;
+    }
+    
+    // Save snapshot for undo/redo
+    undoRedoManager.saveSnapshot();
+    
+    // Remove the dragged element first
+    container.removeChild(draggedQuestionElement);
+    
+    // Get updated question list after removing dragged element
+    const updatedQuestions = Array.from(document.querySelectorAll('.draggable-question'));
+    
+    // Calculate actual insert position after removal
+    let actualInsertPosition = insertPosition;
+    if (draggedIndex < insertPosition) {
+        // If we're moving down, adjust for the removed element
+        actualInsertPosition--;
+    }
+    
+    // Insert at new position
+    if (actualInsertPosition >= updatedQuestions.length) {
+        // Append to end
+        container.appendChild(draggedQuestionElement);
+    } else {
+        // Insert before the element at actualInsertPosition
+        container.insertBefore(draggedQuestionElement, updatedQuestions[actualInsertPosition]);
+    }
+    
+    // Update order numbers
+    renumberQuestions();
+    
+    // Track changes
+    changeTracker.updateChangeStatus();
+    if (changeTracker.hasUnsavedChanges) {
+        updateSaveStatus('Unsaved changes', 'unsaved');
+    }
+    
+    // Hide drop zones
+    hideQuestionDropZones();
 }
 
 // Show drop zones between questions when dragging new question type
@@ -274,14 +398,11 @@ function createDropZone(insertOrder) {
 
 // Hide all drop zones
 function hideQuestionDropZones() {
-    const dropZones = document.querySelectorAll('.question-drop-zone');
+    const dropZones = document.querySelectorAll('.question-drop-zone, .question-drop-zone-reorder');
     dropZones.forEach(zone => {
-        zone.classList.add('opacity-0');
-        setTimeout(() => {
-            if (zone.parentElement) {
-                zone.remove();
-            }
-        }, 200);
+        if (zone.parentElement) {
+            zone.remove();
+        }
     });
 }
 
@@ -356,13 +477,23 @@ function stopAutoScroll() {
 
 // Initialize drag and drop
 document.addEventListener('DOMContentLoaded', function() {
+    // Clear undo/redo history when page loads (fresh start)
+    undoRedoManager.clear();
+    
     // Initialize change tracker
     changeTracker.init();
     
     // Track title changes
     const titleInput = document.getElementById('survey-title');
     if (titleInput) {
+        let titleChangeTimeout;
         titleInput.addEventListener('input', function() {
+            // Save snapshot after 500ms of no typing (debounced)
+            clearTimeout(titleChangeTimeout);
+            titleChangeTimeout = setTimeout(() => {
+                undoRedoManager.saveSnapshot();
+            }, 500);
+            
             changeTracker.updateChangeStatus();
             if (changeTracker.hasUnsavedChanges) {
                 updateSaveStatus('Unsaved changes', 'unsaved');
@@ -374,6 +505,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const courseCheckboxes = document.querySelectorAll('input[name="course-assignment"]');
     courseCheckboxes.forEach(checkbox => {
         checkbox.addEventListener('change', function() {
+            // Save snapshot for undo/redo
+            undoRedoManager.saveSnapshot();
+            
             // Small delay to ensure checkbox state is updated
             setTimeout(() => {
                 changeTracker.updateChangeStatus();
@@ -382,6 +516,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }, 10);
         });
+    });
+    
+    // Add keyboard shortcuts for undo/redo
+    document.addEventListener('keydown', function(e) {
+        // Ctrl+Z or Cmd+Z for undo
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+            e.preventDefault();
+            undoRedoManager.undo();
+        }
+        // Ctrl+Y or Cmd+Y or Ctrl+Shift+Z for redo
+        if (((e.ctrlKey || e.metaKey) && e.key === 'y') || 
+            ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z')) {
+            e.preventDefault();
+            undoRedoManager.redo();
+        }
     });
     
     const canvas = document.getElementById('survey-canvas');
@@ -432,19 +581,12 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Handle dragging over a question
+// Handle dragging over a question (disabled - only drop on zones)
 function handleQuestionDragOver(event) {
     if (!draggedQuestionId) return;
     
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-    
-    const questionElement = event.currentTarget;
-    const questionId = questionElement.dataset.questionId;
-    
-    if (String(questionId) !== String(draggedQuestionId)) {
-        questionElement.classList.add('drag-over', 'border-indigo-400', 'bg-indigo-50');
-    }
+    // Don't allow dropping on questions directly
+    return;
 }
 
 // Handle leaving a question during drag
@@ -452,27 +594,13 @@ function handleQuestionDragLeave(event) {
     event.currentTarget.classList.remove('drag-over', 'border-indigo-400', 'bg-indigo-50');
 }
 
-// Handle dropping a question on another question
+// Handle dropping a question on another question (disabled - only drop on zones)
 function handleQuestionDrop(event) {
     event.preventDefault();
     event.stopPropagation();
     
-    // REINFORCED: Check if restrictions apply - block if survey is active OR has responses
-    if (typeof surveyStatus !== 'undefined' && surveyStatus === 'active') {
-        showToast('Cannot reorder questions when survey is active', 'error');
-        return;
-    }
-    if (typeof surveyStatus !== 'undefined' && surveyStatus !== 'draft' && 
-        typeof hasResponses !== 'undefined' && hasResponses) {
-        showToast('Cannot reorder questions when survey has responses', 'error');
-        return;
-    }
-    
-    const targetQuestionId = event.currentTarget.dataset.questionId;
-    
-    if (draggedQuestionId && String(targetQuestionId) !== String(draggedQuestionId)) {
-        reorderQuestions(draggedQuestionId, targetQuestionId);
-    }
+    // Don't allow direct dropping on questions, only on drop zones
+    return;
     
     // Clean up visual states
     const questions = document.querySelectorAll('.draggable-question');
@@ -516,6 +644,9 @@ function reorderQuestions(draggedId, targetId) {
     } else {
         targetElement.parentNode.insertBefore(draggedElement, targetElement);
     }
+    
+    // Save snapshot for undo/redo
+    undoRedoManager.saveSnapshot();
     
     // Update order numbers (temporary, not saved)
     updateQuestionOrders();
@@ -601,6 +732,9 @@ function addQuestion(questionType, insertOrder = null) {
         defaultSettings.min = 1;
         defaultSettings.max = 10;
     }
+    
+    // Save snapshot BEFORE making any changes (capture current state)
+    undoRedoManager.saveSnapshot();
     
     // Store question data
     const questionData = {
@@ -715,6 +849,7 @@ function addQuestion(questionType, insertOrder = null) {
                         ${iconHtml}
                     </div>
                     <span class="text-sm font-medium text-gray-500"${questionType === 'section' ? ' data-is-section="true"' : ''}>${questionType === 'section' ? 'Section ' + initialDisplayNumber : 'Question ' + initialDisplayNumber}</span>
+                    ${questionType !== 'section' ? '<span class="text-xs text-red-600 required-indicator" style="display: none;">* Required</span>' : ''}
                     <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">${typeLabels[questionType] || questionType.replace(/_/g, ' ')}</span>
                 </div>
                 <h4 class="text-base font-medium text-gray-900 mb-2">New Question</h4>
@@ -993,6 +1128,9 @@ function deleteQuestion(questionId) {
     const questionElement = document.querySelector(`[data-question-id="${questionId}"]`);
     if (!questionElement) return;
     
+    // Save snapshot for undo/redo
+    undoRedoManager.saveSnapshot();
+    
     // Check if it's a temporary question (was just added)
     if (String(questionId).startsWith('temp-')) {
         // Remove from added list
@@ -1123,14 +1261,18 @@ function validateScaleRange() {
     const minValue = parseInt(minInput.value);
     const maxValue = parseInt(maxInput.value);
     
-    // If both have values, check that min <= max
+    // If both have values, check that max > min (not equal)
     if (!isNaN(minValue) && !isNaN(maxValue)) {
-        if (minValue > maxValue) {
-            // Adjust the one that was just changed
+        if (maxValue <= minValue) {
+            // Maximum must be greater than minimum
             if (document.activeElement === minInput) {
-                minInput.value = maxValue;
+                // User changed min, so adjust it to be less than max
+                minInput.value = Math.max(1, maxValue - 1);
+                showToast('Minimum value must be less than maximum value', 'error');
             } else if (document.activeElement === maxInput) {
-                maxInput.value = minValue;
+                // User changed max, so adjust it to be greater than min
+                maxInput.value = Math.min(10, minValue + 1);
+                showToast('Maximum value must be greater than minimum value', 'error');
             }
         }
     }
@@ -1142,6 +1284,18 @@ function saveQuestion(questionId) {
     if (!form) return;
     
     const formData = new FormData(form);
+    
+    // Validate scale question values before saving
+    const questionType = formData.get('question_type');
+    if (questionType === 'scale') {
+        const minValue = parseInt(formData.get('scale_min'));
+        const maxValue = parseInt(formData.get('scale_max'));
+        
+        if (!isNaN(minValue) && !isNaN(maxValue) && maxValue <= minValue) {
+            showToast('Maximum value must be greater than minimum value', 'error');
+            return;
+        }
+    }
     
     // Store form data in pending changes
     const questionData = {};
@@ -1171,9 +1325,18 @@ function saveQuestion(questionId) {
             
             // Update settings based on type
             if (newType === 'scale') {
+                const scaleMin = parseInt(questionData.scale_min) || 1;
+                const scaleMax = parseInt(questionData.scale_max) || 10;
+                
+                // Enforce max > min
+                if (scaleMax <= scaleMin) {
+                    showToast('Maximum value must be greater than minimum value', 'error');
+                    return;
+                }
+                
                 addedQuestion.settings = {
-                    min: parseInt(questionData.scale_min) || 1,
-                    max: parseInt(questionData.scale_max) || 10
+                    min: scaleMin,
+                    max: scaleMax
                 };
             } else if (newType === 'rating') {
                 addedQuestion.settings = { max: 5 };
@@ -1186,6 +1349,9 @@ function saveQuestion(questionId) {
             }
             
             addedQuestion.data = questionData;
+            
+            // Save snapshot for undo/redo
+            undoRedoManager.saveSnapshot();
             
             // Update the question display in DOM
             const questionElement = document.querySelector(`[data-question-id="${questionId}"]`);
@@ -1247,6 +1413,12 @@ function saveQuestion(questionId) {
                     typeBadge.textContent = typeLabels[newType] || newType.replace(/_/g, ' ');
                 }
                 
+                // Update required indicator
+                const requiredIndicator = questionElement.querySelector('.required-indicator');
+                if (requiredIndicator) {
+                    requiredIndicator.style.display = addedQuestion.required ? 'inline' : 'none';
+                }
+                
                 // Update preview container based on question type
                 const previewContainer = questionElement.querySelector('.mt-3');
                 if (previewContainer) {
@@ -1303,7 +1475,6 @@ function saveQuestion(questionId) {
                     } else if (newType === 'dropdown') {
                         const select = document.createElement('select');
                         select.className = 'w-full px-3 py-2 border border-gray-300 rounded-lg';
-                        select.disabled = true;
                         const defaultOption = document.createElement('option');
                         defaultOption.textContent = 'Select an option';
                         select.appendChild(defaultOption);
@@ -1349,6 +1520,9 @@ function saveQuestion(questionId) {
             }
         }
     } else {
+        // Save snapshot for undo/redo before saving to backend
+        undoRedoManager.saveSnapshot();
+        
         // For saved questions, immediately save to backend
         saveQuestionEdit(questionId, questionData);
     }
@@ -1407,6 +1581,227 @@ function closeQuestionModal() {
 
 // Global flag to track if we're currently saving (prevents beforeunload alert)
 let isSaving = false;
+
+// Undo/Redo Manager
+let undoRedoManager = {
+    undoStack: [],
+    redoStack: [],
+    maxHistorySize: 50,
+    isRestoring: false, // Flag to prevent saving snapshots during restore
+    
+    saveSnapshot: function() {
+        if (this.isRestoring) return; // Don't save snapshots during undo/redo
+        
+        const snapshot = this.createSnapshot();
+        this.undoStack.push(snapshot);
+        
+        // Limit stack size
+        if (this.undoStack.length > this.maxHistorySize) {
+            this.undoStack.shift();
+        }
+        
+        // Clear redo stack when new action is performed
+        this.redoStack = [];
+        
+        this.updateButtons();
+    },
+    
+    createSnapshot: function() {
+        const container = document.getElementById('questions-container');
+        const titleInput = document.getElementById('survey-title');
+        const courseCheckboxes = document.querySelectorAll('input[name="course-assignment"]:checked');
+        
+        return {
+            questionsHtml: container ? container.innerHTML : '',
+            title: titleInput ? titleInput.value : '',
+            courseIds: Array.from(courseCheckboxes).map(cb => cb.value),
+            changeTrackerState: JSON.parse(JSON.stringify({
+                pendingQuestionChanges: changeTracker.pendingQuestionChanges,
+                originalQuestionState: changeTracker.originalQuestionState
+            }))
+        };
+    },
+    
+    undo: function() {
+        if (this.undoStack.length === 0) return;
+        
+        // Save current state to redo stack
+        const currentSnapshot = this.createSnapshot();
+        this.redoStack.push(currentSnapshot);
+        
+        // Get previous state
+        const snapshot = this.undoStack.pop();
+        this.restoreSnapshot(snapshot);
+        
+        this.updateButtons();
+    },
+    
+    redo: function() {
+        if (this.redoStack.length === 0) return;
+        
+        // Save current state to undo stack
+        const currentSnapshot = this.createSnapshot();
+        this.undoStack.push(currentSnapshot);
+        
+        // Get next state
+        const snapshot = this.redoStack.pop();
+        this.restoreSnapshot(snapshot);
+        
+        this.updateButtons();
+    },
+    
+    restoreSnapshot: function(snapshot) {
+        this.isRestoring = true;
+        
+        // Restore questions HTML
+        const container = document.getElementById('questions-container');
+        if (container) {
+            container.innerHTML = snapshot.questionsHtml;
+            
+            // Reattach event listeners to restored questions
+            const questions = container.querySelectorAll('.draggable-question');
+            questions.forEach(question => {
+                this.reattachQuestionListeners(question);
+            });
+            
+            // Renumber questions
+            renumberQuestions();
+        }
+        
+        // Restore title
+        const titleInput = document.getElementById('survey-title');
+        if (titleInput) {
+            titleInput.value = snapshot.title;
+        }
+        
+        // Restore course assignments
+        const allCheckboxes = document.querySelectorAll('input[name="course-assignment"]');
+        allCheckboxes.forEach(cb => {
+            cb.checked = snapshot.courseIds.includes(cb.value);
+        });
+        
+        // Don't restore pendingQuestionChanges from snapshot
+        // Instead, recalculate by comparing current DOM to original saved state
+        // Clear all pending changes and let updateChangeStatus recalculate
+        changeTracker.pendingQuestionChanges = {
+            added: [],
+            deleted: [],
+            edited: {},
+            reordered: null
+        };
+        
+        // Recalculate pending changes based on current DOM vs original state
+        // First, get current question IDs from DOM
+        const currentQuestions = Array.from(document.querySelectorAll('.draggable-question'));
+        const currentQuestionIds = currentQuestions.map(q => {
+            const id = q.dataset.questionId;
+            return id.startsWith('temp-') ? id : parseInt(id);
+        });
+        
+        // Get original question IDs (saved state)
+        const originalQuestionIds = changeTracker.originalQuestionState.ids;
+        
+        // Find added questions (in current but not in original)
+        currentQuestionIds.forEach(currentId => {
+            if (String(currentId).startsWith('temp-') || !originalQuestionIds.includes(currentId)) {
+                // This is a new/temp question, but we can't reconstruct full data
+                // So we'll just mark that there are added questions
+                // The actual data should come from the DOM or be rebuilt
+            }
+        });
+        
+        // Find deleted questions (in original but not in current)
+        originalQuestionIds.forEach(originalId => {
+            if (!currentQuestionIds.includes(originalId) && !currentQuestionIds.includes(String(originalId))) {
+                changeTracker.pendingQuestionChanges.deleted.push(originalId);
+            }
+        });
+        
+        // Update change status to recalculate if there are actual changes
+        changeTracker.updateChangeStatus();
+        
+        // Hide any drop zones that might have been restored
+        hideQuestionDropZones();
+        
+        // Reset all drag states and visual effects on questions
+        const allQuestions = container ? container.querySelectorAll('.draggable-question') : [];
+        allQuestions.forEach(q => {
+            q.style.opacity = '1';
+            q.classList.remove('border-indigo-500', 'drag-over', 'border-indigo-400', 'bg-indigo-50', 'drop-zone');
+        });
+        
+        // Reset drag state variables
+        draggedQuestionId = null;
+        draggedQuestionElement = null;
+        
+        // Check if empty and show/hide empty state
+        if (container && container.querySelectorAll('.draggable-question').length === 0) {
+            showEmptyState();
+        } else {
+            hideEmptyState();
+        }
+        
+        this.isRestoring = false;
+    },
+    
+    reattachQuestionListeners: function(questionElement) {
+        // Reattach drag listeners
+        questionElement.draggable = true;
+        questionElement.addEventListener('dragstart', function(e) {
+            handleQuestionDragStart(e, questionElement.dataset.questionId);
+        });
+        questionElement.addEventListener('dragend', handleQuestionDragEnd);
+        
+        // Reattach edit button listener
+        const editBtn = questionElement.querySelector('.edit-question-btn');
+        if (editBtn) {
+            const questionId = questionElement.dataset.questionId;
+            editBtn.onclick = function() { editQuestion(questionId); };
+        }
+        
+        // Reattach delete button listener
+        const deleteBtn = questionElement.querySelector('.delete-question-btn');
+        if (deleteBtn) {
+            const questionId = questionElement.dataset.questionId;
+            deleteBtn.onclick = function() { deleteQuestion(questionId); };
+        }
+    },
+    
+    updateButtons: function() {
+        const undoBtn = document.getElementById('undo-button');
+        const redoBtn = document.getElementById('redo-button');
+        const container = document.getElementById('questions-container');
+        const hasQuestions = container && container.querySelectorAll('.draggable-question').length > 0;
+        
+        if (undoBtn) {
+            // Only enable undo if there are questions AND history exists
+            if (hasQuestions && this.undoStack.length > 0) {
+                undoBtn.disabled = false;
+                undoBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                undoBtn.disabled = true;
+                undoBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        }
+        
+        if (redoBtn) {
+            // Only enable redo if there are questions AND redo history exists
+            if (hasQuestions && this.redoStack.length > 0) {
+                redoBtn.disabled = false;
+                redoBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                redoBtn.disabled = true;
+                redoBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+        }
+    },
+    
+    clear: function() {
+        this.undoStack = [];
+        this.redoStack = [];
+        this.updateButtons();
+    }
+};
 
 // Change tracking system
 let changeTracker = {
@@ -1583,8 +1978,68 @@ function updateSurveyTitle() {
     }
 }
 
+// Validate questions before saving
+function validateQuestionsBeforeSave() {
+    const invalidQuestions = [];
+    
+    // Check all pending added questions
+    for (let i = 0; i < changeTracker.pendingQuestionChanges.added.length; i++) {
+        const addedQuestion = changeTracker.pendingQuestionChanges.added[i];
+        // Check if it's a choice-based question (multiple_choice, checkboxes, dropdown)
+        if (['multiple_choice', 'checkboxes', 'dropdown'].includes(addedQuestion.type)) {
+            // Check if it has at least one option
+            if (!addedQuestion.options || addedQuestion.options.length === 0 || 
+                addedQuestion.options.every(opt => !opt || opt.trim() === '')) {
+                const typeLabels = {
+                    'multiple_choice': 'Multiple Choice',
+                    'checkboxes': 'Checkboxes',
+                    'dropdown': 'Dropdown'
+                };
+                const questionText = addedQuestion.text || 'New Question';
+                invalidQuestions.push(`"${questionText}" (${typeLabels[addedQuestion.type]})`);
+            }
+        }
+    }
+    
+    // Check all pending edited questions
+    for (const [questionId, questionData] of Object.entries(changeTracker.pendingQuestionChanges.edited)) {
+        const questionType = questionData.question_type;
+        // Check if it's a choice-based question
+        if (['multiple_choice', 'checkboxes', 'dropdown'].includes(questionType)) {
+            // Check if it has at least one option
+            if (!questionData.options || questionData.options.length === 0 || 
+                questionData.options.every(opt => !opt || opt.trim() === '')) {
+                const typeLabels = {
+                    'multiple_choice': 'Multiple Choice',
+                    'checkboxes': 'Checkboxes',
+                    'dropdown': 'Dropdown'
+                };
+                const questionText = questionData.question_text || 'Question';
+                invalidQuestions.push(`"${questionText}" (${typeLabels[questionType]})`);
+            }
+        }
+    }
+    
+    if (invalidQuestions.length > 0) {
+        if (invalidQuestions.length === 1) {
+            return `${invalidQuestions[0]} must have at least one option`;
+        } else {
+            return `The following questions must have at least one option:\n${invalidQuestions.join('\n')}`;
+        }
+    }
+    
+    return null; // No errors
+}
+
 // Save survey - saves all pending changes
 function saveSurvey() {
+    // Validate questions before saving
+    const validationError = validateQuestionsBeforeSave();
+    if (validationError) {
+        showToast(validationError, 'error');
+        return Promise.reject(new Error(validationError));
+    }
+    
     // Disable button and show spinner
     const saveButton = document.getElementById('save-button');
     const saveSpinner = document.getElementById('save-spinner');
@@ -1692,6 +2147,10 @@ function saveSurvey() {
         .then(() => {
             // Mark as saved
             changeTracker.markAsSaved();
+            
+            // Clear undo/redo history after successful save
+            undoRedoManager.clear();
+            
             updateSaveStatus('All changes saved', 'success');
             showToast('All changes saved', 'success');
             // Reload page to show all saved changes (especially for questions)
@@ -2265,6 +2724,10 @@ function saveAndExit() {
         .then(() => {
             // Mark as saved
             changeTracker.markAsSaved();
+            
+            // Clear undo/redo history after successful save
+            undoRedoManager.clear();
+            
             // Navigate after saving (flag will prevent beforeunload)
             setTimeout(() => {
                 isSaving = false; // Reset flag after navigation starts
@@ -2486,8 +2949,73 @@ document.addEventListener('click', function(event) {
 
 // Survey Activation Functions
 function activateSurvey() {
+    // Check if there are unsaved changes
+    if (changeTracker.hasUnsavedChanges) {
+        // Show unsaved changes modal for activation
+        document.getElementById('activation-unsaved-changes-modal').classList.remove('hidden');
+        return;
+    }
+    
     // Show confirmation modal first
     document.getElementById('activation-confirmation-modal').classList.remove('hidden');
+}
+
+function closeActivationUnsavedChangesModal() {
+    document.getElementById('activation-unsaved-changes-modal').classList.add('hidden');
+}
+
+function discardAndActivate() {
+    // Close the unsaved changes modal
+    closeActivationUnsavedChangesModal();
+    
+    // Set flag to prevent beforeunload alert when reloading
+    isSaving = true;
+    
+    // Reload the page to discard all pending changes
+    window.location.reload();
+}
+
+function saveAndActivate() {
+    const saveButton = document.querySelector('#activation-unsaved-changes-modal button[onclick="saveAndActivate()"]');
+    const spinner = document.getElementById('activation-save-spinner');
+    const buttonText = document.getElementById('activation-save-text');
+    
+    // Disable button and show spinner
+    if (saveButton) {
+        saveButton.disabled = true;
+        if (spinner) spinner.classList.remove('hidden');
+        if (buttonText) buttonText.textContent = 'Saving...';
+    }
+    
+    // Validate questions before saving
+    const validationError = validateQuestionsBeforeSave();
+    if (validationError) {
+        showToast(validationError, 'error');
+        // Re-enable button
+        if (saveButton) {
+            saveButton.disabled = false;
+            if (spinner) spinner.classList.add('hidden');
+            if (buttonText) buttonText.textContent = 'Save Changes';
+        }
+        return;
+    }
+    
+    // Save all changes
+    saveSurvey()
+        .then(() => {
+            // After successful save, the page will reload
+            // So we don't need to close modals or show activation confirmation
+            // The page reload from saveSurvey() will reset everything
+        })
+        .catch(error => {
+            console.error('Error saving:', error);
+            // Re-enable button on error
+            if (saveButton) {
+                saveButton.disabled = false;
+                if (spinner) spinner.classList.add('hidden');
+                if (buttonText) buttonText.textContent = 'Save Changes';
+            }
+        });
 }
 
 function closeActivationConfirmationModal() {

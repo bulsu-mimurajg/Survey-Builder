@@ -8,7 +8,7 @@ from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 from django.template.loader import render_to_string
 from django.utils import timezone
-from django.core.paginator import Paginator
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from datetime import datetime, timedelta
 from collections import Counter
 import json
@@ -236,9 +236,9 @@ def student_course_detail(request, course_id):
             progress = 100
         elif response:
             # Student has started but not completed
-            # Calculate progress based on questions answered
-            total_questions = survey.questions.count()
-            answered_questions = response.question_responses.count()
+            # Calculate progress based on questions answered (excluding section breaks)
+            total_questions = survey.questions.exclude(question_type='section').count()
+            answered_questions = response.question_responses.exclude(question__question_type='section').count()
             progress = int((answered_questions / total_questions * 100) if total_questions > 0 else 0)
             # If survey is closed in database and not completed, show as Closed
             if survey.status == 'closed':
@@ -279,11 +279,46 @@ def student_course_detail(request, course_id):
         'instructor': course.teacher.get_full_name() or course.teacher.email
     }
     
+    # Separate surveys by status
+    active_surveys_list = [s for s in all_surveys if s['status'] in ['Not Started', 'In Progress']]
+    closed_surveys_list = [s for s in all_surveys if s['status'] == 'Closed']
+    completed_surveys_list = [s for s in all_surveys if s['status'] == 'Completed']
+    
+    # For the "All" tab, we need to combine them in a specific way
+    # Get page number
+    page = request.GET.get('page', 1)
+    
+    # Paginate each category separately (5 per page)
+    paginator_active = Paginator(active_surveys_list, 5)
+    paginator_closed = Paginator(closed_surveys_list, 5)
+    paginator_completed = Paginator(completed_surveys_list, 5)
+    
+    try:
+        paginated_active = paginator_active.page(page)
+    except PageNotAnInteger:
+        paginated_active = paginator_active.page(1)
+    except EmptyPage:
+        paginated_active = paginator_active.page(paginator_active.num_pages) if paginator_active.num_pages > 0 else paginator_active.page(1)
+    
+    try:
+        paginated_closed = paginator_closed.page(page)
+    except PageNotAnInteger:
+        paginated_closed = paginator_closed.page(1)
+    except EmptyPage:
+        paginated_closed = paginator_closed.page(paginator_closed.num_pages) if paginator_closed.num_pages > 0 else paginator_closed.page(1)
+    
+    try:
+        paginated_completed = paginator_completed.page(page)
+    except PageNotAnInteger:
+        paginated_completed = paginator_completed.page(1)
+    except EmptyPage:
+        paginated_completed = paginator_completed.page(paginator_completed.num_pages) if paginator_completed.num_pages > 0 else paginator_completed.page(1)
+    
     context = {
         'course': course_data,
-        'active_surveys': [s for s in all_surveys if s['status'] in ['Not Started', 'In Progress']],
-        'closed_surveys': [s for s in all_surveys if s['status'] == 'Closed'],
-        'completed_surveys': [s for s in all_surveys if s['status'] == 'Completed'],
+        'active_surveys': paginated_active,
+        'closed_surveys': paginated_closed,
+        'completed_surveys': paginated_completed,
         'unread_count': 6,
     }
     return render(request, 'student/course_detail.html', context)
@@ -356,9 +391,9 @@ def student_survey_detail(request, survey_id):
         status = 'Completed'
         progress = 100
     elif response:
-        # Calculate progress based on questions answered
-        total_questions = survey.questions.count()
-        answered_questions = response.question_responses.count()
+        # Calculate progress based on questions answered (excluding section breaks)
+        total_questions = survey.questions.exclude(question_type='section').count()
+        answered_questions = response.question_responses.exclude(question__question_type='section').count()
         progress = int((answered_questions / total_questions * 100) if total_questions > 0 else 0)
         # If survey is closed in database and not completed, show as Closed
         if survey.status == 'closed':
@@ -419,6 +454,7 @@ def student_survey_detail(request, survey_id):
         'duration': duration,
         'passing_score': 'N/A',  # Can be calculated based on exam scoring
         'total_questions': survey.questions.count(),
+        'attempts_enabled': survey.attempts_enabled,
         'attempts_remaining': attempts_remaining,
         'description': survey.description or 'No description provided.',
         'instructions': survey.instructions if survey.instructions else [],
@@ -633,6 +669,42 @@ def student_take_survey(request, survey_id):
     # Get questions
     questions = survey.questions.all().order_by('order')
     
+    # Group questions into pages based on section breaks
+    pages = []
+    current_page = []
+    section_info = None
+    question_counter = 1
+    
+    for question in questions:
+        if question.question_type == 'section':
+            # Save current page if it has questions
+            if current_page:
+                pages.append({
+                    'questions': current_page,
+                    'section_info': section_info
+                })
+            # Start new page with section info
+            section_info = {
+                'title': question.question_text,
+                'description': question.settings.get('description', '') if question.settings else ''
+            }
+            current_page = []
+        else:
+            # Add question to current page with its counter
+            question_with_counter = {
+                'question': question,
+                'counter': question_counter
+            }
+            current_page.append(question_with_counter)
+            question_counter += 1
+    
+    # Add final page if it has questions
+    if current_page:
+        pages.append({
+            'questions': current_page,
+            'section_info': section_info
+        })
+    
     # Get existing responses
     question_responses_dict = {}
     for qr in response.question_responses.all():
@@ -665,8 +737,10 @@ def student_take_survey(request, survey_id):
         'survey': survey,
         'response': response,
         'questions': questions,
+        'pages': pages,
+        'total_pages': len(pages),
         'question_responses': question_responses_dict,
-        'total_questions': questions.count(),
+        'total_questions': questions.exclude(question_type='section').count(),
         'answered_count': answered_count,
         'time_remaining_seconds': int(time_remaining_seconds) if time_remaining_seconds else 0,
         'duration_remaining': duration_remaining,
@@ -693,19 +767,54 @@ def student_view_response(request, survey_id):
         messages.error(request, 'You are not enrolled in any course for this survey.')
         return redirect('student-home')
     
-    # Get the most recent completed response
+    # Get the most recent response (completed or draft)
     response = SurveyResponse.objects.filter(
         survey=survey,
-        student=request.user,
-        is_complete=True
-    ).order_by('-submitted_at').first()
+        student=request.user
+    ).order_by('-started_at').first()
     
     if not response:
-        messages.error(request, 'No completed response found for this survey.')
+        messages.error(request, 'No response found for this survey.')
         return redirect('student-survey-detail', survey_id=survey.id)
     
     # Get questions
     questions = survey.questions.all().order_by('order')
+    
+    # Group questions into pages based on section breaks
+    pages = []
+    current_page = []
+    section_info = None
+    question_counter = 1
+    
+    for question in questions:
+        if question.question_type == 'section':
+            # Save current page if it has questions
+            if current_page:
+                pages.append({
+                    'questions': current_page,
+                    'section_info': section_info
+                })
+            # Start new page with section info
+            section_info = {
+                'title': question.question_text,
+                'description': question.settings.get('description', '') if question.settings else ''
+            }
+            current_page = []
+        else:
+            # Add question to current page with its counter
+            question_with_counter = {
+                'question': question,
+                'counter': question_counter
+            }
+            current_page.append(question_with_counter)
+            question_counter += 1
+    
+    # Add final page if it has questions
+    if current_page:
+        pages.append({
+            'questions': current_page,
+            'section_info': section_info
+        })
     
     # Get existing responses
     question_responses_dict = {}
@@ -735,8 +844,10 @@ def student_view_response(request, survey_id):
         'survey': survey,
         'response': response,
         'questions': questions,
+        'pages': pages,
+        'total_pages': len(pages),
         'question_responses': question_responses_dict,
-        'total_questions': questions.count(),
+        'total_questions': questions.exclude(question_type='section').count(),
         'answered_count': answered_count,
         'view_only': True,  # Flag to indicate read-only mode
         'course_id': first_course.id if first_course else None,
@@ -767,8 +878,8 @@ def student_submit_survey(request, survey_id):
         messages.info(request, 'This survey has already been submitted.')
         return redirect('student-survey-detail', survey_id=survey.id)
     
-    # Process each question
-    questions = survey.questions.all()
+    # Process each question (exclude section breaks)
+    questions = survey.questions.exclude(question_type='section')
     
     for question in questions:
         question_key = f'question_{question.id}'
@@ -844,46 +955,74 @@ def api_save_survey_draft(request, survey_id, response_id):
         return JsonResponse({'success': False, 'error': 'Survey already submitted'}, status=400)
     
     # Process each question (same as submit but don't mark as complete)
-    questions = survey.questions.all()
+    # Only save responses that have actual answers
+    questions = survey.questions.exclude(question_type='section')  # Skip section breaks
     
     for question in questions:
         question_key = f'question_{question.id}'
+        has_answer = False
         
-        # Get or create question response
-        question_response, created = QuestionResponse.objects.get_or_create(
-            survey_response=response,
-            question=question
-        )
-        
-        # Clear existing responses
-        question_response.response_options.clear()
-        
-        # Process based on question type
+        # Check if this question has an answer
         if question.question_type in ['short_text', 'long_text', 'date', 'time']:
-            question_response.response_text = request.POST.get(question_key, '')
-        
+            answer_text = request.POST.get(question_key, '').strip()
+            has_answer = bool(answer_text)
         elif question.question_type in ['multiple_choice', 'dropdown']:
-            option_id = request.POST.get(question_key)
-            if option_id:
-                try:
-                    option = QuestionOption.objects.get(id=option_id, question=question)
-                    question_response.response_options.add(option)
-                except QuestionOption.DoesNotExist:
-                    pass
-        
+            has_answer = bool(request.POST.get(question_key))
         elif question.question_type == 'checkboxes':
-            option_ids = request.POST.getlist(question_key)
-            for option_id in option_ids:
-                try:
-                    option = QuestionOption.objects.get(id=option_id, question=question)
-                    question_response.response_options.add(option)
-                except QuestionOption.DoesNotExist:
-                    pass
-        
+            has_answer = bool(request.POST.getlist(question_key))
         elif question.question_type in ['rating', 'scale']:
-            question_response.response_text = request.POST.get(question_key, '')
+            has_answer = bool(request.POST.get(question_key))
+        elif question.question_type == 'file_upload':
+            has_answer = bool(request.FILES.get(question_key))
         
-        question_response.save()
+        # Only save if there's an answer
+        if has_answer:
+            # Get or create question response
+            question_response, created = QuestionResponse.objects.get_or_create(
+                survey_response=response,
+                question=question
+            )
+            
+            # Clear existing responses
+            question_response.response_options.clear()
+            
+            # Process based on question type
+            if question.question_type in ['short_text', 'long_text', 'date', 'time']:
+                question_response.response_text = request.POST.get(question_key, '')
+            
+            elif question.question_type in ['multiple_choice', 'dropdown']:
+                option_id = request.POST.get(question_key)
+                if option_id:
+                    try:
+                        option = QuestionOption.objects.get(id=option_id, question=question)
+                        question_response.response_options.add(option)
+                    except QuestionOption.DoesNotExist:
+                        pass
+            
+            elif question.question_type == 'checkboxes':
+                option_ids = request.POST.getlist(question_key)
+                for option_id in option_ids:
+                    try:
+                        option = QuestionOption.objects.get(id=option_id, question=question)
+                        question_response.response_options.add(option)
+                    except QuestionOption.DoesNotExist:
+                        pass
+            
+            elif question.question_type in ['rating', 'scale']:
+                question_response.response_text = request.POST.get(question_key, '')
+            
+            elif question.question_type == 'file_upload':
+                uploaded_file = request.FILES.get(question_key)
+                if uploaded_file:
+                    question_response.file_upload = uploaded_file
+            
+            question_response.save()
+        else:
+            # If no answer, delete any existing response for this question
+            QuestionResponse.objects.filter(
+                survey_response=response,
+                question=question
+            ).delete()
     
     return JsonResponse({'success': True, 'message': 'Draft saved successfully'})
 
@@ -1346,10 +1485,11 @@ def teacher_course_detail(request, course_id):
     # Format surveys for template
     all_surveys = []
     for survey in surveys:
-        # Calculate class progress (percentage of enrolled students who responded)
+        # Calculate class progress (percentage of enrolled students who completed the survey)
         total_students = CourseEnrollment.objects.filter(course=course).count()
         responded_students = survey.responses.filter(
-            student__enrolled_courses__course=course
+            student__enrolled_courses__course=course,
+            is_complete=True
         ).values('student').distinct().count()
         progress = int((responded_students / total_students * 100) if total_students > 0 else 0)
         
@@ -1377,11 +1517,22 @@ def teacher_course_detail(request, course_id):
     
     # Determine which surveys to display based on filter
     if survey_filter == 'closed':
-        displayed_surveys = closed_surveys
+        surveys_to_paginate = closed_surveys
     elif survey_filter == 'all':
-        displayed_surveys = all_surveys
+        surveys_to_paginate = all_surveys
     else:  # default to active
-        displayed_surveys = active_surveys
+        surveys_to_paginate = active_surveys
+    
+    # Paginate the surveys
+    page = request.GET.get('page', 1)
+    paginator = Paginator(surveys_to_paginate, 5)  # 5 surveys per page
+    
+    try:
+        displayed_surveys = paginator.page(page)
+    except PageNotAnInteger:
+        displayed_surveys = paginator.page(1)
+    except EmptyPage:
+        displayed_surveys = paginator.page(paginator.num_pages)
     
     # Get all courses for the create survey modal
     teacher_courses = Course.objects.filter(teacher=request.user)
@@ -1442,13 +1593,16 @@ def teacher_survey_board(request):
         if assigned_courses.count() > 3:
             course_names += f" (+{assigned_courses.count() - 3} more)"
         
-        # Calculate class progress (percentage of enrolled students who responded)
+        # Calculate class progress (percentage of enrolled students who completed the survey)
         total_students = 0
         responded_students = 0
         for course in assigned_courses:
             enrolled = CourseEnrollment.objects.filter(course=course).count()
             total_students += enrolled
-            responded = survey.responses.filter(student__enrolled_courses__course=course).values('student').distinct().count()
+            responded = survey.responses.filter(
+                student__enrolled_courses__course=course,
+                is_complete=True
+            ).values('student').distinct().count()
             responded_students += responded
         
         progress = int((responded_students / total_students * 100) if total_students > 0 else 0)
@@ -1759,9 +1913,12 @@ def api_update_question(request, question_id):
     
     if request.method == 'GET':
         # Return form HTML for editing
+        survey = question.survey
         form_html = render_to_string('includes/question_edit_form.html', {
             'question': question,
-            'survey': question.survey
+            'survey': survey,
+            'survey_is_active': survey.status == 'active',
+            'has_responses': survey.responses.exists()
         }, request=request)
         return JsonResponse({'success': True, 'form_html': form_html})
     
@@ -1778,6 +1935,15 @@ def api_update_question(request, question_id):
         
         if not question_text:
             return JsonResponse({'success': False, 'error': 'Question text is required'})
+        
+        # If survey is active, block question type changes and option modifications
+        if survey.status == 'active':
+            # Check if question type is being changed (not allowed)
+            if new_question_type and new_question_type != question.question_type:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Cannot change question type when survey is active'
+                }, status=400)
         
         # If survey was ever activated AND has responses, validate safe edits only
         # If survey is active but no responses, allow full editing
@@ -1817,13 +1983,13 @@ def api_update_question(request, question_id):
             option_texts = request.POST.getlist('options[]')
             existing_options = list(question.options.all())
             
-            # If survey was ever activated AND has responses, validate option changes
-            if was_ever_activated and has_responses:
+            # If survey is active OR (was ever activated AND has responses), block option changes
+            if survey.status == 'active' or (was_ever_activated and has_responses):
                 # Check if option count is changing (not allowed)
                 if len(option_texts) != len(existing_options):
                     return JsonResponse({
                         'success': False,
-                        'error': 'Cannot add or remove options when survey has responses'
+                        'error': 'Cannot add or remove options when survey is active or has responses'
                     }, status=400)
                 
                 # Check if option order is changing (not allowed for scale questions)
@@ -1863,11 +2029,11 @@ def api_update_question(request, question_id):
             question.settings['max'] = 5
         elif question.question_type == 'scale':
             # Update scale settings
-            if was_ever_activated and has_responses:
-                # Cannot change scale settings when survey was activated and has responses
+            if survey.status == 'active' or (was_ever_activated and has_responses):
+                # Cannot change scale settings when survey is active or has responses
                 return JsonResponse({
                     'success': False,
-                    'error': 'Cannot change scale settings when survey has responses'
+                    'error': 'Cannot change scale settings when survey is active or has responses'
                 }, status=400)
             
             if not question.settings:

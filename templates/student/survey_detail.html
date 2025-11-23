@@ -146,7 +146,7 @@
 {% endif %}
 
 <!-- Attempts Remaining -->
-{% if survey.status != 'Completed' and survey.status != 'Closed' %}
+{% if survey.attempts_enabled and survey.status != 'Completed' and survey.status != 'Closed' %}
 <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
     <p class="text-sm text-blue-900">
         <span class="font-semibold">Note: {{ survey.attempts_remaining }} Attempt</span> remaining
