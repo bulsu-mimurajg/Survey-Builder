@@ -2347,6 +2347,15 @@ def api_update_question(request, question_id):
             section_description = request.POST.get('section_description', '')
             question.settings['description'] = section_description
         
+        # Validate choice-based questions: require at least 2 options
+        if question.question_type in ['multiple_choice', 'checkboxes', 'dropdown']:
+            options_count = question.options.count()
+            if options_count < 2:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'At least 2 options are required for choice-based questions'
+                }, status=400)
+        
         # Handle exam-specific fields (points and correct answers)
         if survey.type == 'exam' and question.question_type != 'section':
             # Update points (must be at least 1 for exam surveys)
@@ -2367,42 +2376,55 @@ def api_update_question(request, question_id):
             if not question.settings:
                 question.settings = {}
             
-            # Handle correct answers for different question types
-            if question.question_type in ['multiple_choice', 'dropdown']:
-                # Single correct answer (radio button)
-                correct_answer_idx = request.POST.get('correct_answer')
-                if correct_answer_idx is not None:
-                    try:
-                        correct_idx = int(correct_answer_idx)
+            # Validate correct answers for choice-based questions in exams
+            if question.question_type in ['multiple_choice', 'dropdown', 'checkboxes']:
+                has_correct_answer = False
+                
+                if question.question_type in ['multiple_choice', 'dropdown']:
+                    # Single correct answer (radio button) - required
+                    correct_answer_idx = request.POST.get('correct_answer')
+                    if correct_answer_idx is not None and correct_answer_idx != '':
+                        has_correct_answer = True
+                        try:
+                            correct_idx = int(correct_answer_idx)
+                            # Mark all options as incorrect first
+                            for option in question.options.all():
+                                option.is_correct = False
+                                option.save()
+                            # Mark the selected option as correct
+                            options = list(question.options.all().order_by('order'))
+                            if 0 <= correct_idx < len(options):
+                                options[correct_idx].is_correct = True
+                                options[correct_idx].save()
+                        except (ValueError, IndexError):
+                            pass
+                
+                elif question.question_type == 'checkboxes':
+                    # Multiple correct answers (checkboxes) - at least one required
+                    correct_answer_indices = request.POST.getlist('correct_answers[]')
+                    if correct_answer_indices:
+                        has_correct_answer = True
                         # Mark all options as incorrect first
                         for option in question.options.all():
                             option.is_correct = False
                             option.save()
-                        # Mark the selected option as correct
+                        # Mark selected options as correct
                         options = list(question.options.all().order_by('order'))
-                        if 0 <= correct_idx < len(options):
-                            options[correct_idx].is_correct = True
-                            options[correct_idx].save()
-                    except (ValueError, IndexError):
-                        pass
-            
-            elif question.question_type == 'checkboxes':
-                # Multiple correct answers (checkboxes)
-                correct_answer_indices = request.POST.getlist('correct_answers[]')
-                # Mark all options as incorrect first
-                for option in question.options.all():
-                    option.is_correct = False
-                    option.save()
-                # Mark selected options as correct
-                options = list(question.options.all().order_by('order'))
-                for idx_str in correct_answer_indices:
-                    try:
-                        idx = int(idx_str)
-                        if 0 <= idx < len(options):
-                            options[idx].is_correct = True
-                            options[idx].save()
-                    except (ValueError, IndexError):
-                        pass
+                        for idx_str in correct_answer_indices:
+                            try:
+                                idx = int(idx_str)
+                                if 0 <= idx < len(options):
+                                    options[idx].is_correct = True
+                                    options[idx].save()
+                            except (ValueError, IndexError):
+                                pass
+                
+                # Validate that at least one correct answer is selected
+                if not has_correct_answer:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Please select at least one correct answer for exam questions'
+                    }, status=400)
             
             elif question.question_type in ['rating', 'scale', 'date', 'time']:
                 # Store correct value in settings

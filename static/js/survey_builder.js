@@ -1075,20 +1075,21 @@ function editQuestion(questionId) {
                     
                     for (let i = 0; i < optionsCount; i++) {
                         const isChecked = correctAnswers.includes(i);
+                        const optionText = currentOptions[i] || `Option ${i + 1}`;
                         if (currentType === 'checkboxes') {
                             correctAnswersHtml += `
                                 <label class="flex items-center">
                                     <input type="checkbox" name="correct_answers[]" value="${i}" ${isChecked ? 'checked' : ''} 
                                            class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500">
-                                    <span class="ml-2 text-sm text-gray-700">Option ${i + 1}</span>
+                                    <span class="ml-2 text-sm text-gray-700">${optionText}</span>
                                 </label>
                             `;
                         } else {
                             correctAnswersHtml += `
                                 <label class="flex items-center">
                                     <input type="radio" name="correct_answer" value="${i}" ${isChecked ? 'checked' : ''} 
-                                           class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500">
-                                    <span class="ml-2 text-sm text-gray-700">Option ${i + 1}</span>
+                                           class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500" required>
+                                    <span class="ml-2 text-sm text-gray-700">${optionText}</span>
                                 </label>
                             `;
                         }
@@ -1101,7 +1102,7 @@ function editQuestion(questionId) {
                                 ${correctAnswersHtml}
                             </div>
                             <p class="text-xs text-gray-500 mt-1">
-                                ${currentType === 'checkboxes' ? 'Select all correct answers (multiple selections allowed)' : 'Select the correct answer'}
+                                ${currentType === 'checkboxes' ? 'Select at least one correct answer (multiple selections allowed)' : 'Select the correct answer (required)'}
                             </p>
                         </div>
                     `;
@@ -1378,7 +1379,7 @@ function updateExamFieldsForType(questionType) {
                     <p class="text-sm text-gray-500">Add options first to select correct answers</p>
                 </div>
                 <p class="text-xs text-gray-500 mt-1">
-                    ${questionType === 'checkboxes' ? 'Select all correct answers (multiple selections allowed)' : 'Select the correct answer'}
+                    ${questionType === 'checkboxes' ? 'Select at least one correct answer (multiple selections allowed)' : 'Select the correct answer (required)'}
                 </p>
             </div>
         `;
@@ -1448,13 +1449,27 @@ function updateCorrectAnswersList(questionType) {
         return;
     }
     
+    // Get currently selected correct answers before updating
+    const currentlySelected = [];
+    if (questionType === 'checkboxes') {
+        correctAnswersList.querySelectorAll('input[type="checkbox"]:checked').forEach(cb => {
+            currentlySelected.push(parseInt(cb.value));
+        });
+    } else {
+        const selectedRadio = correctAnswersList.querySelector('input[type="radio"]:checked');
+        if (selectedRadio) {
+            currentlySelected.push(parseInt(selectedRadio.value));
+        }
+    }
+    
     let correctAnswersHtml = '';
     options.forEach((option, index) => {
         const optionText = option.value || `Option ${index + 1}`;
+        const isChecked = currentlySelected.includes(index);
         if (questionType === 'checkboxes') {
             correctAnswersHtml += `
                 <label class="flex items-center">
-                    <input type="checkbox" name="correct_answers[]" value="${index}" 
+                    <input type="checkbox" name="correct_answers[]" value="${index}" ${isChecked ? 'checked' : ''}
                            class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500">
                     <span class="ml-2 text-sm text-gray-700">${optionText}</span>
                 </label>
@@ -1462,8 +1477,8 @@ function updateCorrectAnswersList(questionType) {
         } else {
             correctAnswersHtml += `
                 <label class="flex items-center">
-                    <input type="radio" name="correct_answer" value="${index}" 
-                           class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500">
+                    <input type="radio" name="correct_answer" value="${index}" ${isChecked ? 'checked' : ''}
+                           class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500" required>
                     <span class="ml-2 text-sm text-gray-700">${optionText}</span>
                 </label>
             `;
@@ -1471,6 +1486,19 @@ function updateCorrectAnswersList(questionType) {
     });
     
     correctAnswersList.innerHTML = correctAnswersHtml;
+    
+    // Add event listeners to update text when option input changes
+    options.forEach((optionInput, index) => {
+        optionInput.addEventListener('input', function() {
+            const label = correctAnswersList.querySelector(`input[value="${index}"]`)?.closest('label');
+            if (label) {
+                const span = label.querySelector('span');
+                if (span) {
+                    span.textContent = optionInput.value || `Option ${index + 1}`;
+                }
+            }
+        });
+    });
 }
 
 // Validate scale input values (1-10 only)
@@ -1534,6 +1562,45 @@ function saveQuestion(questionId) {
         if (!isNaN(minValue) && !isNaN(maxValue) && maxValue <= minValue) {
             showToast('Maximum value must be greater than minimum value', 'error');
             return;
+        }
+    }
+    
+    // Validate choice-based questions: require at least 2 options
+    if (['multiple_choice', 'checkboxes', 'dropdown'].includes(questionType)) {
+        const options = [];
+        for (let [key, value] of formData.entries()) {
+            if (key === 'options[]' && value.trim()) {
+                options.push(value.trim());
+            }
+        }
+        
+        if (options.length < 2) {
+            showToast('At least 2 options are required for choice-based questions', 'error');
+            return;
+        }
+        
+        // For exam surveys, validate that at least one correct answer is selected
+        if (typeof surveyType !== 'undefined' && surveyType === 'exam') {
+            let hasCorrectAnswer = false;
+            
+            if (questionType === 'checkboxes') {
+                // Check if at least one checkbox is checked
+                for (let [key, value] of formData.entries()) {
+                    if (key === 'correct_answers[]') {
+                        hasCorrectAnswer = true;
+                        break;
+                    }
+                }
+            } else {
+                // For multiple_choice and dropdown, check if radio is selected
+                const correctAnswer = formData.get('correct_answer');
+                hasCorrectAnswer = correctAnswer !== null && correctAnswer !== '';
+            }
+            
+            if (!hasCorrectAnswer) {
+                showToast('Please select at least one correct answer for exam questions', 'error');
+                return;
+            }
         }
     }
     
@@ -1860,7 +1927,8 @@ function removeOption(button) {
     if (!optionItem) return;
     
     const optionItems = container.querySelectorAll('.option-item');
-    if (optionItems.length > 1) {
+    // Require at least 2 options for choice-based questions
+    if (optionItems.length > 2) {
         optionItem.remove();
         
         // Update correct answers list if this is an exam
@@ -1871,7 +1939,7 @@ function removeOption(button) {
             }
         }
     } else {
-        alert('At least one option is required');
+        showToast('At least 2 options are required for choice-based questions', 'error');
     }
 }
 
@@ -2299,9 +2367,9 @@ function validateQuestionsBeforeSave() {
         const addedQuestion = changeTracker.pendingQuestionChanges.added[i];
         // Check if it's a choice-based question (multiple_choice, checkboxes, dropdown)
         if (['multiple_choice', 'checkboxes', 'dropdown'].includes(addedQuestion.type)) {
-            // Check if it has at least one option
-            if (!addedQuestion.options || addedQuestion.options.length === 0 || 
-                addedQuestion.options.every(opt => !opt || opt.trim() === '')) {
+            // Check if it has at least 2 options
+            const validOptions = addedQuestion.options ? addedQuestion.options.filter(opt => opt && opt.trim() !== '') : [];
+            if (validOptions.length < 2) {
                 const typeLabels = {
                     'multiple_choice': 'Multiple Choice',
                     'checkboxes': 'Checkboxes',
@@ -2309,6 +2377,19 @@ function validateQuestionsBeforeSave() {
                 };
                 const questionText = addedQuestion.text || 'New Question';
                 invalidQuestions.push(`"${questionText}" (${typeLabels[addedQuestion.type]})`);
+            }
+            
+            // For exam surveys, also check for correct answers
+            if (typeof surveyType !== 'undefined' && surveyType === 'exam') {
+                if (!addedQuestion.correct_answers || addedQuestion.correct_answers.length === 0) {
+                    const typeLabels = {
+                        'multiple_choice': 'Multiple Choice',
+                        'checkboxes': 'Checkboxes',
+                        'dropdown': 'Dropdown'
+                    };
+                    const questionText = addedQuestion.text || 'New Question';
+                    invalidQuestions.push(`"${questionText}" (${typeLabels[addedQuestion.type]}) - missing correct answer`);
+                }
             }
         }
     }
@@ -2318,9 +2399,9 @@ function validateQuestionsBeforeSave() {
         const questionType = questionData.question_type;
         // Check if it's a choice-based question
         if (['multiple_choice', 'checkboxes', 'dropdown'].includes(questionType)) {
-            // Check if it has at least one option
-            if (!questionData.options || questionData.options.length === 0 || 
-                questionData.options.every(opt => !opt || opt.trim() === '')) {
+            // Check if it has at least 2 options
+            const validOptions = questionData.options ? questionData.options.filter(opt => opt && opt.trim() !== '') : [];
+            if (validOptions.length < 2) {
                 const typeLabels = {
                     'multiple_choice': 'Multiple Choice',
                     'checkboxes': 'Checkboxes',
@@ -2334,9 +2415,12 @@ function validateQuestionsBeforeSave() {
     
     if (invalidQuestions.length > 0) {
         if (invalidQuestions.length === 1) {
-            return `${invalidQuestions[0]} must have at least one option`;
+            if (invalidQuestions[0].includes('missing correct answer')) {
+                return invalidQuestions[0].replace(' - missing correct answer', '') + ' must have at least one correct answer selected';
+            }
+            return `${invalidQuestions[0]} must have at least 2 options`;
         } else {
-            return `The following questions must have at least one option:\n${invalidQuestions.join('\n')}`;
+            return `The following questions have issues:\n${invalidQuestions.join('\n')}`;
         }
     }
     
