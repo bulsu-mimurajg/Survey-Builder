@@ -33,7 +33,10 @@
     <!-- Tabs -->
     <div class="bg-white border-b border-gray-200 px-6">
         <div class="flex space-x-8">
-            <button onclick="switchTab('summary')" id="tab-summary" class="py-4 px-1 border-b-2 border-indigo-600 text-indigo-600 font-medium text-sm">
+            <button onclick="switchTab('analytics')" id="tab-analytics" class="py-4 px-1 border-b-2 border-indigo-600 text-indigo-600 font-medium text-sm">
+                Analytics
+            </button>
+            <button onclick="switchTab('summary')" id="tab-summary" class="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm">
                 Summary
             </button>
             <button onclick="switchTab('question')" id="tab-question" class="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm">
@@ -47,8 +50,64 @@
 
     <!-- Content -->
     <div class="flex-1 overflow-auto px-6 py-6">
+        <!-- Analytics Tab -->
+        <div id="content-analytics" class="tab-content">
+            <div class="max-w-5xl mx-auto space-y-6">
+                <!-- Overview Metrics -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-white rounded-lg border border-gray-200 p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-500">Total Responses</p>
+                                <p class="text-2xl font-bold text-gray-900" id="analytics-total-responses">0</p>
+                            </div>
+                            <div class="p-3 bg-indigo-100 rounded-lg">
+                                <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg border border-gray-200 p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-500">Completion Rate</p>
+                                <p class="text-2xl font-bold text-gray-900" id="analytics-completion-rate">0%</p>
+                            </div>
+                            <div class="p-3 bg-green-100 rounded-lg">
+                                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg border border-gray-200 p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-500">Last Updated</p>
+                                <p class="text-sm font-medium text-gray-900" id="analytics-last-updated">--</p>
+                            </div>
+                            <div class="p-3 bg-blue-100 rounded-lg">
+                                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Question Analytics -->
+                <div id="analytics-questions-container">
+                    <div class="text-center py-12">
+                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                        <p class="mt-2 text-sm text-gray-500">Loading analytics...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Summary Tab -->
-        <div id="content-summary" class="tab-content">
+        <div id="content-summary" class="tab-content hidden">
             <div class="max-w-5xl mx-auto space-y-6">
                 {% for question in questions %}
                 <div class="bg-white rounded-lg border border-gray-200 p-6">
@@ -235,10 +294,13 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.2.2/wordcloud2.min.js"></script>
 <script>
 const surveyId = {{ survey.id }};
-let currentTab = 'summary';
+let currentTab = 'analytics';
 let charts = {};
+let analyticsCharts = {};
+let analyticsPollingInterval = null;
 
 // Tab switching
 function switchTab(tab) {
@@ -266,6 +328,14 @@ function switchTab(tab) {
         setTimeout(() => {
             loadAllCharts();
         }, 100);
+    }
+    
+    // Load analytics for analytics tab
+    if (tab === 'analytics') {
+        loadAnalytics();
+        startAnalyticsPolling();
+    } else {
+        stopAnalyticsPolling();
     }
 }
 
@@ -930,8 +1000,278 @@ window.addEventListener('DOMContentLoaded', function() {
     {% endif %}
 });
 
+// Analytics functions
+function loadAnalytics() {
+    fetch(`/api/survey/${surveyId}/analytics/`)
+        .then(response => response.json())
+        .then(data => {
+            // Update overview metrics
+            document.getElementById('analytics-total-responses').textContent = data.total_responses;
+            document.getElementById('analytics-completion-rate').textContent = data.completion_rate + '%';
+            document.getElementById('analytics-last-updated').textContent = new Date().toLocaleTimeString();
+            
+            // Render question analytics
+            const container = document.getElementById('analytics-questions-container');
+            if (data.questions.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <h3 class="mt-2 text-sm font-medium text-gray-900">No questions</h3>
+                        <p class="mt-1 text-sm text-gray-500">This survey doesn't have any questions yet.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            data.questions.forEach((question, index) => {
+                html += `
+                    <div class="bg-white rounded-lg border border-gray-200 p-6">
+                        <div class="mb-4">
+                            <div class="flex items-start justify-between mb-2">
+                                <h3 class="text-lg font-medium text-gray-900">${question.question_text}</h3>
+                                <span class="text-sm text-gray-500">${question.response_count} response${question.response_count !== 1 ? 's' : ''}</span>
+                            </div>
+                            <p class="text-sm text-gray-500">${formatQuestionType(question.question_type)}</p>
+                        </div>
+                        <div class="analytics-chart-container" data-question-id="${question.question_id}" data-question-type="${question.question_type}">
+                            <!-- Chart will be rendered here -->
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+            
+            // Render charts for each question
+            data.questions.forEach((question) => {
+                const chartContainer = container.querySelector(`[data-question-id="${question.question_id}"]`);
+                if (chartContainer) {
+                    renderAnalyticsChart(question, chartContainer);
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Error loading analytics:', error);
+            document.getElementById('analytics-questions-container').innerHTML = `
+                <div class="text-center py-12">
+                    <p class="text-sm text-red-600">Error loading analytics. Please try again.</p>
+                </div>
+            `;
+        });
+}
+
+function renderAnalyticsChart(questionData, container) {
+    const questionId = questionData.question_id;
+    const questionType = questionData.question_type;
+    
+    // Destroy existing chart if it exists
+    if (analyticsCharts[questionId]) {
+        analyticsCharts[questionId].destroy();
+    }
+    
+    // Create canvas element
+    const canvas = document.createElement('canvas');
+    container.innerHTML = '';
+    container.appendChild(canvas);
+    
+    if (questionType === 'multiple_choice' || questionType === 'dropdown') {
+        // Pie chart for single-choice questions
+        analyticsCharts[questionId] = new Chart(canvas, {
+            type: 'pie',
+            data: {
+                labels: questionData.labels,
+                datasets: [{
+                    data: questionData.values,
+                    backgroundColor: [
+                        '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
+                        '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'right'
+                    }
+                }
+            }
+        });
+    } else if (questionType === 'checkboxes') {
+        // Bar chart for checkboxes
+        analyticsCharts[questionId] = new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: questionData.labels,
+                datasets: [{
+                    label: 'Responses',
+                    data: questionData.values,
+                    backgroundColor: '#3B82F6'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+    } else if (questionType === 'rating' || questionType === 'scale') {
+        // Bar chart for Likert scales
+        analyticsCharts[questionId] = new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: questionData.labels,
+                datasets: [{
+                    label: 'Responses',
+                    data: questionData.values,
+                    backgroundColor: '#3B82F6'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+        
+        // Add average if available
+        if (questionData.average !== undefined) {
+            const avgDiv = document.createElement('div');
+            avgDiv.className = 'mt-2 text-sm text-gray-600 text-center';
+            avgDiv.innerHTML = `<strong>Average:</strong> ${questionData.average.toFixed(2)}`;
+            container.appendChild(avgDiv);
+        }
+    } else if (questionType === 'short_text' || questionType === 'long_text') {
+        // Word cloud for open-ended questions
+        if (questionData.responses && questionData.responses.length > 0) {
+            renderWordCloud(questionData.responses, container);
+        } else {
+            container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">No text responses yet</p>';
+        }
+    } else {
+        container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">Chart not available for this question type</p>';
+    }
+}
+
+function renderWordCloud(responses, container) {
+    // Process text responses
+    const allText = responses.join(' ').toLowerCase();
+    
+    // Remove common stop words and punctuation
+    const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them']);
+    
+    const words = allText
+        .replace(/[^\w\s]/g, ' ')
+        .split(/\s+/)
+        .filter(word => word.length > 2 && !stopWords.has(word));
+    
+    // Count word frequencies
+    const wordCounts = {};
+    words.forEach(word => {
+        wordCounts[word] = (wordCounts[word] || 0) + 1;
+    });
+    
+    // Convert to array and sort by frequency
+    const wordArray = Object.entries(wordCounts)
+        .map(([text, weight]) => [text, weight])
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 50); // Top 50 words
+    
+    if (wordArray.length === 0) {
+        container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">No meaningful words found in responses</p>';
+        return;
+    }
+    
+    // Create canvas for word cloud
+    const canvas = document.createElement('canvas');
+    canvas.id = `wordcloud-${Date.now()}`;
+    const containerWidth = container.offsetWidth || 600;
+    canvas.width = containerWidth;
+    canvas.height = 400;
+    canvas.style.width = '100%';
+    canvas.style.height = '400px';
+    container.innerHTML = '';
+    container.appendChild(canvas);
+    
+    // Render word cloud
+    try {
+        if (typeof WordCloud !== 'undefined') {
+            WordCloud(canvas, {
+                list: wordArray,
+                gridSize: Math.round(16 * containerWidth / 1024),
+                weightFactor: function(size) {
+                    return Math.pow(size, 1.5) * containerWidth / 50;
+                },
+                fontFamily: 'Arial, sans-serif',
+                color: function() {
+                    const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1'];
+                    return colors[Math.floor(Math.random() * colors.length)];
+                },
+                rotateRatio: 0.3,
+                rotationSteps: 2,
+                backgroundColor: '#ffffff'
+            });
+        } else {
+            throw new Error('WordCloud library not loaded');
+        }
+    } catch (error) {
+        console.error('Error rendering word cloud:', error);
+        container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">Error rendering word cloud. Please refresh the page.</p>';
+    }
+}
+
+function startAnalyticsPolling() {
+    // Clear any existing interval
+    stopAnalyticsPolling();
+    
+    // Poll every 5 seconds
+    analyticsPollingInterval = setInterval(() => {
+        if (currentTab === 'analytics') {
+            loadAnalytics();
+        }
+    }, 5000);
+}
+
+function stopAnalyticsPolling() {
+    if (analyticsPollingInterval) {
+        clearInterval(analyticsPollingInterval);
+        analyticsPollingInterval = null;
+    }
+}
+
 // Load charts on page load
 document.addEventListener('DOMContentLoaded', function() {
+    // Default to analytics tab
+    switchTab('analytics');
+    
     setTimeout(() => {
         loadAllCharts();
     }, 500);

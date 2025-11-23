@@ -737,11 +737,17 @@ function addQuestion(questionType, insertOrder = null) {
     undoRedoManager.saveSnapshot();
     
     // Store question data
+    // Set default text based on question type
+    let defaultText = 'New Question';
+    if (questionType === 'section') {
+        defaultText = 'Section Break';
+    }
+    
     const questionData = {
         tempId: tempId,
         type: questionType,
         order: insertOrder !== null ? insertOrder : (container.querySelectorAll('.draggable-question').length),
-        text: 'New Question',
+        text: defaultText,
         required: false,
         settings: defaultSettings,
         options: [] // For choice-based questions
@@ -852,7 +858,7 @@ function addQuestion(questionType, insertOrder = null) {
                     ${questionType !== 'section' ? '<span class="text-xs text-red-600 required-indicator" style="display: none;">* Required</span>' : ''}
                     <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">${typeLabels[questionType] || questionType.replace(/_/g, ' ')}</span>
                 </div>
-                <h4 class="text-base font-medium text-gray-900 mb-2">New Question</h4>
+                <h4 class="text-base font-medium text-gray-900 mb-2">${questionType === 'section' ? 'Section Break' : 'New Question'}</h4>
                 <div class="mt-3">
                     ${questionPreview}
                 </div>
@@ -904,46 +910,52 @@ function editQuestion(questionId) {
     if (String(questionId).startsWith('temp-')) {
         // For temporary questions, create an edit form with type selector
         const addedQuestion = changeTracker.pendingQuestionChanges.added.find(q => q.tempId === questionId);
-        if (addedQuestion) {
-            const currentType = addedQuestion.type || 'short_text';
-            const currentText = addedQuestion.text || 'New Question';
-            const currentRequired = addedQuestion.required || false;
-            const currentOptions = addedQuestion.options || [];
-            const currentSettings = addedQuestion.settings || {};
-            
-            // Special modal for section type
-            if (currentType === 'section') {
-                const currentDescription = currentSettings.description || '';
-                const sectionFormHtml = `
-                    <form onsubmit="event.preventDefault(); saveQuestion('${questionId}');">
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Section Title</label>
-                                <input type="text" name="question_text" value="${currentText}" 
-                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" 
-                                      placeholder="Enter section title" required>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Section Description</label>
-                                <textarea name="section_description" rows="3" 
-                                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" 
-                                          placeholder="Add a description to provide context for the next set of questions">${currentDescription}</textarea>
-                                <p class="text-xs text-gray-500 mt-1">This description will be shown to students at the beginning of the section</p>
-                            </div>
-                            <div class="flex justify-end gap-3 pt-4 border-t">
-                                <button type="button" onclick="closeQuestionModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
-                                    Cancel
-                                </button>
-                                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">
-                                    Confirm
-                                </button>
-                            </div>
+        if (!addedQuestion) {
+            console.error('Temporary question not found:', questionId);
+            showToast('Error: Question not found', 'error');
+            return;
+        }
+        
+        const currentType = addedQuestion.type || 'short_text';
+        const currentText = addedQuestion.text || (currentType === 'section' ? 'Section Break' : 'New Question');
+        const currentRequired = addedQuestion.required || false;
+        const currentOptions = addedQuestion.options || [];
+        const currentSettings = addedQuestion.settings || {};
+        
+        // Special modal for section type
+        if (currentType === 'section') {
+            const currentDescription = currentSettings.description || '';
+            const sectionFormHtml = `
+                <form onsubmit="event.preventDefault(); saveQuestion('${questionId}');">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Section Title</label>
+                            <input type="text" name="question_text" value="${currentText.replace(/"/g, '&quot;')}" 
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                                  placeholder="Enter section title" required>
                         </div>
-                    </form>
-                `;
-                showQuestionModal('Edit Section', sectionFormHtml);
-                return;
-            }
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Section Description</label>
+                            <textarea name="section_description" rows="3" 
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                                      placeholder="Add a description to provide context for the next set of questions">${currentDescription.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+                            <p class="text-xs text-gray-500 mt-1">This description will be shown to students at the beginning of the section</p>
+                        </div>
+                        <div class="flex justify-end gap-3 pt-4 border-t">
+                            <button type="button" onclick="closeQuestionModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                                Cancel
+                            </button>
+                            <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">
+                                Confirm
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            `;
+            document.getElementById('question-edit-form').innerHTML = sectionFormHtml;
+            document.getElementById('question-edit-modal').classList.remove('hidden');
+            return;
+        }
             
             // Create form with question type selector for non-section questions
             const questionTypes = [
@@ -1173,9 +1185,11 @@ function editQuestion(questionId) {
                         </div>
                         <div class="flex items-center">
                             <input type="checkbox" name="required" ${currentRequired ? 'checked' : ''} 
+                                   ${(typeof surveyStatus !== 'undefined' && surveyStatus === 'active') || (typeof hasResponses !== 'undefined' && hasResponses) ? 'disabled' : ''}
                                    class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
                             <label class="ml-2 text-sm text-gray-700">Required</label>
                         </div>
+                        ${(typeof surveyStatus !== 'undefined' && surveyStatus === 'active') || (typeof hasResponses !== 'undefined' && hasResponses) ? '<p class="text-xs text-red-600 mt-1">Required status cannot be changed when survey is active or has responses</p>' : ''}
                         ${examFields}
                         <div class="flex justify-end gap-3 pt-4 border-t">
                             <button type="button" onclick="closeQuestionModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
@@ -1190,7 +1204,6 @@ function editQuestion(questionId) {
             `;
             document.getElementById('question-edit-form').innerHTML = formHtml;
             document.getElementById('question-edit-modal').classList.remove('hidden');
-        }
     } else {
         // For existing questions, fetch from API
         fetch(`/api/survey/question/${questionId}/update/`)
@@ -1616,6 +1629,13 @@ function saveQuestion(questionId) {
     }
     if (options.length > 0) {
         questionData.options = options;
+    }
+    
+    // For sections, ensure section_description is included
+    if (questionType === 'section') {
+        const sectionDescription = formData.get('section_description') || '';
+        questionData.section_description = sectionDescription;
+        questionData.question_type = 'section';
     }
     
     // Check if it's a temporary question

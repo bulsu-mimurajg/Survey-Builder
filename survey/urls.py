@@ -46,6 +46,7 @@ urlpatterns = [
     path('api/survey/question/<int:question_id>/update/', views.api_update_question, name='api-update-question'),
     path('api/survey/question/<int:question_id>/delete/', views.api_delete_question, name='api-delete-question'),
     path('api/survey/question/<int:question_id>/analytics/', views.api_question_analytics, name='api-question-analytics'),
+    path('api/survey/<int:survey_id>/analytics/', views.api_survey_analytics, name='api-survey-analytics'),
     path('api/survey/<int:survey_id>/questions/reorder/', views.api_reorder_questions, name='api-reorder-questions'),
     path('api/survey/<int:survey_id>/save/', views.api_save_survey, name='api-save-survey'),
     path('api/survey/<int:survey_id>/sections/update/', views.api_update_course_assignments, name='api-update-course-assignments'),

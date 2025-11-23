@@ -2247,7 +2247,18 @@ def api_update_question(request, question_id):
         
         # Update basic question fields
         question.question_text = question_text
-        question.required = required
+        
+        # Block required status changes if survey is active or has responses
+        if survey.status == 'active' or (was_ever_activated and has_responses):
+            # Keep the existing required status, don't allow changes
+            if required != question.required:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Cannot change required status when survey is active or has responses'
+                }, status=400)
+        else:
+            # Only update required if survey is draft or closed without responses
+            question.required = required
         
         # Update question type if changed and allowed
         if new_question_type and new_question_type != question.question_type:
@@ -3120,6 +3131,151 @@ def api_question_analytics(request, question_id):
         data['files'] = files
     
     return JsonResponse(data)
+
+
+@login_required
+def api_survey_analytics(request, survey_id):
+    """Get aggregated analytics data for all questions in a survey"""
+    survey = get_object_or_404(Survey, id=survey_id)
+    
+    # Verify ownership
+    if survey.created_by != request.user:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+    
+    # Get all questions (exclude section breaks)
+    questions = survey.questions.exclude(question_type='section').order_by('order')
+    
+    # Get all complete responses
+    all_responses = survey.responses.filter(is_complete=True)
+    total_responses = all_responses.count()
+    
+    # Calculate completion rate
+    total_students = 0
+    for course in survey.courses.all():
+        total_students += CourseEnrollment.objects.filter(course=course).count()
+    completion_rate = (total_responses / total_students * 100) if total_students > 0 else 0
+    
+    # Aggregate data for each question
+    questions_data = []
+    for question in questions:
+        # Get all responses for this question from complete surveys
+        responses = QuestionResponse.objects.filter(
+            question=question,
+            survey_response__is_complete=True
+        )
+        
+        response_count = responses.count()
+        question_data = {
+            'question_id': question.id,
+            'question_text': question.question_text,
+            'question_type': question.question_type,
+            'response_count': response_count,
+            'labels': [],
+            'values': [],
+            'responses': []
+        }
+        
+        if question.question_type in ['multiple_choice', 'dropdown']:
+            # Count responses for each option
+            option_counts = {}
+            for response in responses:
+                selected_options = response.response_options.all()
+                for option in selected_options:
+                    option_counts[option.option_text] = option_counts.get(option.option_text, 0) + 1
+            
+            question_data['labels'] = list(option_counts.keys())
+            question_data['values'] = list(option_counts.values())
+        
+        elif question.question_type == 'checkboxes':
+            # Count responses for each option (multiple selections possible)
+            option_counts = {}
+            for response in responses:
+                selected_options = response.response_options.all()
+                for option in selected_options:
+                    option_counts[option.option_text] = option_counts.get(option.option_text, 0) + 1
+            
+            question_data['labels'] = list(option_counts.keys())
+            question_data['values'] = list(option_counts.values())
+        
+        elif question.question_type == 'rating':
+            # Count rating values (1-5)
+            rating_counts = {str(i): 0 for i in range(1, 6)}
+            total = 0
+            sum_ratings = 0
+            
+            for response in responses:
+                if response.response_text:
+                    try:
+                        rating = int(response.response_text)
+                        if 1 <= rating <= 5:
+                            rating_counts[str(rating)] += 1
+                            sum_ratings += rating
+                            total += 1
+                    except ValueError:
+                        pass
+            
+            question_data['labels'] = ['1', '2', '3', '4', '5']
+            question_data['values'] = [rating_counts[str(i)] for i in range(1, 6)]
+            question_data['average'] = sum_ratings / total if total > 0 else 0
+        
+        elif question.question_type == 'scale':
+            # Get scale range from settings
+            min_val = question.settings.get('min', 1)
+            max_val = question.settings.get('max', 10)
+            
+            scale_counts = {str(i): 0 for i in range(min_val, max_val + 1)}
+            total = 0
+            sum_values = 0
+            
+            for response in responses:
+                if response.response_text:
+                    try:
+                        value = int(response.response_text)
+                        if min_val <= value <= max_val:
+                            scale_counts[str(value)] += 1
+                            sum_values += value
+                            total += 1
+                    except ValueError:
+                        pass
+            
+            question_data['labels'] = [str(i) for i in range(min_val, max_val + 1)]
+            question_data['values'] = [scale_counts[str(i)] for i in range(min_val, max_val + 1)]
+            question_data['average'] = sum_values / total if total > 0 else 0
+        
+        elif question.question_type in ['short_text', 'long_text']:
+            # Collect all text responses for word cloud
+            text_responses = [r.response_text for r in responses if r.response_text]
+            question_data['responses'] = text_responses
+        
+        elif question.question_type == 'date':
+            # Group by date
+            date_counts = Counter()
+            for response in responses:
+                if response.response_text:
+                    date_counts[response.response_text] += 1
+            
+            sorted_dates = sorted(date_counts.items())
+            question_data['labels'] = [d[0] for d in sorted_dates]
+            question_data['values'] = [d[1] for d in sorted_dates]
+        
+        elif question.question_type == 'time':
+            # Group by time
+            time_counts = Counter()
+            for response in responses:
+                if response.response_text:
+                    time_counts[response.response_text] += 1
+            
+            sorted_times = sorted(time_counts.items())
+            question_data['labels'] = [t[0] for t in sorted_times]
+            question_data['values'] = [t[1] for t in sorted_times]
+        
+        questions_data.append(question_data)
+    
+    return JsonResponse({
+        'total_responses': total_responses,
+        'completion_rate': round(completion_rate, 2),
+        'questions': questions_data
+    })
 
 
 @login_required

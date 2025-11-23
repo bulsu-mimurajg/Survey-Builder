@@ -99,9 +99,12 @@
     {% if question.question_type != 'section' %}
     <div class="mb-4">
         <label class="flex items-center">
-            <input type="checkbox" name="required" {% if question.required %}checked{% endif %} class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500">
+            <input type="checkbox" name="required" {% if question.required %}checked{% endif %} {% if survey_is_active or has_responses %}disabled{% endif %} class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500">
             <span class="ml-2 text-sm text-gray-900">Required</span>
         </label>
+        {% if survey_is_active or has_responses %}
+        <p class="text-xs text-red-600 mt-1">Required status cannot be changed when survey is active or has responses</p>
+        {% endif %}
     </div>
     
     {# Show points field only for Exam type surveys #}
