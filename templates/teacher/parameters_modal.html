@@ -19,18 +19,8 @@
             <div class="border-b border-gray-200">
                 <ul class="flex flex-wrap -mb-px text-sm font-medium text-center">
                     <li class="me-2">
-                        <button onclick="switchParameterTab('description')" id="tab-description" class="inline-block p-4 border-b-2 border-transparent text-gray-500 hover:text-gray-600 hover:border-gray-300 rounded-t-lg">
+                        <button onclick="switchParameterTab('description')" id="tab-description" class="inline-block p-4 border-b-2 border-indigo-600 text-indigo-600 rounded-t-lg active">
                             Description
-                        </button>
-                    </li>
-                    <li class="me-2">
-                        <button onclick="switchParameterTab('duration')" id="tab-duration" class="inline-block p-4 border-b-2 border-indigo-600 text-indigo-600 rounded-t-lg active">
-                            Duration
-                        </button>
-                    </li>
-                    <li class="me-2">
-                        <button onclick="switchParameterTab('attempts')" id="tab-attempts" class="inline-block p-4 border-b-2 border-transparent text-gray-500 hover:text-gray-600 hover:border-gray-300 rounded-t-lg">
-                            Attempts
                         </button>
                     </li>
                     <li class="me-2">
@@ -43,35 +33,6 @@
             
             <form id="parameters-form" method="post" action="{% url 'teacher-update-survey-parameters' survey.id %}" onsubmit="event.preventDefault(); return false;" class="p-4 md:p-5">
                 {% csrf_token %}
-                
-                <!-- Duration Tab -->
-                <div id="tab-content-duration" class="parameter-tab-content">
-                    <div class="mb-4">
-                        <div class="flex items-center justify-between mb-6">
-                            <label class="text-sm font-medium text-gray-900">Duration</label>
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" name="duration_enabled" id="duration_toggle" class="sr-only peer" {% if survey.duration_enabled %}checked{% endif %}>
-                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                            </label>
-                        </div>
-                        
-                        <div id="duration-settings" class="{% if not survey.duration_enabled %}hidden{% endif %}">
-                            <div class="mb-6">
-                                <div class="flex items-center justify-between mb-4">
-                                    <label class="block text-base font-medium text-gray-900">
-                                        <span id="duration-value" class="text-indigo-600">{{ survey.duration_minutes|default:20 }} min</span>
-                                    </label>
-                                </div>
-                                <input type="range" name="duration_minutes" id="duration-slider" min="10" max="120" step="5" value="{{ survey.duration_minutes|default:20 }}" oninput="updateDurationValue(this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600">
-                                <div class="flex justify-between text-xs text-gray-500 mt-2">
-                                    <span>10 min</span>
-                                    <span>60 min</span>
-                                    <span>2 hours</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
                 
                 <!-- Due Date Tab -->
                 <div id="tab-content-due-date" class="parameter-tab-content hidden">
@@ -114,7 +75,7 @@
                 </div>
                 
                 <!-- Description Tab -->
-                <div id="tab-content-description" class="parameter-tab-content hidden">
+                <div id="tab-content-description" class="parameter-tab-content">
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-900 mb-2">Description</label>
                         <textarea name="description" id="survey_description" rows="4" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" placeholder="Enter the {{ survey.type }} description here. This will explain what the {{ survey.type }} is about to students.">{{ survey.description }}</textarea>
@@ -158,98 +119,22 @@
                     </div>
                 </div>
                 
-                <!-- Attempts Tab -->
-                <div id="tab-content-attempts" class="parameter-tab-content hidden">
-                    <div class="mb-4">
-                        <div class="flex items-center justify-between mb-4">
-                            <label class="text-sm font-medium text-gray-900">Number of Attempts</label>
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" name="attempts_enabled" id="attempts_toggle" class="sr-only peer" {% if survey.attempts_enabled %}checked{% endif %} onchange="handleAttemptsToggle()">
-                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                            </label>
-                        </div>
-                        
-                        <div id="attempts-settings" class="{% if not survey.attempts_enabled %}hidden{% endif %}">
-                            <div class="space-y-4">
-                                <div class="flex items-start space-x-3 p-4 border border-gray-200 rounded-lg">
-                                    <input type="radio" name="attempt_type" id="attempt_limited" value="limited" class="mt-1" {% if not survey.single_attempt %}checked{% endif %}>
-                                    <div class="flex-1">
-                                        <label for="attempt_limited" class="block text-sm font-medium text-gray-900 mb-1">Limited Attempts</label>
-                                        <p class="text-sm text-gray-600 mb-3">Set a specific number of attempts allowed for this {{ survey.type }}.</p>
-                                        <div class="flex items-center space-x-2">
-                                            <label class="text-sm text-gray-700">Maximum attempts:</label>
-                                            <input type="number" name="max_attempts" id="max_attempts" min="1" value="{{ survey.max_attempts|default:1 }}" class="w-20 px-3 py-1 border border-gray-300 rounded-lg text-sm">
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="flex items-start space-x-3 p-4 border border-gray-200 rounded-lg">
-                                    <input type="radio" name="attempt_type" id="attempt_single" value="single" class="mt-1" {% if survey.single_attempt %}checked{% endif %}>
-                                    <div class="flex-1">
-                                        <label for="attempt_single" class="block text-sm font-medium text-gray-900 mb-1">Single Attempt</label>
-                                        <p class="text-sm text-gray-600">Students can only submit the survey once. Best for assessments and final submissions.</p>
-                                    </div>
-                                </div>
-                                
-                                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                                    <div class="flex items-start space-x-2">
-                                        <svg class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
-                                        </svg>
-                                        <div class="text-sm text-blue-700">
-                                            <p class="font-medium mb-1">How attempts work with duration:</p>
-                                            <ul class="list-disc ml-4 space-y-1">
-                                                <li>If duration is enabled: Not finishing within the time limit will reduce attempts by 1</li>
-                                                <li>If attempts are disabled but duration is enabled: Students get only one chance (no retries after timeout)</li>
-                                                <li>If both are disabled: Students can save progress and return anytime</li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="mt-4">
-                                <div class="flex items-center justify-between mb-2">
-                                    <label class="text-sm font-medium text-gray-900">Require Completion in One Sitting</label>
-                                    <label class="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" name="require_completion_in_one_sitting" id="one_sitting_toggle" class="sr-only peer" {% if survey.require_completion_in_one_sitting %}checked{% endif %}>
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                                    </label>
-                                </div>
-                                <p class="text-sm text-gray-600">Students must complete the survey in one session. Saving and continuation is disabled.</p>
-                            </div>
-                        </div>
-                        
-                        <!-- Allow Modifications Section (only for Survey type) -->
-                        {% if survey.type == 'survey' %}
-                        <div class="mt-6 pt-6 border-t border-gray-200">
-                            <div class="flex items-center justify-between mb-4">
-                                <label class="text-sm font-medium text-gray-900">Allow Response Modifications</label>
-                                <label class="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" name="allow_modifications" id="modifications_toggle" class="sr-only peer" {% if survey.allow_modifications %}checked{% endif %} onchange="handleModificationsToggle()">
-                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                                </label>
-                            </div>
-                            
-                            <div id="modifications-info" class="{% if not survey.allow_modifications %}hidden{% endif %}">
-                                <p class="text-sm text-gray-600 mb-3">Students can edit their submitted response while the {{ survey.type }} is still open.</p>
-                                
-                                <div class="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                                    <div class="flex items-start space-x-2">
-                                        <svg class="w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                                        </svg>
-                                        <div class="text-sm text-orange-700">
-                                            <p class="font-medium mb-1">Mutual Exclusivity:</p>
-                                            <p>Enabling "Allow Modifications" will automatically <strong>disable</strong> "Number of Attempts". Students will have <strong>one submission</strong> that they can <strong>edit</strong> instead of multiple attempts.</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
+                <!-- Allow Modifications Section (only for Survey type) -->
+                {% if survey.type == 'survey' %}
+                <div class="mt-6 pt-6 border-t border-gray-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <label class="text-sm font-medium text-gray-900">Allow Response Modifications</label>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="allow_modifications" id="modifications_toggle" class="sr-only peer" {% if survey.allow_modifications %}checked{% endif %}>
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </label>
+                    </div>
+                    
+                    <div id="modifications-info" class="{% if not survey.allow_modifications %}hidden{% endif %}">
+                        <p class="text-sm text-gray-600 mb-3">Students can edit their submitted response while the {{ survey.type }} is still open.</p>
                     </div>
                 </div>
+                {% endif %}
                 
                 <div id="parameters-error" class="hidden mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                     <p class="text-sm text-red-600"></p>
@@ -292,7 +177,7 @@
 </div>
 
 <script>
-let currentParameterTab = 'duration';
+let currentParameterTab = 'description';
 let originalParameterStates = {};
 
 function openParametersModal() {
@@ -342,26 +227,6 @@ function hasParameterChanges() {
         return false;
     }
     
-    // Check duration
-    const durationEnabled = document.getElementById('duration_toggle')?.checked || false;
-    if (durationEnabled !== originalParameterStates.duration_enabled) return true;
-    
-    const durationMinutes = document.getElementById('duration-slider')?.value;
-    if (durationMinutes != originalParameterStates.duration_minutes) return true;
-    
-    // Check attempts
-    const attemptsEnabled = document.getElementById('attempts_toggle')?.checked || false;
-    if (attemptsEnabled !== originalParameterStates.attempts_enabled) return true;
-    
-    const attemptType = document.querySelector('input[name="attempt_type"]:checked')?.value;
-    if (attemptType !== originalParameterStates.attempt_type) return true;
-    
-    const maxAttempts = document.getElementById('max_attempts')?.value;
-    if (maxAttempts != originalParameterStates.max_attempts) return true;
-    
-    const oneSitting = document.getElementById('one_sitting_toggle')?.checked || false;
-    if (oneSitting !== originalParameterStates.require_completion_in_one_sitting) return true;
-    
     // Check modifications
     const allowModifications = document.getElementById('modifications_toggle')?.checked || false;
     if (allowModifications !== originalParameterStates.allow_modifications) return true;
@@ -407,13 +272,6 @@ function storeOriginalParameterStates() {
     if (!form) return;
     
     originalParameterStates = {
-        duration_enabled: document.getElementById('duration_toggle')?.checked || false,
-        duration_minutes: document.getElementById('duration-slider')?.value || null,
-        attempts_enabled: document.getElementById('attempts_toggle')?.checked || false,
-        attempt_type: document.querySelector('input[name="attempt_type"]:checked')?.value || null,
-        max_attempts: document.getElementById('max_attempts')?.value || null,
-        single_attempt: document.getElementById('attempt_single')?.checked || false,
-        require_completion_in_one_sitting: document.getElementById('one_sitting_toggle')?.checked || false,
         allow_modifications: document.getElementById('modifications_toggle')?.checked || false,
         due_date_enabled: document.getElementById('due_date_toggle')?.checked || false,
         due_date: document.getElementById('due_date_input')?.value || null,
@@ -425,39 +283,6 @@ function storeOriginalParameterStates() {
 
 function restoreOriginalParameterStates() {
     if (!originalParameterStates || Object.keys(originalParameterStates).length === 0) return;
-    
-    // Restore duration
-    const durationToggle = document.getElementById('duration_toggle');
-    if (durationToggle) {
-        durationToggle.checked = originalParameterStates.duration_enabled;
-        durationToggle.dispatchEvent(new Event('change'));
-    }
-    const durationSlider = document.getElementById('duration-slider');
-    if (durationSlider && originalParameterStates.duration_minutes) {
-        durationSlider.value = originalParameterStates.duration_minutes;
-        updateDurationValue(originalParameterStates.duration_minutes);
-    }
-    
-    // Restore attempts
-    const attemptsToggle = document.getElementById('attempts_toggle');
-    if (attemptsToggle) {
-        attemptsToggle.checked = originalParameterStates.attempts_enabled;
-        attemptsToggle.dispatchEvent(new Event('change'));
-    }
-    if (originalParameterStates.attempt_type) {
-        const attemptRadio = document.getElementById(`attempt_${originalParameterStates.attempt_type}`);
-        if (attemptRadio) {
-            attemptRadio.checked = true;
-        }
-    }
-    const maxAttempts = document.getElementById('max_attempts');
-    if (maxAttempts && originalParameterStates.max_attempts) {
-        maxAttempts.value = originalParameterStates.max_attempts;
-    }
-    const oneSittingToggle = document.getElementById('one_sitting_toggle');
-    if (oneSittingToggle) {
-        oneSittingToggle.checked = originalParameterStates.require_completion_in_one_sitting;
-    }
     
     // Restore modifications
     const modificationsToggle = document.getElementById('modifications_toggle');
@@ -533,11 +358,6 @@ function switchParameterTab(tab) {
     currentParameterTab = tab;
 }
 
-function updateDurationValue(value) {
-    const display = document.getElementById('duration-value');
-    display.textContent = value + ' min';
-}
-
 function addInstruction() {
     const container = document.getElementById('instructions-list');
     const count = container.children.length + 1;
@@ -559,10 +379,6 @@ function removeInstruction(button) {
 }
 
 // Toggle handlers
-document.getElementById('duration_toggle')?.addEventListener('change', function() {
-    document.getElementById('duration-settings').classList.toggle('hidden', !this.checked);
-});
-
 document.getElementById('due_date_toggle')?.addEventListener('change', function() {
     document.getElementById('due-date-settings').classList.toggle('hidden', !this.checked);
 });
@@ -571,36 +387,9 @@ document.getElementById('instructions_toggle')?.addEventListener('change', funct
     document.getElementById('instructions-container').classList.toggle('hidden', !this.checked);
 });
 
-document.getElementById('attempts_toggle')?.addEventListener('change', function() {
-    document.getElementById('attempts-settings').classList.toggle('hidden', !this.checked);
+document.getElementById('modifications_toggle')?.addEventListener('change', function() {
+    document.getElementById('modifications-info').classList.toggle('hidden', !this.checked);
 });
-
-// Mutual exclusivity handlers
-function handleAttemptsToggle() {
-    const attemptsEnabled = document.getElementById('attempts_toggle').checked;
-    const modificationsToggle = document.getElementById('modifications_toggle');
-    
-    if (attemptsEnabled) {
-        // Disable modifications when attempts is enabled
-        modificationsToggle.checked = false;
-        document.getElementById('modifications-info').classList.add('hidden');
-    }
-    
-    document.getElementById('attempts-settings').classList.toggle('hidden', !attemptsEnabled);
-}
-
-function handleModificationsToggle() {
-    const modificationsEnabled = document.getElementById('modifications_toggle').checked;
-    const attemptsToggle = document.getElementById('attempts_toggle');
-    
-    if (modificationsEnabled) {
-        // Disable attempts when modifications is enabled
-        attemptsToggle.checked = false;
-        document.getElementById('attempts-settings').classList.add('hidden');
-    }
-    
-    document.getElementById('modifications-info').classList.toggle('hidden', !modificationsEnabled);
-}
 
 // Save parameters (similar to saveCourseAssignments)
 function saveParameters() {

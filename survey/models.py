@@ -33,6 +33,14 @@ class User(AbstractUser):
         verbose_name='user permissions',
     )
     
+    def get_full_name(self):
+        """Return the full name, prioritizing full_name field, then first_name + last_name"""
+        if self.full_name:
+            return self.full_name
+        elif self.first_name or self.last_name:
+            return f"{self.first_name or ''} {self.last_name or ''}".strip()
+        return self.username or self.email
+    
     def __str__(self):
         return self.email or self.username
     
@@ -99,6 +107,7 @@ class Survey(models.Model):
         ('draft', 'Draft'),
         ('active', 'Active'),
         ('closed', 'Closed'),
+        ('archived', 'Archived'),
     ]
     
     title = models.CharField(max_length=255)
@@ -114,13 +123,7 @@ class Survey(models.Model):
     due_date_enabled = models.BooleanField(default=False)
     due_date = models.DateTimeField(null=True, blank=True)
     
-    # Attempts settings
-    attempts_enabled = models.BooleanField(default=False)
-    max_attempts = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
-    single_attempt = models.BooleanField(default=False)
-    require_completion_in_one_sitting = models.BooleanField(default=False)
-    
-    # Modification settings (mutually exclusive with attempts)
+    # Modification settings
     allow_modifications = models.BooleanField(default=False)
     
     # Status and metadata
@@ -140,7 +143,7 @@ class Survey(models.Model):
         """Check if survey is past its due date"""
         from django.utils import timezone
         if self.due_date_enabled and self.due_date:
-            return timezone.now() > self.due_date
+            return timezone.now() >= self.due_date
         return False
     
     def should_auto_close(self):
@@ -176,7 +179,12 @@ class Question(models.Model):
     order = models.IntegerField(default=0)
     required = models.BooleanField(default=False)
     settings = models.JSONField(default=dict, blank=True)  # Type-specific settings (e.g., scale min/max, rating max)
-    points = models.DecimalField(max_digits=5, decimal_places=2, default=1.00)  # Points for exam questions
+    points = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=1.00,  # Changed from 0 to 1
+        help_text="Points awarded for correct answer (minimum: 1.0)"
+    )  # Points for exam questions
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -228,8 +236,19 @@ class SurveyResponse(models.Model):
     submitted_at = models.DateTimeField(null=True, blank=True)
     is_complete = models.BooleanField(default=False)
     
+    def save(self, *args, **kwargs):
+        """Override save to ensure is_complete can never be True if submitted_at is None"""
+        # CRITICAL: A survey response can only be complete if it has a submitted_at timestamp
+        # This prevents drafts (which have submitted_at=None) from being marked as complete
+        # Even if all questions are answered, a response without submitted_at is always a draft
+        if self.is_complete and self.submitted_at is None:
+            # Force is_complete to False if submitted_at is None
+            # This is a safeguard to prevent accidental completion of drafts
+            self.is_complete = False
+        super().save(*args, **kwargs)
+    
     def __str__(self):
-        return f"{self.student.email} - {self.survey.title} (Attempt {self.attempt_number})"
+        return f"{self.student.email} - {self.survey.title}"
     
     class Meta:
         db_table = 'survey_responses'
@@ -257,3 +276,20 @@ class QuestionResponse(models.Model):
     class Meta:
         db_table = 'question_responses'
         ordering = ['created_at']
+
+
+class DashboardMetrics(models.Model):
+    """Model to store historical dashboard metrics for change tracking"""
+    teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name='dashboard_metrics')
+    date = models.DateField(auto_now_add=True)
+    active_surveys = models.IntegerField(default=0)
+    total_responses = models.IntegerField(default=0)
+    completion_rate = models.IntegerField(default=0)
+    pending_reviews = models.IntegerField(default=0)
+    
+    class Meta:
+        ordering = ['-date']
+        unique_together = ['teacher', 'date']
+    
+    def __str__(self):
+        return f"{self.teacher.username} - {self.date}"

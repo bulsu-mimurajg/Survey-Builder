@@ -21,7 +21,7 @@ def create_default_teacher(apps, schema_editor):
         
         # Create teacher user
         User.objects.create_user(
-            username=username,
+            username='Juan',
             email='teacher@example.com',
             password='password',
             full_name='Teacher',

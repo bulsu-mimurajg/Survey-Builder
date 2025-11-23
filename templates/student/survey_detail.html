@@ -240,7 +240,7 @@
             View Response
         </a>
         {% endif %}
-    {% elif survey.status != 'Completed' and survey.status != 'Closed' %}
+    {% elif survey.status != 'Completed' and survey.status != 'Closed' and not survey.is_past_due %}
     <a 
         href="{% url 'student-take-survey' survey.id %}"
         class="inline-flex items-center px-6 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition-colors"
@@ -251,6 +251,8 @@
         Continue Survey
         {% endif %}
     </a>
+    {% elif survey.is_past_due %}
+    <!-- Survey past due date - no action button shown -->
     {% endif %}
 </div>
 
@@ -296,8 +298,28 @@
     const requireCompletionInOneSitting = {% if survey.require_completion_in_one_sitting %}true{% else %}false{% endif %};
     let exitWarningShown = false;
     
+    // Check if user is actively taking the survey (has a survey form on the page)
+    function isTakingSurvey() {
+        const surveyForm = document.getElementById('survey-form');
+        return surveyForm !== null;
+    }
+    
+    // Check if link is navigating to the survey taking page (should be allowed)
+    function isNavigatingToSurvey(link) {
+        if (!link || !link.href) return false;
+        try {
+            const url = new URL(link.href, window.location.origin);
+            // Allow navigation to the survey taking page (URL pattern: /student/survey/<id>/take/)
+            return url.pathname.includes('/take/');
+        } catch (e) {
+            // If URL parsing fails, check if href contains the take pattern
+            return link.href.includes('/take/');
+        }
+    }
+    
     function showExitWarning() {
-        if (requireCompletionInOneSitting && !exitWarningShown) {
+        // Only show warning if user is actively taking the survey
+        if (requireCompletionInOneSitting && isTakingSurvey() && !exitWarningShown) {
             exitWarningShown = true;
             document.getElementById('exit-warning-modal').classList.remove('hidden');
             return true; // Prevent default navigation
@@ -321,56 +343,61 @@
         }
     }
     
-    // Intercept navigation attempts
+    // Intercept navigation attempts - only when actively taking the survey
+    // Only set up exit warning if user is actually taking the survey (has a form)
     if (requireCompletionInOneSitting) {
-        // Handle beforeunload (browser close/refresh) - shows browser's native dialog
-        window.addEventListener('beforeunload', function(e) {
-            e.preventDefault();
-            e.returnValue = 'If you exit now, your form will be automatically submitted. Are you sure you want to leave?';
-            return e.returnValue;
-        });
-        
-        // Handle browser back button
-        window.addEventListener('popstate', function(e) {
-            if (showExitWarning()) {
+        // Only activate exit warning if there's a survey form on the page
+        if (isTakingSurvey()) {
+            // Handle beforeunload (browser close/refresh) - shows browser's native dialog
+            window.addEventListener('beforeunload', function(e) {
                 e.preventDefault();
-                history.pushState(null, null, window.location.href);
-            }
-        });
-        
-        // Push state to track back button
-        history.pushState(null, null, window.location.href);
-        
-        // Intercept link clicks
-        document.addEventListener('click', function(e) {
-            const link = e.target.closest('a');
-            if (link && link.href && !link.href.startsWith('javascript:') && !link.href.startsWith('#')) {
+                e.returnValue = 'If you exit now, your form will be automatically submitted. Are you sure you want to leave?';
+                return e.returnValue;
+            });
+            
+            // Handle browser back button
+            window.addEventListener('popstate', function(e) {
                 if (showExitWarning()) {
                     e.preventDefault();
-                    e.stopPropagation();
+                    history.pushState(null, null, window.location.href);
                 }
-            }
-        });
-        
-        // Intercept form submission buttons that navigate away
-        document.addEventListener('submit', function(e) {
-            const form = e.target;
-            if (form.method === 'get' || form.getAttribute('data-navigate-away') === 'true') {
-                if (showExitWarning()) {
-                    e.preventDefault();
+            });
+            
+            // Push state to track back button
+            history.pushState(null, null, window.location.href);
+            
+            // Intercept link clicks - but allow navigation to survey taking page
+            document.addEventListener('click', function(e) {
+                const link = e.target.closest('a');
+                if (link && link.href && !link.href.startsWith('javascript:') && !link.href.startsWith('#')) {
+                    // Allow navigation to the survey taking page
+                    if (!isNavigatingToSurvey(link) && showExitWarning()) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
                 }
-            }
-        });
-        
-        // Intercept back button clicks
-        document.addEventListener('click', function(e) {
-            if (e.target.onclick && e.target.onclick.toString().includes('history.back')) {
-                if (showExitWarning()) {
-                    e.preventDefault();
-                    e.stopPropagation();
+            });
+            
+            // Intercept form submission buttons that navigate away
+            document.addEventListener('submit', function(e) {
+                const form = e.target;
+                if (form.method === 'get' || form.getAttribute('data-navigate-away') === 'true') {
+                    if (showExitWarning()) {
+                        e.preventDefault();
+                    }
+                    }
+            });
+            
+            // Intercept back button clicks
+            document.addEventListener('click', function(e) {
+                if (e.target.onclick && e.target.onclick.toString().includes('history.back')) {
+                    if (showExitWarning()) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
                 }
-            }
-        });
+            });
+        }
     }
 </script>
 {% endblock %}

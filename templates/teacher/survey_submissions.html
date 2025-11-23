@@ -9,11 +9,19 @@
     <div class="bg-white border-b border-gray-200 px-6 py-4">
         <div class="flex items-center justify-between">
             <div class="flex items-center space-x-4">
+                {% if survey.status != 'archived' %}
                 <a href="{% url 'teacher-survey-builder-detail' survey.id %}" class="text-gray-600 hover:text-gray-900">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
                     </svg>
                 </a>
+                {% else %}
+                <a href="{% url 'teacher-survey-builder' %}?status=archived" class="text-gray-600 hover:text-gray-900">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                    </svg>
+                </a>
+                {% endif %}
                 <div>
                     <h1 class="text-2xl font-bold text-gray-900">{{ survey.title }}</h1>
                     <p class="text-sm text-gray-500">{{ total_responses }} response{{ total_responses|pluralize }}</p>
@@ -33,7 +41,10 @@
     <!-- Tabs -->
     <div class="bg-white border-b border-gray-200 px-6">
         <div class="flex space-x-8">
-            <button onclick="switchTab('summary')" id="tab-summary" class="py-4 px-1 border-b-2 border-indigo-600 text-indigo-600 font-medium text-sm">
+            <button onclick="switchTab('analytics')" id="tab-analytics" class="py-4 px-1 border-b-2 border-indigo-600 text-indigo-600 font-medium text-sm">
+                Analytics
+            </button>
+            <button onclick="switchTab('summary')" id="tab-summary" class="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm">
                 Summary
             </button>
             <button onclick="switchTab('question')" id="tab-question" class="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm">
@@ -47,8 +58,64 @@
 
     <!-- Content -->
     <div class="flex-1 overflow-auto px-6 py-6">
+        <!-- Analytics Tab -->
+        <div id="content-analytics" class="tab-content">
+            <div class="max-w-5xl mx-auto space-y-6">
+                <!-- Overview Metrics -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-white rounded-lg border border-gray-200 p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-500">Total Responses</p>
+                                <p class="text-2xl font-bold text-gray-900" id="analytics-total-responses">0</p>
+                            </div>
+                            <div class="p-3 bg-indigo-100 rounded-lg">
+                                <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg border border-gray-200 p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-500">Completion Rate</p>
+                                <p class="text-2xl font-bold text-gray-900" id="analytics-completion-rate">0%</p>
+                            </div>
+                            <div class="p-3 bg-green-100 rounded-lg">
+                                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg border border-gray-200 p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-500">Last Updated</p>
+                                <p class="text-sm font-medium text-gray-900" id="analytics-last-updated">--</p>
+                            </div>
+                            <div class="p-3 bg-blue-100 rounded-lg">
+                                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Question Analytics -->
+                <div id="analytics-questions-container">
+                    <div class="text-center py-12">
+                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                        <p class="mt-2 text-sm text-gray-500">Loading analytics...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Summary Tab -->
-        <div id="content-summary" class="tab-content">
+        <div id="content-summary" class="tab-content hidden">
             <div class="max-w-5xl mx-auto space-y-6">
                 {% for question in questions %}
                 <div class="bg-white rounded-lg border border-gray-200 p-6">
@@ -108,25 +175,54 @@
                 <div class="bg-white rounded-lg border border-gray-200">
                     <!-- Search and Filter -->
                     <div class="p-4 border-b border-gray-200">
-                        <div class="flex items-center space-x-4">
-                            <div class="flex-1">
+                        <form method="get" id="filter-form" onsubmit="resetPage()" class="flex items-center gap-3 flex-wrap">
+                            <!-- Hidden input to preserve tab -->
+                            <input type="hidden" name="tab" value="individual" id="tab-preserve">
+                            <!-- Search -->
+                            <div class="flex-1 min-w-[200px]">
                                 <div class="relative">
                                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                         <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                                         </svg>
                                     </div>
-                                    <input type="text" id="search-input" onkeyup="filterResponses()" placeholder="Search by student name or email..." class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                    <input type="text" name="search" id="search-input" value="{{ request.GET.search }}" placeholder="Search by name or email..." class="block w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
                                 </div>
                             </div>
+                            <!-- Status Filter -->
                             <div>
-                                <select id="filter-status" onchange="filterResponses()" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                <select name="status" id="filter-status" class="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
                                     <option value="">All responses</option>
-                                    <option value="complete">Complete</option>
-                                    <option value="incomplete">Incomplete</option>
+                                    <option value="complete" {% if request.GET.status == 'complete' %}selected{% endif %}>Complete</option>
+                                    <option value="incomplete" {% if request.GET.status == 'incomplete' %}selected{% endif %}>Incomplete</option>
                                 </select>
                             </div>
-                        </div>
+                            <!-- Sort -->
+                            <div>
+                                <select name="sort" id="sort-by" class="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="name" {% if request.GET.sort == 'name' or not request.GET.sort %}selected{% endif %}>Sort by Name</option>
+                                    <option value="date" {% if request.GET.sort == 'date' %}selected{% endif %}>Sort by Date</option>
+                                    <option value="status" {% if request.GET.sort == 'status' %}selected{% endif %}>Sort by Status</option>
+                                </select>
+                            </div>
+                            <!-- Sort Order -->
+                            <div>
+                                <select name="order" id="sort-order" class="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="asc" {% if request.GET.order == 'asc' or not request.GET.order %}selected{% endif %}>Ascending</option>
+                                    <option value="desc" {% if request.GET.order == 'desc' %}selected{% endif %}>Descending</option>
+                                </select>
+                            </div>
+                            <!-- Submit Button -->
+                            <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                                Apply
+                            </button>
+                            <!-- Reset Button -->
+                            {% if request.GET.search or request.GET.status or request.GET.sort or request.GET.order %}
+                            <a href="?tab=individual&page=1" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                                Reset
+                            </a>
+                            {% endif %}
+                        </form>
                     </div>
                     
                     <!-- Responses Table -->
@@ -134,10 +230,49 @@
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <button onclick="sortTable('name')" class="flex items-center gap-1 hover:text-gray-700 focus:outline-none">
+                                            Student
+                                            {% if request.GET.sort == 'name' %}
+                                                {% if request.GET.order == 'desc' %}
+                                                    <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                                {% else %}
+                                                    <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+                                                {% endif %}
+                                            {% else %}
+                                                <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+                                            {% endif %}
+                                        </button>
+                                    </th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <button onclick="sortTable('status')" class="flex items-center gap-1 hover:text-gray-700 focus:outline-none">
+                                            Status
+                                            {% if request.GET.sort == 'status' %}
+                                                {% if request.GET.order == 'desc' %}
+                                                    <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                                {% else %}
+                                                    <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+                                                {% endif %}
+                                            {% else %}
+                                                <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+                                            {% endif %}
+                                        </button>
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <button onclick="sortTable('date')" class="flex items-center gap-1 hover:text-gray-700 focus:outline-none">
+                                            Submitted
+                                            {% if request.GET.sort == 'date' %}
+                                                {% if request.GET.order == 'desc' %}
+                                                    <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                                {% else %}
+                                                    <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+                                                {% endif %}
+                                            {% else %}
+                                                <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+                                            {% endif %}
+                                        </button>
+                                    </th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attempt</th>
                                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
@@ -146,7 +281,7 @@
                                 {% for response in responses %}
                                 <tr class="response-row hover:bg-gray-50" data-student="{{ response.student.email }}" data-status="{% if response.is_complete %}complete{% else %}incomplete{% endif %}">
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm font-medium text-gray-900">{{ response.student.first_name }} {{ response.student.last_name }}</div>
+                                        <div class="text-sm font-medium text-gray-900">{{ response.student.get_full_name }}</div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="text-sm text-gray-500">{{ response.student.email }}</div>
@@ -156,9 +291,13 @@
                                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                                             Complete
                                         </span>
-                                        {% else %}
+                                        {% elif response.id %}
                                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
                                             In Progress
+                                        </span>
+                                        {% else %}
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                            Incomplete
                                         </span>
                                         {% endif %}
                                     </td>
@@ -173,7 +312,11 @@
                                         {{ response.attempt_number }}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        {% if response.id %}
                                         <button onclick="viewResponse({{ response.id }})" class="text-indigo-600 hover:text-indigo-900">View</button>
+                                        {% else %}
+                                        <span class="text-gray-400">No response</span>
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 {% empty %}
@@ -200,10 +343,10 @@
                             </div>
                             <div class="flex space-x-2">
                                 {% if responses.has_previous %}
-                                <a href="?page={{ responses.previous_page_number }}" class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">Previous</a>
+                                <a href="?tab=individual&{% for key, value in request.GET.items %}{% if key != 'page' and key != 'tab' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ responses.previous_page_number }}" class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">Previous</a>
                                 {% endif %}
                                 {% if responses.has_next %}
-                                <a href="?page={{ responses.next_page_number }}" class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">Next</a>
+                                <a href="?tab=individual&{% for key, value in request.GET.items %}{% if key != 'page' and key != 'tab' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ responses.next_page_number }}" class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">Next</a>
                                 {% endif %}
                             </div>
                         </div>
@@ -235,14 +378,22 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.2.2/wordcloud2.min.js"></script>
 <script>
 const surveyId = {{ survey.id }};
-let currentTab = 'summary';
+let currentTab = 'analytics';
 let charts = {};
+let analyticsCharts = {};
+let analyticsPollingInterval = null;
 
 // Tab switching
 function switchTab(tab) {
     currentTab = tab;
+    
+    // Update URL without reloading page
+    const url = new URL(window.location);
+    url.searchParams.set('tab', tab);
+    window.history.pushState({}, '', url);
     
     // Hide all content
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -266,6 +417,14 @@ function switchTab(tab) {
         setTimeout(() => {
             loadAllCharts();
         }, 100);
+    }
+    
+    // Load analytics for analytics tab
+    if (tab === 'analytics') {
+        loadAnalytics();
+        startAnalyticsPolling();
+    } else {
+        stopAnalyticsPolling();
     }
 }
 
@@ -334,7 +493,15 @@ function renderChart(questionId, questionType, data, container) {
 // Pie chart for single-choice questions
 function renderPieChart(questionId, data, container) {
     const canvas = document.createElement('canvas');
-    container.appendChild(canvas);
+    // Add wrapper with max height constraint (matching analytics tab)
+    const wrapper = document.createElement('div');
+    wrapper.className = 'flex items-center justify-center';
+    wrapper.style.maxHeight = '400px';
+    wrapper.style.position = 'relative';
+    canvas.style.maxHeight = '400px';
+    canvas.style.maxWidth = '400px';
+    wrapper.appendChild(canvas);
+    container.appendChild(wrapper);
     
     charts[questionId] = new Chart(canvas, {
         type: 'pie',
@@ -350,9 +517,18 @@ function renderPieChart(questionId, data, container) {
         },
         options: {
             responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 1,
             plugins: {
                 legend: {
                     position: 'right',
+                    labels: {
+                        boxWidth: 12,
+                        padding: 10,
+                        font: {
+                            size: 12
+                        }
+                    }
                 },
                 tooltip: {
                     callbacks: {
@@ -373,6 +549,7 @@ function renderPieChart(questionId, data, container) {
 // Bar chart for multiple-choice questions
 function renderBarChart(questionId, data, container) {
     const canvas = document.createElement('canvas');
+    canvas.style.maxHeight = '300px';
     container.appendChild(canvas);
     
     charts[questionId] = new Chart(canvas, {
@@ -387,6 +564,7 @@ function renderBarChart(questionId, data, container) {
         },
         options: {
             responsive: true,
+            maintainAspectRatio: true,
             scales: {
                 y: {
                     beginAtZero: true,
@@ -407,6 +585,7 @@ function renderBarChart(questionId, data, container) {
 // Rating/Scale chart
 function renderRatingChart(questionId, data, container) {
     const canvas = document.createElement('canvas');
+    canvas.style.maxHeight = '300px';
     container.appendChild(canvas);
     
     const avgDiv = document.createElement('div');
@@ -429,6 +608,7 @@ function renderRatingChart(questionId, data, container) {
         },
         options: {
             responsive: true,
+            maintainAspectRatio: true,
             scales: {
                 y: {
                     beginAtZero: true,
@@ -475,6 +655,7 @@ function renderTextResponses(data, container) {
 // Timeline chart for date/time
 function renderTimelineChart(questionId, data, container) {
     const canvas = document.createElement('canvas');
+    canvas.style.maxHeight = '300px';
     container.appendChild(canvas);
     
     charts[questionId] = new Chart(canvas, {
@@ -492,6 +673,7 @@ function renderTimelineChart(questionId, data, container) {
         },
         options: {
             responsive: true,
+            maintainAspectRatio: true,
             scales: {
                 y: {
                     beginAtZero: true,
@@ -566,20 +748,44 @@ function loadQuestionAnalytics(questionId) {
         });
 }
 
-// Filter responses
-function filterResponses() {
-    const searchTerm = document.getElementById('search-input').value.toLowerCase();
-    const statusFilter = document.getElementById('filter-status').value;
+// Reset page to 1 when filters change
+function resetPage() {
+    const form = document.getElementById('filter-form');
+    // Remove existing page input if any
+    const existingPage = form.querySelector('input[name="page"]');
+    if (existingPage) {
+        existingPage.remove();
+    }
+    // Add page=1
+    const pageInput = document.createElement('input');
+    pageInput.type = 'hidden';
+    pageInput.name = 'page';
+    pageInput.value = '1';
+    form.appendChild(pageInput);
+}
+
+// Sort table by column (clickable headers)
+function sortTable(sortBy) {
+    const form = document.getElementById('filter-form');
+    const currentSort = '{{ request.GET.sort|default:"name" }}';
+    const currentOrder = '{{ request.GET.order|default:"asc" }}';
     
-    document.querySelectorAll('.response-row').forEach(row => {
-        const studentText = row.dataset.student.toLowerCase();
-        const status = row.dataset.status;
-        
-        const matchesSearch = studentText.includes(searchTerm);
-        const matchesStatus = !statusFilter || status === statusFilter;
-        
-        row.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
-    });
+    // Set sort field
+    document.getElementById('sort-by').value = sortBy;
+    
+    // Ensure tab is preserved
+    document.getElementById('tab-preserve').value = 'individual';
+    
+    // Toggle order if clicking same column, otherwise default to asc
+    if (currentSort === sortBy) {
+        document.getElementById('sort-order').value = currentOrder === 'asc' ? 'desc' : 'asc';
+    } else {
+        document.getElementById('sort-order').value = 'asc';
+    }
+    
+    // Reset to page 1 and submit
+    resetPage();
+    form.submit();
 }
 
 // View response detail
@@ -930,8 +1136,314 @@ window.addEventListener('DOMContentLoaded', function() {
     {% endif %}
 });
 
+// Analytics functions
+function loadAnalytics() {
+    fetch(`/api/survey/${surveyId}/analytics/`)
+        .then(response => response.json())
+        .then(data => {
+            // Update overview metrics
+            document.getElementById('analytics-total-responses').textContent = data.total_responses;
+            document.getElementById('analytics-completion-rate').textContent = data.completion_rate + '%';
+            document.getElementById('analytics-last-updated').textContent = new Date().toLocaleTimeString();
+            
+            // Render question analytics
+            const container = document.getElementById('analytics-questions-container');
+            if (data.questions.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <h3 class="mt-2 text-sm font-medium text-gray-900">No questions</h3>
+                        <p class="mt-1 text-sm text-gray-500">This survey doesn't have any questions yet.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            data.questions.forEach((question, index) => {
+                html += `
+                    <div class="bg-white rounded-lg border border-gray-200 p-6 mb-4">
+                        <div class="mb-4">
+                            <div class="flex items-start justify-between mb-2">
+                                <h3 class="text-lg font-medium text-gray-900">${question.question_text}</h3>
+                                <span class="text-sm text-gray-500">${question.response_count} response${question.response_count !== 1 ? 's' : ''}</span>
+                            </div>
+                            <p class="text-sm text-gray-500">${formatQuestionType(question.question_type)}</p>
+                        </div>
+                        <div class="analytics-chart-container" data-question-id="${question.question_id}" data-question-type="${question.question_type}">
+                            <!-- Chart will be rendered here -->
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+            
+            // Render charts for each question
+            data.questions.forEach((question) => {
+                const chartContainer = container.querySelector(`[data-question-id="${question.question_id}"]`);
+                if (chartContainer) {
+                    renderAnalyticsChart(question, chartContainer);
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Error loading analytics:', error);
+            document.getElementById('analytics-questions-container').innerHTML = `
+                <div class="text-center py-12">
+                    <p class="text-sm text-red-600">Error loading analytics. Please try again.</p>
+                </div>
+            `;
+        });
+}
+
+function renderAnalyticsChart(questionData, container) {
+    const questionId = questionData.question_id;
+    const questionType = questionData.question_type;
+    
+    // Destroy existing chart if it exists
+    if (analyticsCharts[questionId]) {
+        analyticsCharts[questionId].destroy();
+    }
+    
+    // Create canvas element
+    const canvas = document.createElement('canvas');
+    container.innerHTML = '';
+    
+    if (questionType === 'multiple_choice' || questionType === 'dropdown') {
+        // Pie chart for single-choice questions
+        // Add wrapper with max height constraint
+        const wrapper = document.createElement('div');
+        wrapper.className = 'flex items-center justify-center';
+        wrapper.style.maxHeight = '400px';
+        wrapper.style.position = 'relative';
+        canvas.style.maxHeight = '400px';
+        canvas.style.maxWidth = '400px';
+        wrapper.appendChild(canvas);
+        container.appendChild(wrapper);
+        
+        analyticsCharts[questionId] = new Chart(canvas, {
+            type: 'pie',
+            data: {
+                labels: questionData.labels,
+                datasets: [{
+                    data: questionData.values,
+                    backgroundColor: [
+                        '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
+                        '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 1,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            boxWidth: 12,
+                            padding: 10,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    } else if (questionType === 'checkboxes') {
+        // Bar chart for checkboxes
+        canvas.style.maxHeight = '300px';
+        container.appendChild(canvas);
+        
+        analyticsCharts[questionId] = new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: questionData.labels,
+                datasets: [{
+                    label: 'Responses',
+                    data: questionData.values,
+                    backgroundColor: '#3B82F6'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+    } else if (questionType === 'rating' || questionType === 'scale') {
+        // Bar chart for Likert scales
+        canvas.style.maxHeight = '300px';
+        container.appendChild(canvas);
+        
+        analyticsCharts[questionId] = new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: questionData.labels,
+                datasets: [{
+                    label: 'Responses',
+                    data: questionData.values,
+                    backgroundColor: '#3B82F6'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+        
+        // Add average if available
+        if (questionData.average !== undefined) {
+            const avgDiv = document.createElement('div');
+            avgDiv.className = 'mt-2 text-sm text-gray-600 text-center';
+            avgDiv.innerHTML = `<strong>Average:</strong> ${questionData.average.toFixed(2)}`;
+            container.appendChild(avgDiv);
+        }
+    } else if (questionType === 'short_text' || questionType === 'long_text') {
+        // Word cloud for open-ended questions
+        if (questionData.responses && questionData.responses.length > 0) {
+            renderWordCloud(questionData.responses, container);
+        } else {
+            container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">No text responses yet</p>';
+        }
+    } else {
+        container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">Chart not available for this question type</p>';
+    }
+}
+
+function renderWordCloud(responses, container) {
+    // Process text responses
+    const allText = responses.join(' ').toLowerCase();
+    
+    // Remove common stop words and punctuation
+    const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them']);
+    
+    const words = allText
+        .replace(/[^\w\s]/g, ' ')
+        .split(/\s+/)
+        .filter(word => word.length > 2 && !stopWords.has(word));
+    
+    // Count word frequencies
+    const wordCounts = {};
+    words.forEach(word => {
+        wordCounts[word] = (wordCounts[word] || 0) + 1;
+    });
+    
+    // Convert to array and sort by frequency
+    const wordArray = Object.entries(wordCounts)
+        .map(([text, weight]) => [text, weight])
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 50); // Top 50 words
+    
+    if (wordArray.length === 0) {
+        container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">No meaningful words found in responses</p>';
+        return;
+    }
+    
+    // Create canvas for word cloud
+    const canvas = document.createElement('canvas');
+    canvas.id = `wordcloud-${Date.now()}`;
+    const containerWidth = container.offsetWidth || 600;
+    canvas.width = containerWidth;
+    canvas.height = 400;
+    canvas.style.width = '100%';
+    canvas.style.height = '400px';
+    container.innerHTML = '';
+    container.appendChild(canvas);
+    
+    // Render word cloud
+    try {
+        if (typeof WordCloud !== 'undefined') {
+            WordCloud(canvas, {
+                list: wordArray,
+                gridSize: Math.round(16 * containerWidth / 1024),
+                weightFactor: function(size) {
+                    return Math.pow(size, 1.5) * containerWidth / 50;
+                },
+                fontFamily: 'Arial, sans-serif',
+                color: function() {
+                    const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16', '#F97316', '#6366F1'];
+                    return colors[Math.floor(Math.random() * colors.length)];
+                },
+                rotateRatio: 0.3,
+                rotationSteps: 2,
+                backgroundColor: '#ffffff'
+            });
+        } else {
+            throw new Error('WordCloud library not loaded');
+        }
+    } catch (error) {
+        console.error('Error rendering word cloud:', error);
+        container.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">Error rendering word cloud. Please refresh the page.</p>';
+    }
+}
+
+function startAnalyticsPolling() {
+    // Clear any existing interval
+    stopAnalyticsPolling();
+    
+    // Poll every 5 seconds
+    analyticsPollingInterval = setInterval(() => {
+        if (currentTab === 'analytics') {
+            loadAnalytics();
+        }
+    }, 5000);
+}
+
+function stopAnalyticsPolling() {
+    if (analyticsPollingInterval) {
+        clearInterval(analyticsPollingInterval);
+        analyticsPollingInterval = null;
+    }
+}
+
 // Load charts on page load
 document.addEventListener('DOMContentLoaded', function() {
+    // Check for tab parameter in URL, default to analytics
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab') || 'analytics';
+    switchTab(tabParam);
+    
     setTimeout(() => {
         loadAllCharts();
     }, 500);

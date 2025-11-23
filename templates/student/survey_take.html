@@ -13,7 +13,9 @@
                 <h1 class="text-2xl font-bold text-indigo-900 mb-1">{{ survey.title }}</h1>
                 <p class="text-sm text-gray-600">{% if survey.courses.first %}{{ survey.courses.first.code }}{% else %}N/A{% endif %} • {{ survey.get_type_display }}</p>
                 {% if view_only %}
-                <p class="text-sm text-green-600 mt-1">✓ Submitted on {{ response.submitted_at|date:"M d, Y \a\t h:i A" }}</p>
+                {% if response.submitted_at %}
+                <p class="text-sm text-green-600 mt-1">Submitted on {{ response.submitted_at|date:"M d, Y \a\t h:i A" }}</p>
+                {% endif %}
                 {% if survey.type == 'exam' and total_score is not None %}
                 <p class="text-lg font-bold mt-2">
                     <span class="text-indigo-900">Score:</span>
@@ -27,15 +29,6 @@
             </div>
             {% if not view_only %}
             <div class="flex items-center gap-4">
-                {% if survey.duration_enabled and survey.duration_minutes %}
-                <!-- Timer -->
-                <div id="timer" class="flex items-center gap-2 px-4 py-2 bg-indigo-50 rounded-lg">
-                    <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span id="timer-display" class="text-lg font-semibold text-indigo-900">{{ duration_remaining }}</span>
-                </div>
-                {% endif %}
                 <!-- Progress -->
                 <div class="flex items-center gap-2">
                     <span class="text-sm text-gray-600">Progress:</span>
@@ -44,12 +37,6 @@
             </div>
             {% endif %}
         </div>
-        {% if not view_only and survey.duration_enabled and survey.duration_minutes %}
-        <!-- Progress bar for timer -->
-        <div class="mt-3 w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div id="timer-progress" class="h-full bg-indigo-600 transition-all duration-1000" style="width: 100%"></div>
-        </div>
-        {% endif %}
     </div>
 
     <form id="survey-form" method="post" action="{% url 'student-survey-submit' survey.id %}" enctype="multipart/form-data">
@@ -415,22 +402,14 @@
         <!-- Submit Button - Only show on last page or if single page -->
         {% if not view_only %}
         <div id="submit-button-container" class="mt-8 bg-white rounded-lg p-6 border border-gray-200 flex items-center justify-between sticky bottom-0 shadow-lg {% if total_pages > 1 %}hidden{% endif %}">
-            {% if not survey.require_completion_in_one_sitting %}
             <button 
                 type="button"
-                onclick="saveDraft()"
+                id="save-draft-button"
+                onclick="event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation(); saveDraft(); return false;"
                 class="px-6 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
             >
                 Save Draft
             </button>
-            {% else %}
-            <div class="text-sm text-yellow-700 bg-yellow-50 px-4 py-2 rounded-lg border border-yellow-200">
-                <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
-                </svg>
-                Complete in one sitting
-            </div>
-            {% endif %}
             <button 
                 type="submit"
                 class="px-6 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition-colors"
@@ -495,65 +474,102 @@
     const csrfToken = '{{ csrf_token }}';
     const surveyId = {{ survey.id }};
     const responseId = {{ response.id }};
-    const requireCompletion = {% if survey.require_completion_in_one_sitting %}true{% else %}false{% endif %};
-    const durationEnabled = {% if survey.duration_enabled %}true{% else %}false{% endif %};
+    const dueDateTimestamp = {% if due_date_timestamp %}{{ due_date_timestamp }}{% else %}null{% endif %};
     const totalQuestions = {{ total_questions }};
     
-    {% if survey.duration_enabled and survey.duration_minutes %}
-    // Timer functionality
-    let timeRemaining = {{ time_remaining_seconds }}; // seconds
-    const totalDuration = {{ survey.duration_minutes }} * 60; // seconds
-    
-    function updateTimer() {
-        const minutes = Math.floor(timeRemaining / 60);
-        const seconds = timeRemaining % 60;
-        document.getElementById('timer-display').textContent = 
-            `${minutes}:${seconds.toString().padStart(2, '0')}`;
-        
-        // Update progress bar
-        const percentage = (timeRemaining / totalDuration) * 100;
-        document.getElementById('timer-progress').style.width = percentage + '%';
-        
-        // Change color if time is running low
-        if (timeRemaining < 300) { // Less than 5 minutes
-            document.getElementById('timer-display').classList.add('text-red-600');
-            document.getElementById('timer-progress').classList.remove('bg-indigo-600');
-            document.getElementById('timer-progress').classList.add('bg-red-600');
+    // Check if due date has passed and disable form
+    function checkDueDate() {
+        if (dueDateTimestamp && Date.now() > dueDateTimestamp) {
+            // Disable all form inputs
+            const form = document.getElementById('survey-form');
+            const inputs = form.querySelectorAll('input, textarea, select, button');
+            inputs.forEach(input => {
+                input.disabled = true;
+            });
+            
+            // Hide submit and save draft buttons
+            const submitButton = form.querySelector('button[type="submit"]');
+            const saveDraftButton = form.querySelector('button[onclick="saveDraft()"]');
+            if (submitButton) submitButton.style.display = 'none';
+            if (saveDraftButton) saveDraftButton.style.display = 'none';
+            
+            // Show warning message
+            const warningDiv = document.createElement('div');
+            warningDiv.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+            warningDiv.innerHTML = '<div class="flex items-center space-x-2"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg><span class="font-medium">This survey has passed its due date and can no longer be modified.</span></div>';
+            document.body.appendChild(warningDiv);
+            
+            // Stop checking
+            clearInterval(dueDateCheckInterval);
+            return true;
         }
-        
-        if (timeRemaining <= 0) {
-            // Auto-submit the form
-            alert('Time is up! Your {{ survey.type }} will be submitted automatically.');
-            document.getElementById('survey-form').submit();
+        return false;
+    }
+    
+    // Check due date periodically (every 10 seconds)
+    let dueDateCheckInterval = null;
+    if (dueDateTimestamp) {
+        // Check immediately
+        if (checkDueDate()) {
+            // Due date already passed, form is disabled
         } else {
-            timeRemaining--;
-            setTimeout(updateTimer, 1000);
+            // Check every 10 seconds
+            dueDateCheckInterval = setInterval(checkDueDate, 10000);
         }
     }
     
-    // Start timer
-    updateTimer();
-    {% endif %}
-    
-    // Prevent leaving page if completion in one sitting is required
-    if (requireCompletion) {
-        window.addEventListener('beforeunload', function(e) {
-            e.preventDefault();
-            e.returnValue = 'Your progress will be lost if you leave this page.';
-            return e.returnValue;
-        });
-    }
-    
-    // Auto-save draft (if not require completion in one sitting)
-    if (!requireCompletion) {
-        setInterval(function() {
+    // Auto-save draft
+    setInterval(function() {
+        // Only save if due date hasn't passed
+        if (!dueDateTimestamp || Date.now() <= dueDateTimestamp) {
             saveDraft(true); // silent save
-        }, 60000); // every minute
-    }
+        }
+    }, 60000); // every minute
+    
+    // Flag to track if we're currently saving a draft
+    let isSavingDraft = false;
+    
+    // Add click handler to Save Draft button to prevent any form submission
+    document.getElementById('save-draft-button')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        saveDraft();
+        return false;
+    });
     
     function saveDraft(silent = false) {
-        const formData = new FormData(document.getElementById('survey-form'));
+        // Check if due date has passed
+        if (dueDateTimestamp && Date.now() > dueDateTimestamp) {
+            if (!silent) {
+                showToast('This survey has passed its due date and can no longer be modified.', 'error');
+            }
+            return false;
+        }
+        
+        // CRITICAL: Set flag to prevent form submission during draft save
+        isSavingDraft = true;
+        
+        // CRITICAL: Explicitly prevent any form submission
+        // Even if all questions are answered (100% progress), this is a DRAFT save, not a submission
+        const form = document.getElementById('survey-form');
+        if (form) {
+            // Set attribute to mark that draft is being saved
+            form.setAttribute('data-draft-saving', 'true');
+        }
+        
+        const formData = new FormData(form);
         formData.append('is_draft', 'true');
+        
+        // CRITICAL: Verify this is a draft save, not a submission
+        // Even if progress is 100%, this must remain a draft
+        
+        // Disable submit button temporarily to prevent accidental submission
+        const submitButton = form ? form.querySelector('button[type="submit"]') : null;
+        const wasDisabled = submitButton ? submitButton.disabled : false;
+        if (submitButton) {
+            submitButton.disabled = true;
+        }
         
         fetch(`/api/survey/${surveyId}/response/${responseId}/save/`, {
             method: 'POST',
@@ -564,20 +580,88 @@
         })
         .then(response => response.json())
         .then(data => {
+            // Re-enable submit button after draft save completes
+            if (submitButton && !wasDisabled) {
+                submitButton.disabled = false;
+            }
+            
+            // Clear the draft saving flag
+            isSavingDraft = false;
+            
+            // Remove draft saving attribute
+            if (form) {
+                form.removeAttribute('data-draft-saving');
+            }
+            
             if (data.success && !silent) {
                 showToast('Draft saved successfully', 'success');
+                // Navigate back after a short delay to show the success message
+                setTimeout(function() {
+                    // Navigate to survey detail page (where they came from)
+                    window.location.href = '{% url "student-survey-detail" survey.id %}';
+                }, 500);
+            } else if (!data.success && !silent) {
+                showToast(data.error || 'Failed to save draft', 'error');
             }
         })
         .catch(error => {
+            // Re-enable submit button on error
+            if (submitButton && !wasDisabled) {
+                submitButton.disabled = false;
+            }
+            
+            // Clear the draft saving flag even on error
+            isSavingDraft = false;
+            
+            // Remove draft saving attribute even on error
+            if (form) {
+                form.removeAttribute('data-draft-saving');
+            }
+            
             if (!silent) {
                 showToast('Failed to save draft', 'error');
             }
         });
+        
+        // Explicitly prevent form submission
+        return false;
     }
     
     // Handle form submission
     document.getElementById('survey-form').addEventListener('submit', function(e) {
         e.preventDefault();
+        
+        // CRITICAL: Check if form has draft-saving attribute (draft save in progress)
+        if (this.getAttribute('data-draft-saving') === 'true') {
+            console.log('Form submission blocked: draft save in progress (attribute check)');
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+        
+        // CRITICAL: If we're currently saving a draft, prevent form submission
+        // This prevents accidental submission when draft save is in progress
+        if (isSavingDraft) {
+            console.log('Form submission blocked: draft save in progress (flag check)');
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+        
+        // CRITICAL: Check if this is a draft save attempt (should not happen, but double-check)
+        const formData = new FormData(this);
+        if (formData.get('is_draft') === 'true') {
+            console.log('Form submission blocked: is_draft parameter detected');
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+        
+        // Check if due date has passed
+        if (dueDateTimestamp && Date.now() > dueDateTimestamp) {
+            showToast('This survey has passed its due date and can no longer be submitted.', 'error');
+            return;
+        }
         
         // Count unanswered required questions
         const requiredInputs = document.querySelectorAll('[required]');
@@ -620,6 +704,13 @@
     }
     
     function confirmSubmit() {
+        // Check if due date has passed before submitting
+        if (dueDateTimestamp && Date.now() > dueDateTimestamp) {
+            showToast('This survey has passed its due date and can no longer be submitted.', 'error');
+            closeSubmitModal();
+            return;
+        }
+        
         // Disable beforeunload warning
         window.onbeforeunload = null;
         document.getElementById('survey-form').submit();
