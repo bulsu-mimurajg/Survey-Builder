@@ -325,36 +325,134 @@ def student_course_detail(request, course_id):
 
 @login_required
 def student_survey_board(request):
-    """Student survey board page view"""
+    """Student survey board view"""
+    if request.user.role != 'student':
+        messages.error(request, 'Access denied.')
+        return redirect('student-home')
+    
+    student = request.user
+    
+    # Get course filter
     selected_course = request.GET.get('course', '')
     
-    all_surveys = [
-        {'id': 1, 'title': 'Quiz # 67', 'type': 'Exam', 'status': 'Not Started', 
-         'progress': 0, 'due_date': 'Nov 8, 5:00pm', 'course_id': '1'},
-        {'id': 2, 'title': 'Weekly Assessment', 'type': 'Exam', 'status': 'In Progress', 
-         'progress': 50, 'due_date': 'Nov 10', 'course_id': '1'},
-        {'id': 3, 'title': 'Midterm Exam', 'type': 'Exam', 'status': 'Completed', 
-         'progress': 100, 'due_date': 'Nov 1', 'score': '85/100', 'course_id': '2'},
-    ]
+    # Get student's enrolled courses
+    enrollments = CourseEnrollment.objects.filter(student=student).select_related('course')
+    courses = [{'id': e.course.id, 'name': e.course.name, 'code': e.course.code} for e in enrollments]
+    course_ids = [c['id'] for c in courses]
     
-    # Filter surveys
+    # Base query for surveys - only surveys for student's courses (exclude draft)
+    surveys_query = Survey.objects.filter(
+        courses__id__in=course_ids
+    ).exclude(status='draft').distinct().select_related('created_by').prefetch_related('courses', 'questions', 'responses')
+    
+    # Apply course filter if selected
     if selected_course:
-        filtered_surveys = [s for s in all_surveys if s['course_id'] == selected_course]
-    else:
-        filtered_surveys = all_surveys
+        try:
+            selected_course_id = int(selected_course)
+            surveys_query = surveys_query.filter(courses__id=selected_course_id)
+        except (ValueError, TypeError):
+            pass
+    
+    all_surveys = surveys_query.all()
+    
+    active_surveys = []
+    closed_surveys = []
+    completed_surveys = []
+    
+    now = timezone.now()
+    
+    for survey in all_surveys:
+        # Get student's response for this survey
+        student_response = survey.responses.filter(student=student).order_by('-started_at').first()
+        has_responded = student_response is not None
+        
+        # Calculate progress
+        progress = 0
+        if has_responded:
+            if student_response.is_complete:
+                progress = 100
+            else:
+                # Calculate based on answered questions (excluding section breaks)
+                total_questions = survey.questions.exclude(question_type='section').count()
+                answered = student_response.question_responses.exclude(question__question_type='section').count()
+                progress = int((answered / total_questions * 100)) if total_questions > 0 else 0
+        
+        # Determine survey status based on database status and due date
+        is_past_deadline = survey.due_date_enabled and survey.due_date and survey.due_date < now
+        is_closed = survey.status == 'closed' or is_past_deadline
+        
+        # Format due date
+        if survey.due_date_enabled and survey.due_date:
+            due_date = survey.due_date.strftime('%b %d, %Y')
+        else:
+            due_date = 'No deadline'
+        
+        # Get course name for display
+        survey_course = survey.courses.first()
+        course_name = survey_course.name if survey_course else 'N/A'
+        
+        # Calculate score for exams (if completed)
+        score = None
+        if has_responded and student_response.is_complete and survey.type == 'exam':
+            total_questions = survey.questions.exclude(question_type='section').count()
+            if total_questions > 0:
+                correct_answers = 0
+                for question in survey.questions.exclude(question_type='section'):
+                    if question.question_type in ['multiple_choice', 'checkboxes', 'dropdown']:
+                        question_response = student_response.question_responses.filter(question=question).first()
+                        if question_response:
+                            selected_options = set(question_response.response_options.all())
+                            correct_options = set(question.options.filter(is_correct=True))
+                            if selected_options == correct_options and len(correct_options) > 0:
+                                correct_answers += 1
+                score = f"{correct_answers}/{total_questions}"
+        
+        survey_data = {
+            'id': survey.id,
+            'title': survey.title,
+            'type': survey.get_type_display(),
+            'progress': progress,
+            'due_date': due_date,
+            'course': course_name,
+            'score': score,
+        }
+        
+        # Categorize surveys
+        if has_responded and student_response.is_complete:
+            # Completed surveys
+            survey_data['status'] = 'Completed'
+            completed_surveys.append(survey_data)
+        elif is_closed:
+            # Closed surveys (deadline passed or status is closed)
+            survey_data['status'] = 'Closed'
+            closed_surveys.append(survey_data)
+        else:
+            # Active surveys
+            if has_responded and not student_response.is_complete:
+                survey_data['status'] = 'In Progress'
+            else:
+                survey_data['status'] = 'Not Started'
+            active_surveys.append(survey_data)
+    
+    # Sort by due date (surveys with 'No deadline' go last)
+    def sort_key(s):
+        if s['due_date'] == 'No deadline':
+            return (1, '')
+        return (0, s['due_date'])
+    
+    active_surveys.sort(key=sort_key)
+    closed_surveys.sort(key=sort_key, reverse=True)
+    completed_surveys.sort(key=sort_key, reverse=True)
     
     context = {
-        'courses': [
-            {'id': '1', 'name': 'CAP 401'},
-            {'id': '2', 'name': 'SSP101C'},
-            {'id': '3', 'name': 'IT403'},
-        ],
+        'active_surveys': active_surveys,
+        'closed_surveys': closed_surveys,
+        'completed_surveys': completed_surveys,
+        'courses': courses,
         'selected_course': selected_course,
-        'active_surveys': [s for s in filtered_surveys if s['status'] in ['Not Started', 'In Progress']],
-        'closed_surveys': [s for s in filtered_surveys if s['status'] == 'Closed'],
-        'completed_surveys': [s for s in filtered_surveys if s['status'] == 'Completed'],
         'unread_count': 6,
     }
+    
     return render(request, 'student/survey_board.html', context)
 
 @login_required
@@ -2488,18 +2586,17 @@ def teacher_student_submissions(request, course_id, student_id):
             total_points = None
             percentage = None
             if survey.type == 'exam':
-                total_questions = survey.questions.count()
+                total_questions = survey.questions.exclude(question_type='section').count()
                 if total_questions > 0:
                     correct_answers = 0
-                    for question in survey.questions.all():
+                    for question in survey.questions.exclude(question_type='section'):
                         if question.question_type in ['multiple_choice', 'checkboxes', 'dropdown']:
                             question_response = response.question_responses.filter(question=question).first()
                             if question_response:
-                                selected_options = question_response.response_options.all()
-                                correct_options = question.options.filter(is_correct=True)
-                                if correct_options.count() > 0:
-                                    if set(selected_options) == set(correct_options):
-                                        correct_answers += 1
+                                selected_options = set(question_response.response_options.all())
+                                correct_options = set(question.options.filter(is_correct=True))
+                                if selected_options == correct_options and len(correct_options) > 0:
+                                    correct_answers += 1
                     score = correct_answers
                     total_points = total_questions
                     percentage = int((score / total_points * 100) if total_points > 0 else 0)
