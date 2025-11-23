@@ -117,7 +117,7 @@
                 <div id="tab-content-description" class="parameter-tab-content hidden">
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-900 mb-2">Description</label>
-                        <textarea name="description" id="survey_description" rows="4" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" placeholder="Enter the survey description here. This will explain what the survey is about to students.">{{ survey.description }}</textarea>
+                        <textarea name="description" id="survey_description" rows="4" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" placeholder="Enter the {{ survey.type }} description here. This will explain what the {{ survey.type }} is about to students.">{{ survey.description }}</textarea>
                     </div>
                     
                     <div class="mb-4">
@@ -175,7 +175,7 @@
                                     <input type="radio" name="attempt_type" id="attempt_limited" value="limited" class="mt-1" {% if not survey.single_attempt %}checked{% endif %}>
                                     <div class="flex-1">
                                         <label for="attempt_limited" class="block text-sm font-medium text-gray-900 mb-1">Limited Attempts</label>
-                                        <p class="text-sm text-gray-600 mb-3">Set a specific number of attempts allowed for this survey.</p>
+                                        <p class="text-sm text-gray-600 mb-3">Set a specific number of attempts allowed for this {{ survey.type }}.</p>
                                         <div class="flex items-center space-x-2">
                                             <label class="text-sm text-gray-700">Maximum attempts:</label>
                                             <input type="number" name="max_attempts" id="max_attempts" min="1" value="{{ survey.max_attempts|default:1 }}" class="w-20 px-3 py-1 border border-gray-300 rounded-lg text-sm">
@@ -220,7 +220,8 @@
                             </div>
                         </div>
                         
-                        <!-- Allow Modifications Section -->
+                        <!-- Allow Modifications Section (only for Survey type) -->
+                        {% if survey.type == 'survey' %}
                         <div class="mt-6 pt-6 border-t border-gray-200">
                             <div class="flex items-center justify-between mb-4">
                                 <label class="text-sm font-medium text-gray-900">Allow Response Modifications</label>
@@ -231,7 +232,7 @@
                             </div>
                             
                             <div id="modifications-info" class="{% if not survey.allow_modifications %}hidden{% endif %}">
-                                <p class="text-sm text-gray-600 mb-3">Students can edit their submitted response while the survey is still open.</p>
+                                <p class="text-sm text-gray-600 mb-3">Students can edit their submitted response while the {{ survey.type }} is still open.</p>
                                 
                                 <div class="bg-orange-50 border border-orange-200 rounded-lg p-3">
                                     <div class="flex items-start space-x-2">
@@ -246,6 +247,7 @@
                                 </div>
                             </div>
                         </div>
+                        {% endif %}
                     </div>
                 </div>
                 
@@ -296,10 +298,11 @@ let originalParameterStates = {};
 function openParametersModal() {
     // Check if survey is active - parameters are locked
     if (typeof surveyStatus !== 'undefined' && surveyStatus === 'active') {
+        const typeName = typeof surveyType !== 'undefined' ? surveyType : 'survey';
         if (typeof showToast !== 'undefined') {
-            showToast('Parameters are locked when survey is active. Please close the survey first.', 'error');
+            showToast(`Parameters are locked when ${typeName} is active. Please close the ${typeName} first.`, 'error');
         } else {
-            alert('Parameters are locked when survey is active. Please close the survey first.');
+            alert(`Parameters are locked when ${typeName} is active. Please close the ${typeName} first.`);
         }
         return;
     }

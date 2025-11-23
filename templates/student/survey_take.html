@@ -14,6 +14,15 @@
                 <p class="text-sm text-gray-600">{% if survey.courses.first %}{{ survey.courses.first.code }}{% else %}N/A{% endif %} • {{ survey.get_type_display }}</p>
                 {% if view_only %}
                 <p class="text-sm text-green-600 mt-1">✓ Submitted on {{ response.submitted_at|date:"M d, Y \a\t h:i A" }}</p>
+                {% if survey.type == 'exam' and total_score is not None %}
+                <p class="text-lg font-bold mt-2">
+                    <span class="text-indigo-900">Score:</span>
+                    <span class="{% if total_score >= max_score|multiply:0.7 %}text-green-600{% elif total_score >= max_score|multiply:0.5 %}text-yellow-600{% else %}text-red-600{% endif %}">
+                        {{ total_score }} / {{ max_score }} points
+                        ({{ total_score|divide:max_score|multiply:100|floatformat:1 }}%)
+                    </span>
+                </p>
+                {% endif %}
                 {% endif %}
             </div>
             {% if not view_only %}
@@ -67,12 +76,42 @@
                     {% with question=q_item.question question_number=q_item.counter %}
                     <div class="bg-white rounded-lg p-6 border border-gray-200 question-card" data-question-id="{{ question.id }}">
                         <div class="mb-4">
-                            <h3 class="text-lg font-semibold text-gray-900 mb-2">
-                                {{ question_number }}. {{ question.question_text }}
-                                {% if question.required %}
-                                <span class="text-red-500">*</span>
+                            <div class="flex items-start justify-between">
+                                <h3 class="text-lg font-semibold text-gray-900 mb-2 flex-1">
+                                    {{ question_number }}. {{ question.question_text }}
+                                    {% if question.required %}
+                                    <span class="text-red-500">*</span>
+                                    {% endif %}
+                                </h3>
+                                {% if view_only and survey.type == 'exam' and grading_info %}
+                                    {% with grade=grading_info|get_item:question.id %}
+                                    {% if grade %}
+                                        {% if grade.is_correct == True %}
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                            </svg>
+                                            {{ grade.awarded_points }}/{{ grade.points }} pts
+                                        </span>
+                                        {% elif grade.is_correct == False %}
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+                                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                                            </svg>
+                                            {{ grade.awarded_points }}/{{ grade.points }} pts
+                                        </span>
+                                        {% elif grade.needs_review %}
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+                                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                            </svg>
+                                            Pending
+                                        </span>
+                                        {% endif %}
+                                    {% endif %}
+                                    {% endwith %}
                                 {% endif %}
-                            </h3>
+                            </div>
                         </div>
 
                         <div class="mt-4">
@@ -99,8 +138,19 @@
 
                     {% elif question.question_type == 'multiple_choice' %}
                         {% for option in question.options.all %}
-                        <div class="flex items-center mb-3">
-                            {% with saved_response=question_responses|get_item:question.id %}
+                        {% with grading_info|get_item:question.id as grade %}
+                        {% with question_responses|get_item:question.id as saved_response %}
+                        {% with option.id|in_list:saved_response as is_selected %}
+                        {% with option.is_correct as is_correct_option %}
+                        <div class="flex items-center mb-3 p-3 rounded-lg border-2
+                            {% if view_only and survey.type == 'exam' and grade %}
+                                {% if is_selected and is_correct_option %}border-green-500 bg-green-50
+                                {% elif is_selected and not is_correct_option %}border-red-500 bg-red-50
+                                {% elif not is_selected and is_correct_option %}border-green-300 bg-green-50
+                                {% else %}border-gray-200
+                                {% endif %}
+                            {% else %}border-gray-200
+                            {% endif %}">
                             <input 
                                 type="radio" 
                                 name="question_{{ question.id }}" 
@@ -108,34 +158,77 @@
                                 id="question_{{ question.id }}_option_{{ option.id }}"
                                 class="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                                 {% if question.required and not view_only %}required{% endif %}
-                                {% if saved_response and option.id in saved_response %}checked{% endif %}
+                                {% if is_selected %}checked{% endif %}
                                 {% if view_only %}disabled{% endif %}
                             >
-                            {% endwith %}
-                            <label for="question_{{ question.id }}_option_{{ option.id }}" class="ml-3 text-gray-700">
+                            <label for="question_{{ question.id }}_option_{{ option.id }}" class="ml-3 text-gray-700 flex-1">
                                 {{ option.option_text }}
                             </label>
+                            {% if view_only and survey.type == 'exam' and grade %}
+                                {% if is_selected and is_correct_option %}
+                                <svg class="w-5 h-5 text-green-600 ml-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                {% elif is_selected and not is_correct_option %}
+                                <svg class="w-5 h-5 text-red-600 ml-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                                </svg>
+                                {% elif not is_selected and is_correct_option %}
+                                <span class="text-xs text-green-600 font-medium ml-2">(Correct)</span>
+                                {% endif %}
+                            {% endif %}
                         </div>
+                        {% endwith %}
+                        {% endwith %}
+                        {% endwith %}
+                        {% endwith %}
                         {% endfor %}
 
                     {% elif question.question_type == 'checkboxes' %}
                         {% for option in question.options.all %}
-                        <div class="flex items-center mb-3">
-                            {% with saved_response=question_responses|get_item:question.id %}
+                        {% with grading_info|get_item:question.id as grade %}
+                        {% with question_responses|get_item:question.id as saved_response %}
+                        {% with option.id|in_list:saved_response as is_selected %}
+                        {% with option.is_correct as is_correct_option %}
+                        <div class="flex items-center mb-3 p-3 rounded-lg border-2
+                            {% if view_only and survey.type == 'exam' and grade %}
+                                {% if is_selected and is_correct_option %}border-green-500 bg-green-50
+                                {% elif is_selected and not is_correct_option %}border-red-500 bg-red-50
+                                {% elif not is_selected and is_correct_option %}border-green-300 bg-green-50
+                                {% else %}border-gray-200
+                                {% endif %}
+                            {% else %}border-gray-200
+                            {% endif %}">
                             <input 
                                 type="checkbox" 
                                 name="question_{{ question.id }}" 
                                 value="{{ option.id }}"
                                 id="question_{{ question.id }}_option_{{ option.id }}"
                                 class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                                {% if saved_response and option.id in saved_response %}checked{% endif %}
+                                {% if is_selected %}checked{% endif %}
                                 {% if view_only %}disabled{% endif %}
                             >
-                            {% endwith %}
-                            <label for="question_{{ question.id }}_option_{{ option.id }}" class="ml-3 text-gray-700">
+                            <label for="question_{{ question.id }}_option_{{ option.id }}" class="ml-3 text-gray-700 flex-1">
                                 {{ option.option_text }}
                             </label>
+                            {% if view_only and survey.type == 'exam' and grade and grade.is_correct != None %}
+                                {% if is_selected and is_correct_option %}
+                                <svg class="w-5 h-5 text-green-600 ml-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                {% elif is_selected and not is_correct_option %}
+                                <svg class="w-5 h-5 text-red-600 ml-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                                </svg>
+                                {% elif not is_selected and is_correct_option %}
+                                <span class="text-xs text-green-600 font-medium ml-2">(Correct)</span>
+                                {% endif %}
+                            {% endif %}
                         </div>
+                        {% endwith %}
+                        {% endwith %}
+                        {% endwith %}
+                        {% endwith %}
                         {% endfor %}
 
                     {% elif question.question_type == 'dropdown' %}
@@ -342,7 +435,7 @@
                 type="submit"
                 class="px-6 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition-colors"
             >
-                Submit Survey
+                Submit {{ survey.type|title }}
             </button>
         </div>
         {% endif %}
@@ -369,7 +462,7 @@
     <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
         <div class="p-6">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-xl font-semibold text-gray-900">Submit Survey?</h3>
+                <h3 class="text-xl font-semibold text-gray-900">Submit {{ survey.type|title }}?</h3>
                 <button onclick="closeSubmitModal()" class="text-gray-400 hover:text-gray-600">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -378,7 +471,7 @@
             </div>
             <div class="mb-6">
                 <p class="text-sm text-gray-600 mb-4">
-                    Are you sure you want to submit your survey? You won't be able to make changes after submission.
+                    Are you sure you want to submit your {{ survey.type }}? You won't be able to make changes after submission.
                 </p>
                 <div id="unanswered-warning" class="hidden bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <p class="text-sm text-yellow-800">
@@ -430,7 +523,7 @@
         
         if (timeRemaining <= 0) {
             // Auto-submit the form
-            alert('Time is up! Your survey will be submitted automatically.');
+            alert('Time is up! Your {{ survey.type }} will be submitted automatically.');
             document.getElementById('survey-form').submit();
         } else {
             timeRemaining--;

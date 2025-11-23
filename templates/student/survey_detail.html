@@ -99,8 +99,24 @@
             </svg>
         </div>
         <div>
-            <p class="text-xs text-gray-600 mb-1">Passing Score</p>
-            <p class="text-sm font-semibold text-gray-900">{{ survey.passing_score }}</p>
+            <p class="text-xs text-gray-600 mb-1">
+                {% if survey.type == 'Exam' and survey.score is not None %}
+                Score
+                {% else %}
+                Passing Score
+                {% endif %}
+            </p>
+            <p class="text-sm font-semibold text-gray-900">
+                {% if survey.type == 'Exam' and survey.score is not None %}
+                    {% if survey.needs_grading %}
+                    <span class="text-orange-600">Pending</span>
+                    {% else %}
+                    {{ survey.score }}/{{ survey.total_points }} ({{ survey.percentage }}%)
+                    {% endif %}
+                {% else %}
+                {{ survey.passing_score }}
+                {% endif %}
+            </p>
         </div>
     </div>
 
@@ -162,8 +178,23 @@
             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
         </svg>
         <p class="text-sm text-green-900">
-            <span class="font-semibold">You can modify your response</span> while this survey is still open.
+            <span class="font-semibold">You can modify your response</span> while this {{ survey.type }} is still open.
         </p>
+    </div>
+</div>
+{% endif %}
+
+<!-- Exam Grading Pending Notice -->
+{% if survey.type == 'Exam' and survey.status == 'Completed' and survey.needs_grading %}
+<div class="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
+    <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+        </svg>
+        <div class="text-sm text-orange-900">
+            <p class="font-semibold mb-1">Grading in Progress</p>
+            <p>Your teacher is currently reviewing your subjective responses. Your final score will be available once grading is complete.</p>
+        </div>
     </div>
 </div>
 {% endif %}
@@ -180,29 +211,35 @@
     {% if survey.can_modify %}
     <!-- Show Modify Response button if modifications are allowed -->
     <div class="flex gap-3">
+        {% if survey.type != 'Exam' or not survey.needs_grading %}
         <a 
             href="{% url 'student-view-response' survey.id %}"
             class="inline-flex items-center px-6 py-2 border border-indigo-600 rounded-lg text-sm font-medium text-indigo-600 bg-white hover:bg-indigo-50 transition-colors"
         >
             View Response
         </a>
+        {% endif %}
         <a 
             href="{% url 'student-take-survey' survey.id %}"
             class="inline-flex items-center px-6 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 transition-colors"
         >
-            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0/24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
             Modify Response
         </a>
     </div>
     {% elif survey.status == 'Completed' or survey.status == 'Closed' %}
-    <a 
-        href="{% url 'student-view-response' survey.id %}"
-        class="inline-flex items-center px-6 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition-colors"
-    >
-        View Response
-    </a>
+        {% if survey.type == 'Exam' and survey.needs_grading %}
+        <!-- Don't show View Response button for exams that need grading -->
+        {% else %}
+        <a 
+            href="{% url 'student-view-response' survey.id %}"
+            class="inline-flex items-center px-6 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition-colors"
+        >
+            View Response
+        </a>
+        {% endif %}
     {% elif survey.status != 'Completed' and survey.status != 'Closed' %}
     <a 
         href="{% url 'student-take-survey' survey.id %}"
@@ -236,7 +273,7 @@
                 </p>
                 <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                     <p class="text-sm text-yellow-800">
-                        <strong>Warning:</strong> This survey requires completion in one sitting. 
+                        <strong>Warning:</strong> This {{ survey.type }} requires completion in one sitting. 
                         Exiting will submit your current responses.
                     </p>
                 </div>

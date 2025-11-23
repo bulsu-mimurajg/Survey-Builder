@@ -131,7 +131,7 @@
                         </button>
                     </div>
                     {% if survey.status == 'active' %}
-                    <button type="button" disabled class="text-gray-400 font-medium rounded-lg text-sm px-4 py-2 border border-gray-300 bg-gray-100 cursor-not-allowed whitespace-nowrap" title="Parameters are locked when survey is active">
+                    <button type="button" disabled class="text-gray-400 font-medium rounded-lg text-sm px-4 py-2 border border-gray-300 bg-gray-100 cursor-not-allowed whitespace-nowrap" title="Parameters are locked when {{ survey.type }} is active">
                         Parameters
                     </button>
                     {% else %}
@@ -148,11 +148,11 @@
                     </button>
                     {% if survey.status == 'active' %}
                     <button type="button" onclick="closeSurvey()" class="text-white bg-red-600 hover:bg-red-700 font-medium rounded-lg text-sm px-4 py-2 whitespace-nowrap">
-                        Close Survey
+                        Close {{ survey.type|title }}
                     </button>
                     {% else %}
                     <button type="button" onclick="activateSurvey()" class="text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg text-sm px-4 py-2 whitespace-nowrap">
-                        Activate Survey
+                        Activate {{ survey.type|title }}
                     </button>
                     {% endif %}
                     <div class="relative">
@@ -458,9 +458,9 @@
     <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div class="p-6">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-xl font-semibold text-gray-900">Assign Courses to Survey</h3>
+                <h3 class="text-xl font-semibold text-gray-900">Assign Courses to {{ survey.type|title }}</h3>
             </div>
-            <p class="text-sm text-gray-600 mb-4">Select at least one course to assign this survey to:</p>
+            <p class="text-sm text-gray-600 mb-4">Select at least one course to assign this {{ survey.type }} to:</p>
             <div class="space-y-3 mb-6 max-h-96 overflow-y-auto">
                 {% for course in all_courses %}
                 <label class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer border border-transparent hover:border-gray-200 transition-colors">
@@ -693,6 +693,7 @@
     const csrfToken = '{{ csrf_token }}';
     const hasResponses = {% if has_responses %}true{% else %}false{% endif %};
     const surveyStatus = '{{ survey.status }}';
+    const surveyType = '{{ survey.type }}';
     
     // Initialize section numbering on page load
     document.addEventListener('DOMContentLoaded', function() {

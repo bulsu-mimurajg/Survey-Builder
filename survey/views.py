@@ -15,6 +15,64 @@ import json
 import csv
 from .models import User, Course, CourseEnrollment, Survey, SurveyCourseAssignment, Question, QuestionOption, SurveyResponse, QuestionResponse, DashboardMetrics
 
+# Helper Functions
+def auto_grade_question_response(question_response):
+    """
+    Automatically grade a question response for exam-type surveys.
+    Returns True if auto-graded, False if manual review needed.
+    """
+    question = question_response.question
+    
+    # Skip section breaks
+    if question.question_type == 'section':
+        return False
+    
+    # Questions that need manual review
+    if question.question_type in ['short_text', 'long_text', 'file_upload']:
+        question_response.needs_review = True
+        question_response.is_correct = None
+        question_response.awarded_points = None
+        question_response.save()
+        return False
+    
+    # Auto-gradable questions
+    is_correct = False
+    
+    # Multiple choice and dropdown
+    if question.question_type in ['multiple_choice', 'dropdown']:
+        selected_options = question_response.response_options.all()
+        correct_options = question.options.filter(is_correct=True)
+        
+        # Check if selected matches correct (should be exactly one option)
+        if selected_options.count() == 1 and correct_options.count() >= 1:
+            is_correct = selected_options.first() in correct_options
+    
+    # Checkboxes (all correct options must be selected, no incorrect ones)
+    elif question.question_type == 'checkboxes':
+        selected_options = set(question_response.response_options.all())
+        correct_options = set(question.options.filter(is_correct=True))
+        
+        # Must select all correct options and no incorrect ones
+        is_correct = (selected_options == correct_options) if correct_options else False
+    
+    # Rating, Scale, Date, Time (check against correct_value if set)
+    elif question.question_type in ['rating', 'scale', 'date', 'time']:
+        correct_value = question.settings.get('correct_value')
+        if correct_value:
+            # Compare student's answer with correct value
+            is_correct = (question_response.response_text == str(correct_value))
+        else:
+            # No correct answer set, mark as correct (accept any answer)
+            is_correct = True
+    
+    # Update question response
+    question_response.is_correct = is_correct
+    question_response.awarded_points = float(question.points) if is_correct else 0.0
+    question_response.needs_review = False
+    question_response.save()
+    
+    return True
+
 # Authentication Views
 def landing_page(request):
     """Landing page view"""
@@ -596,6 +654,25 @@ def student_survey_detail(request, survey_id):
     course = survey.courses.first()
     course_code = course.code if course else 'N/A'
     
+    # Calculate score for exams
+    score = None
+    total_points = None
+    percentage = None
+    needs_grading = False
+    
+    if survey.type == 'exam' and response and response.is_complete:
+        # Calculate total points and awarded points
+        question_responses = response.question_responses.exclude(question__question_type='section')
+        total_points = sum(float(qr.question.points) for qr in question_responses)
+        awarded_points = sum(float(qr.awarded_points or 0) for qr in question_responses)
+        
+        # Check if any responses need review
+        needs_grading = question_responses.filter(needs_review=True).exists()
+        
+        if not needs_grading:
+            score = awarded_points
+            percentage = int((awarded_points / total_points * 100) if total_points > 0 else 0)
+    
     # Build survey data
     survey_data = {
         'id': survey.id,
@@ -615,6 +692,10 @@ def student_survey_detail(request, survey_id):
         'description': survey.description or 'No description provided.',
         'instructions': survey.instructions if survey.instructions else [],
         'require_completion_in_one_sitting': survey.require_completion_in_one_sitting,
+        'score': score,
+        'total_points': total_points,
+        'percentage': percentage,
+        'needs_grading': needs_grading,
     }
     
     context = {
@@ -905,6 +986,7 @@ def student_take_survey(request, survey_id):
         'pages': pages,
         'total_pages': len(pages),
         'question_responses': question_responses_dict,
+        'grading_info': None,  # Not needed during survey taking, only for view mode
         'total_questions': questions.exclude(question_type='section').count(),
         'answered_count': answered_count,
         'time_remaining_seconds': int(time_remaining_seconds) if time_remaining_seconds else 0,
@@ -981,8 +1063,10 @@ def student_view_response(request, survey_id):
             'section_info': section_info
         })
     
-    # Get existing responses
+    # Get existing responses with grading information for exams
     question_responses_dict = {}
+    grading_info = {}  # Store grading information for exams
+    
     for qr in response.question_responses.all():
         question_id = qr.question.id
         if qr.question.question_type in ['multiple_choice', 'dropdown']:
@@ -998,9 +1082,25 @@ def student_view_response(request, survey_id):
         else:
             # Store text response
             question_responses_dict[question_id] = qr.response_text
+        
+        # Store grading information if exam
+        if survey.type == 'exam':
+            grading_info[question_id] = {
+                'is_correct': qr.is_correct,
+                'awarded_points': qr.awarded_points,
+                'points': qr.question.points,
+                'needs_review': qr.needs_review
+            }
     
     # Count answered questions
     answered_count = response.question_responses.count()
+    
+    # Calculate total score for exams
+    total_score = None
+    max_score = None
+    if survey.type == 'exam':
+        total_score = sum(qr.awarded_points for qr in response.question_responses.all() if qr.awarded_points is not None)
+        max_score = sum(q.points for q in questions if q.question_type != 'section')
     
     # Get the first course for back navigation
     first_course = survey.courses.first()
@@ -1012,6 +1112,9 @@ def student_view_response(request, survey_id):
         'pages': pages,
         'total_pages': len(pages),
         'question_responses': question_responses_dict,
+        'grading_info': grading_info,
+        'total_score': total_score,
+        'max_score': max_score,
         'total_questions': questions.exclude(question_type='section').count(),
         'answered_count': answered_count,
         'view_only': True,  # Flag to indicate read-only mode
@@ -1089,6 +1192,10 @@ def student_submit_survey(request, survey_id):
                 question_response.file_upload = uploaded_file
         
         question_response.save()
+        
+        # Auto-grade for exams (exclude section breaks)
+        if survey.type == 'exam' and question.question_type != 'section':
+            auto_grade_question_response(question_response)
     
     # Mark response as complete
     response.is_complete = True
@@ -2240,6 +2347,66 @@ def api_update_question(request, question_id):
             section_description = request.POST.get('section_description', '')
             question.settings['description'] = section_description
         
+        # Handle exam-specific fields (points and correct answers)
+        if survey.type == 'exam' and question.question_type != 'section':
+            # Update points
+            points = request.POST.get('points')
+            if points:
+                try:
+                    question.points = float(points)
+                except ValueError:
+                    question.points = 1.00
+            
+            # Initialize settings if needed
+            if not question.settings:
+                question.settings = {}
+            
+            # Handle correct answers for different question types
+            if question.question_type in ['multiple_choice', 'dropdown']:
+                # Single correct answer (radio button)
+                correct_answer_idx = request.POST.get('correct_answer')
+                if correct_answer_idx is not None:
+                    try:
+                        correct_idx = int(correct_answer_idx)
+                        # Mark all options as incorrect first
+                        for option in question.options.all():
+                            option.is_correct = False
+                            option.save()
+                        # Mark the selected option as correct
+                        options = list(question.options.all().order_by('order'))
+                        if 0 <= correct_idx < len(options):
+                            options[correct_idx].is_correct = True
+                            options[correct_idx].save()
+                    except (ValueError, IndexError):
+                        pass
+            
+            elif question.question_type == 'checkboxes':
+                # Multiple correct answers (checkboxes)
+                correct_answer_indices = request.POST.getlist('correct_answers[]')
+                # Mark all options as incorrect first
+                for option in question.options.all():
+                    option.is_correct = False
+                    option.save()
+                # Mark selected options as correct
+                options = list(question.options.all().order_by('order'))
+                for idx_str in correct_answer_indices:
+                    try:
+                        idx = int(idx_str)
+                        if 0 <= idx < len(options):
+                            options[idx].is_correct = True
+                            options[idx].save()
+                    except (ValueError, IndexError):
+                        pass
+            
+            elif question.question_type in ['rating', 'scale', 'date', 'time']:
+                # Store correct value in settings
+                correct_value = request.POST.get('correct_value') or request.POST.get('correct_datetime')
+                if correct_value:
+                    question.settings['correct_value'] = correct_value
+                elif 'correct_value' in question.settings:
+                    # Clear correct value if empty
+                    del question.settings['correct_value']
+        
         question.save()
         
         return JsonResponse({
@@ -2932,39 +3099,78 @@ def api_response_detail(request, response_id):
     """Get detailed information about a specific response"""
     response = get_object_or_404(SurveyResponse, id=response_id)
     
-    # Verify ownership
-    if response.survey.created_by != request.user:
+    # Verify ownership (teacher can view) or student viewing their own
+    is_teacher = request.user.role == 'teacher' and response.survey.created_by == request.user
+    is_own_response = response.student == request.user
+    
+    if not (is_teacher or is_own_response):
         return JsonResponse({'error': 'Unauthorized'}, status=403)
     
     # Get all question responses
-    question_responses = response.question_responses.select_related('question').order_by('question__order')
+    question_responses = response.question_responses.select_related('question').prefetch_related('response_options', 'question__options').order_by('question__order')
     
+    is_exam = response.survey.type == 'exam'
     answers = []
+    
     for qr in question_responses:
-        answer_text = ''
+        question = qr.question
         
-        if qr.question.question_type in ['multiple_choice', 'checkboxes', 'dropdown']:
+        # Skip section breaks
+        if question.question_type == 'section':
+            continue
+            
+        answer_text = ''
+        selected_options = []
+        correct_options = []
+        
+        if question.question_type in ['multiple_choice', 'checkboxes', 'dropdown']:
             selected = qr.response_options.all()
-            if selected:
-                answer_text = ', '.join([opt.option_text for opt in selected])
-        elif qr.question.question_type == 'file_upload':
+            selected_options = [opt.option_text for opt in selected]
+            answer_text = ', '.join(selected_options) if selected_options else ''
+            
+            # Get correct answers for exams
+            if is_exam:
+                correct_opts = question.options.filter(is_correct=True)
+                correct_options = [opt.option_text for opt in correct_opts]
+                
+        elif question.question_type == 'file_upload':
             if qr.file_upload:
-                answer_text = f'<a href="{qr.file_upload.url}" target="_blank" class="text-indigo-600 hover:text-indigo-700">Download file</a>'
+                answer_text = f'{qr.file_upload.name}'
         else:
             answer_text = qr.response_text or ''
         
-        if qr.question.question_type != 'section':
-            answers.append({
-                'question': qr.question.question_text,
-                'answer': answer_text
-            })
+        # Get all options for display
+        all_options = []
+        if question.question_type in ['multiple_choice', 'checkboxes', 'dropdown']:
+            all_options = [opt.option_text for opt in question.options.all().order_by('order')]
+        
+        answer_data = {
+            'question': question.question_text,
+            'question_type': question.question_type,
+            'answer': answer_text,
+            'options': all_options,
+            'question_response_id': qr.id,
+        }
+        
+        # Add exam-specific data
+        if is_exam:
+            answer_data['points'] = float(question.points)
+            answer_data['is_correct'] = qr.is_correct
+            answer_data['awarded_points'] = float(qr.awarded_points) if qr.awarded_points is not None else None
+            answer_data['needs_review'] = qr.needs_review
+            answer_data['correct_answer'] = correct_options if correct_options else question.settings.get('correct_value', '') if hasattr(question, 'settings') else ''
+            answer_data['file_url'] = qr.file_upload.url if qr.file_upload else None
+            
+        answers.append(answer_data)
     
     data = {
         'student_name': response.student.get_full_name() or response.student.username,
         'student_email': response.student.email,
         'submitted_at': response.submitted_at.strftime('%b %d, %Y %I:%M %p') if response.submitted_at else None,
         'attempt_number': response.attempt_number,
-        'answers': answers
+        'answers': answers,
+        'is_exam': is_exam,
+        'response_id': response.id,
     }
     
     return JsonResponse(data)
@@ -3021,3 +3227,127 @@ def api_export_survey_csv(request, survey_id):
         writer.writerow(row)
     
     return response
+
+
+@login_required
+def api_grading_queue(request, survey_id):
+    """Get grading queue for exam surveys"""
+    if request.user.role != 'teacher':
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+    
+    survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
+    
+    if survey.type != 'exam':
+        return JsonResponse({'error': 'Not an exam'}, status=400)
+    
+    filter_type = request.GET.get('filter', 'needs_review')
+    
+    # Get all complete responses
+    responses = survey.responses.filter(is_complete=True).select_related('student')
+    
+    result_responses = []
+    total_needs_review = 0
+    
+    for response in responses:
+        # Get all question responses excluding sections
+        question_responses = response.question_responses.filter(
+            question__question_type__in=['short_text', 'long_text', 'file_upload']
+        ).select_related('question')
+        
+        # Filter based on needs_review status
+        if filter_type == 'needs_review':
+            question_responses = question_responses.filter(needs_review=True)
+        elif filter_type == 'graded':
+            question_responses = question_responses.filter(needs_review=False)
+        
+        if filter_type != 'all' and not question_responses.exists():
+            continue
+        
+        # Calculate score
+        all_qrs = response.question_responses.exclude(question__question_type='section')
+        total_points = sum(qr.question.points for qr in all_qrs)
+        awarded_points = sum(qr.awarded_points or 0 for qr in all_qrs)
+        percentage = int((awarded_points / total_points * 100) if total_points > 0 else 0)
+        
+        # Check if has ungraded questions
+        has_needs_review = response.question_responses.filter(needs_review=True).exists()
+        if has_needs_review:
+            total_needs_review += 1
+        
+        questions_to_grade = []
+        for qr in question_responses:
+            q_data = {
+                'question_response_id': qr.id,
+                'question_text': qr.question.question_text,
+                'points': float(qr.question.points),
+                'student_answer': qr.response_text or '',
+                'file_url': qr.file_upload.url if qr.file_upload else None,
+                'is_graded': qr.is_correct is not None,
+                'is_correct': qr.is_correct,
+                'awarded_points': float(qr.awarded_points) if qr.awarded_points else 0
+            }
+            questions_to_grade.append(q_data)
+        
+        result_responses.append({
+            'response_id': response.id,
+            'student_name': response.student.get_full_name() or response.student.username,
+            'student_email': response.student.email,
+            'needs_review': has_needs_review,
+            'score': float(awarded_points),
+            'total_points': float(total_points),
+            'percentage': percentage,
+            'questions_to_grade': questions_to_grade
+        })
+    
+    return JsonResponse({
+        'success': True,
+        'responses': result_responses,
+        'needs_review_count': total_needs_review
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_grade_response(request, question_response_id):
+    """Grade a single question response"""
+    if request.user.role != 'teacher':
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+    
+    question_response = get_object_or_404(QuestionResponse, id=question_response_id)
+    
+    # Verify ownership
+    if question_response.survey_response.survey.created_by != request.user:
+        return JsonResponse({'error': 'Unauthorized'}, status=403)
+    
+    # Verify it's an exam
+    if question_response.survey_response.survey.type != 'exam':
+        return JsonResponse({'error': 'Not an exam'}, status=400)
+    
+    try:
+        data = json.loads(request.body)
+        is_correct = data.get('is_correct')
+        awarded_points = data.get('awarded_points')
+        
+        if awarded_points is not None:
+            question_response.awarded_points = float(awarded_points)
+            
+            # Determine is_correct based on points
+            if is_correct is not None:
+                question_response.is_correct = is_correct
+            else:
+                # Partial credit - determine based on points
+                max_points = float(question_response.question.points)
+                if awarded_points >= max_points:
+                    question_response.is_correct = True
+                elif awarded_points <= 0:
+                    question_response.is_correct = False
+                else:
+                    question_response.is_correct = None  # Partial
+        
+        question_response.needs_review = False
+        question_response.save()
+        
+        return JsonResponse({'success': True, 'message': 'Response graded successfully'})
+    
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)

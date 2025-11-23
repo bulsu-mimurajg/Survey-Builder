@@ -1051,6 +1051,106 @@ function editQuestion(questionId) {
                 `;
             }
             
+            // Exam-specific fields
+            let examFields = '';
+            if (typeof surveyType !== 'undefined' && surveyType === 'exam') {
+                const currentPoints = addedQuestion.points || 1;
+                
+                // Points field
+                examFields = `
+                    <div class="mb-4">
+                        <label for="points" class="block mb-2 text-sm font-medium text-gray-900">Points</label>
+                        <input type="number" name="points" id="points" min="0" step="0.5" value="${currentPoints}" 
+                               class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" 
+                               placeholder="1" required>
+                        <p class="text-xs text-gray-500 mt-1">Points awarded for correct answer (default: 1 pt)</p>
+                    </div>
+                `;
+                
+                // Correct answer fields for objective questions
+                if (['multiple_choice', 'checkboxes', 'dropdown'].includes(currentType)) {
+                    const correctAnswers = addedQuestion.correct_answers || [];
+                    const optionsCount = currentOptions.length || 1;
+                    let correctAnswersHtml = '';
+                    
+                    for (let i = 0; i < optionsCount; i++) {
+                        const isChecked = correctAnswers.includes(i);
+                        if (currentType === 'checkboxes') {
+                            correctAnswersHtml += `
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="correct_answers[]" value="${i}" ${isChecked ? 'checked' : ''} 
+                                           class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500">
+                                    <span class="ml-2 text-sm text-gray-700">Option ${i + 1}</span>
+                                </label>
+                            `;
+                        } else {
+                            correctAnswersHtml += `
+                                <label class="flex items-center">
+                                    <input type="radio" name="correct_answer" value="${i}" ${isChecked ? 'checked' : ''} 
+                                           class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500">
+                                    <span class="ml-2 text-sm text-gray-700">Option ${i + 1}</span>
+                                </label>
+                            `;
+                        }
+                    }
+                    
+                    examFields += `
+                        <div class="mb-4" id="correct-answers-section">
+                            <label class="block mb-2 text-sm font-medium text-gray-900">Correct Answer(s)</label>
+                            <div id="correct-answers-list" class="space-y-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                ${correctAnswersHtml}
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">
+                                ${currentType === 'checkboxes' ? 'Select all correct answers (multiple selections allowed)' : 'Select the correct answer'}
+                            </p>
+                        </div>
+                    `;
+                } else if (['rating', 'scale'].includes(currentType)) {
+                    const correctValue = addedQuestion.correct_value || '';
+                    const minValue = currentType === 'rating' ? 1 : (currentSettings.min || 1);
+                    const maxValue = currentType === 'rating' ? 5 : (currentSettings.max || 10);
+                    
+                    examFields += `
+                        <div class="mb-4">
+                            <label for="correct_value" class="block mb-2 text-sm font-medium text-gray-900">Correct Value</label>
+                            <input type="number" name="correct_value" id="correct_value" 
+                                   min="${minValue}" max="${maxValue}" value="${correctValue}" 
+                                   class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" 
+                                   placeholder="Expected value">
+                            <p class="text-xs text-gray-500 mt-1">Leave blank if any value is acceptable</p>
+                        </div>
+                    `;
+                } else if (['date', 'time'].includes(currentType)) {
+                    const correctValue = addedQuestion.correct_value || '';
+                    
+                    examFields += `
+                        <div class="mb-4">
+                            <label for="correct_datetime" class="block mb-2 text-sm font-medium text-gray-900">Correct ${currentType === 'date' ? 'Date' : 'Time'}</label>
+                            <input type="${currentType}" name="correct_datetime" id="correct_datetime" value="${correctValue}" 
+                                   class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" 
+                                   placeholder="Expected ${currentType}">
+                            <p class="text-xs text-gray-500 mt-1">Leave blank if any ${currentType} is acceptable</p>
+                        </div>
+                    `;
+                } else if (['short_text', 'long_text', 'file_upload'].includes(currentType)) {
+                    examFields += `
+                        <div class="mb-4">
+                            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                                <div class="flex items-start space-x-2">
+                                    <svg class="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                                    </svg>
+                                    <div class="text-sm text-yellow-700">
+                                        <p class="font-medium">Manual Grading Required</p>
+                                        <p class="mt-1">This question type requires teacher review. You will need to manually grade student responses.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+            
             const formHtml = `
                 <form onsubmit="event.preventDefault(); saveQuestion('${questionId}');">
                     <div class="space-y-4">
@@ -1075,6 +1175,7 @@ function editQuestion(questionId) {
                                    class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
                             <label class="ml-2 text-sm text-gray-700">Required</label>
                         </div>
+                        ${examFields}
                         <div class="flex justify-end gap-3 pt-4 border-t">
                             <button type="button" onclick="closeQuestionModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
                                 Cancel
@@ -1231,6 +1332,145 @@ function updateQuestionTypeFields(questionId) {
     }
     
     typeFieldsContainer.innerHTML = typeSpecificFields;
+    
+    // Update exam-specific fields if survey is an exam
+    if (typeof surveyType !== 'undefined' && surveyType === 'exam' && String(questionId).startsWith('temp-')) {
+        updateExamFieldsForType(selectedType);
+    }
+}
+
+// Update exam-specific fields based on question type
+function updateExamFieldsForType(questionType) {
+    // Find or create exam fields container
+    let examFieldsContainer = document.getElementById('exam-fields-container');
+    if (!examFieldsContainer) {
+        // Create container after the required checkbox
+        const form = document.getElementById('question-edit-form').querySelector('form');
+        const requiredDiv = form.querySelector('.flex.items-center');
+        if (requiredDiv) {
+            examFieldsContainer = document.createElement('div');
+            examFieldsContainer.id = 'exam-fields-container';
+            requiredDiv.insertAdjacentElement('afterend', examFieldsContainer);
+        } else {
+            return;
+        }
+    }
+    
+    let examFieldsHtml = '';
+    
+    // Always show points field for exams
+    examFieldsHtml = `
+        <div class="mb-4">
+            <label for="points" class="block mb-2 text-sm font-medium text-gray-900">Points</label>
+            <input type="number" name="points" id="points" min="0" step="0.5" value="1" 
+                   class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" 
+                   placeholder="1" required>
+            <p class="text-xs text-gray-500 mt-1">Points awarded for correct answer (default: 1 pt)</p>
+        </div>
+    `;
+    
+    // Add type-specific exam fields
+    if (['multiple_choice', 'checkboxes', 'dropdown'].includes(questionType)) {
+        examFieldsHtml += `
+            <div class="mb-4" id="correct-answers-section">
+                <label class="block mb-2 text-sm font-medium text-gray-900">Correct Answer(s)</label>
+                <div id="correct-answers-list" class="space-y-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p class="text-sm text-gray-500">Add options first to select correct answers</p>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">
+                    ${questionType === 'checkboxes' ? 'Select all correct answers (multiple selections allowed)' : 'Select the correct answer'}
+                </p>
+            </div>
+        `;
+    } else if (['rating', 'scale'].includes(questionType)) {
+        const minValue = questionType === 'rating' ? 1 : 1;
+        const maxValue = questionType === 'rating' ? 5 : 10;
+        
+        examFieldsHtml += `
+            <div class="mb-4">
+                <label for="correct_value" class="block mb-2 text-sm font-medium text-gray-900">Correct Value</label>
+                <input type="number" name="correct_value" id="correct_value" 
+                       min="${minValue}" max="${maxValue}" 
+                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" 
+                       placeholder="Expected value">
+                <p class="text-xs text-gray-500 mt-1">Leave blank if any value is acceptable</p>
+            </div>
+        `;
+    } else if (['date', 'time'].includes(questionType)) {
+        examFieldsHtml += `
+            <div class="mb-4">
+                <label for="correct_datetime" class="block mb-2 text-sm font-medium text-gray-900">Correct ${questionType === 'date' ? 'Date' : 'Time'}</label>
+                <input type="${questionType}" name="correct_datetime" id="correct_datetime" 
+                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" 
+                       placeholder="Expected ${questionType}">
+                <p class="text-xs text-gray-500 mt-1">Leave blank if any ${questionType} is acceptable</p>
+            </div>
+        `;
+    } else if (['short_text', 'long_text', 'file_upload'].includes(questionType)) {
+        examFieldsHtml += `
+            <div class="mb-4">
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                    <div class="flex items-start space-x-2">
+                        <svg class="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                        </svg>
+                        <div class="text-sm text-yellow-700">
+                            <p class="font-medium">Manual Grading Required</p>
+                            <p class="mt-1">This question type requires teacher review. You will need to manually grade student responses.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    examFieldsContainer.innerHTML = examFieldsHtml;
+    
+    // If question has options, update correct answers list
+    if (['multiple_choice', 'checkboxes', 'dropdown'].includes(questionType)) {
+        // Wait a moment for options to be rendered, then update
+        setTimeout(() => {
+            updateCorrectAnswersList(questionType);
+        }, 100);
+    }
+}
+
+// Update correct answers list based on current options
+function updateCorrectAnswersList(questionType) {
+    const optionsList = document.getElementById('options-list');
+    const correctAnswersList = document.getElementById('correct-answers-list');
+    
+    if (!optionsList || !correctAnswersList) return;
+    
+    const options = optionsList.querySelectorAll('.option-item input[type="text"]');
+    if (options.length === 0) {
+        correctAnswersList.innerHTML = '<p class="text-sm text-gray-500">Add options first to select correct answers</p>';
+        return;
+    }
+    
+    let correctAnswersHtml = '';
+    options.forEach((option, index) => {
+        const optionText = option.value || `Option ${index + 1}`;
+        if (questionType === 'checkboxes') {
+            correctAnswersHtml += `
+                <label class="flex items-center">
+                    <input type="checkbox" name="correct_answers[]" value="${index}" 
+                           class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500">
+                    <span class="ml-2 text-sm text-gray-700">${optionText}</span>
+                </label>
+            `;
+        } else {
+            correctAnswersHtml += `
+                <label class="flex items-center">
+                    <input type="radio" name="correct_answer" value="${index}" 
+                           class="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 focus:ring-indigo-500">
+                    <span class="ml-2 text-sm text-gray-700">${optionText}</span>
+                </label>
+            `;
+        }
+    });
+    
+    correctAnswersList.innerHTML = correctAnswersHtml;
 }
 
 // Validate scale input values (1-10 only)
@@ -1338,14 +1578,56 @@ function saveQuestion(questionId) {
                     min: scaleMin,
                     max: scaleMax
                 };
+                
+                // Save correct value if it's an exam
+                if (questionData.correct_value) {
+                    addedQuestion.settings.correct_value = questionData.correct_value;
+                }
             } else if (newType === 'rating') {
                 addedQuestion.settings = { max: 5 };
+                
+                // Save correct value if it's an exam
+                if (questionData.correct_value) {
+                    addedQuestion.settings.correct_value = questionData.correct_value;
+                }
             } else if (newType === 'section') {
                 addedQuestion.settings = {
                     description: questionData.section_description || ''
                 };
+            } else if (['date', 'time'].includes(newType)) {
+                addedQuestion.settings = {};
+                
+                // Save correct datetime if it's an exam
+                if (questionData.correct_datetime) {
+                    addedQuestion.settings.correct_value = questionData.correct_datetime;
+                }
             } else {
                 addedQuestion.settings = {};
+            }
+            
+            // Save exam-specific data
+            if (typeof surveyType !== 'undefined' && surveyType === 'exam') {
+                // Save points
+                addedQuestion.points = parseFloat(questionData.points) || 1;
+                
+                // Save correct answers for choice-based questions
+                if (['multiple_choice', 'dropdown'].includes(newType)) {
+                    // Single answer (radio)
+                    if (questionData.correct_answer !== undefined) {
+                        addedQuestion.correct_answers = [parseInt(questionData.correct_answer)];
+                    }
+                } else if (newType === 'checkboxes') {
+                    // Multiple answers (checkboxes)
+                    const correctAnswersArray = [];
+                    for (let [key, value] of formData.entries()) {
+                        if (key === 'correct_answers[]') {
+                            correctAnswersArray.push(parseInt(value));
+                        }
+                    }
+                    addedQuestion.correct_answers = correctAnswersArray;
+                } else if (['rating', 'scale', 'date', 'time'].includes(newType)) {
+                    // Correct value already saved in settings above
+                }
             }
             
             addedQuestion.data = questionData;
@@ -1546,6 +1828,14 @@ function addOption() {
         </button>
     `;
     container.appendChild(div);
+    
+    // Update correct answers list if this is an exam
+    if (typeof surveyType !== 'undefined' && surveyType === 'exam') {
+        const typeSelect = document.getElementById('question-type-select');
+        if (typeSelect) {
+            updateCorrectAnswersList(typeSelect.value);
+        }
+    }
 }
 
 function removeOption(button) {
@@ -1558,6 +1848,14 @@ function removeOption(button) {
     const optionItems = container.querySelectorAll('.option-item');
     if (optionItems.length > 1) {
         optionItem.remove();
+        
+        // Update correct answers list if this is an exam
+        if (typeof surveyType !== 'undefined' && surveyType === 'exam') {
+            const typeSelect = document.getElementById('question-type-select');
+            if (typeSelect) {
+                updateCorrectAnswersList(typeSelect.value);
+            }
+        }
     } else {
         alert('At least one option is required');
     }
@@ -2423,6 +2721,41 @@ function saveQuestionChanges() {
             if (addedQuestion.type === 'scale' && addedQuestion.settings) {
                 updateFormData.append('scale_min', addedQuestion.settings.min || 1);
                 updateFormData.append('scale_max', addedQuestion.settings.max || 10);
+            }
+            
+            // Add section description
+            if (addedQuestion.type === 'section' && addedQuestion.settings) {
+                updateFormData.append('section_description', addedQuestion.settings.description || '');
+            }
+            
+            // Add exam-specific fields if this is an exam
+            if (typeof surveyType !== 'undefined' && surveyType === 'exam') {
+                // Add points
+                updateFormData.append('points', addedQuestion.points || 1);
+                
+                // Add correct answers for choice-based questions
+                if (['multiple_choice', 'dropdown'].includes(addedQuestion.type)) {
+                    // Single answer (radio)
+                    if (addedQuestion.correct_answers && addedQuestion.correct_answers.length > 0) {
+                        updateFormData.append('correct_answer', addedQuestion.correct_answers[0]);
+                    }
+                } else if (addedQuestion.type === 'checkboxes') {
+                    // Multiple answers (checkboxes)
+                    if (addedQuestion.correct_answers && addedQuestion.correct_answers.length > 0) {
+                        addedQuestion.correct_answers.forEach(index => {
+                            updateFormData.append('correct_answers[]', index);
+                        });
+                    }
+                } else if (['rating', 'scale', 'date', 'time'].includes(addedQuestion.type)) {
+                    // Correct value from settings
+                    if (addedQuestion.settings && addedQuestion.settings.correct_value) {
+                        if (addedQuestion.type === 'rating' || addedQuestion.type === 'scale') {
+                            updateFormData.append('correct_value', addedQuestion.settings.correct_value);
+                        } else {
+                            updateFormData.append('correct_datetime', addedQuestion.settings.correct_value);
+                        }
+                    }
+                }
             }
             
             updateFormData.append('csrfmiddlewaretoken', csrfToken);
