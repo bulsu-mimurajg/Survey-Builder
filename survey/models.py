@@ -143,7 +143,7 @@ class Survey(models.Model):
         """Check if survey is past its due date"""
         from django.utils import timezone
         if self.due_date_enabled and self.due_date:
-            return timezone.now() > self.due_date
+            return timezone.now() >= self.due_date
         return False
     
     def should_auto_close(self):

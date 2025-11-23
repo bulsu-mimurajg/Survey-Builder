@@ -239,8 +239,14 @@ def student_home(request):
         courses__id__in=enrolled_course_ids
     ).exclude(status='draft').exclude(status='archived').distinct().select_related('created_by').prefetch_related('courses', 'questions', 'responses')[:5]
     
-    recent_surveys = []
+    # Auto-close surveys that have passed their deadline
     now = timezone.now()
+    for survey in recent_surveys_qs:
+        if survey.status == 'active' and survey.due_date_enabled and survey.due_date and survey.due_date <= now:
+            survey.status = 'closed'
+            survey.save(update_fields=['status'])
+    
+    recent_surveys = []
     
     for survey in recent_surveys_qs:
         # Get student's response for this survey
@@ -273,7 +279,8 @@ def student_home(request):
         
         # Format due date
         if survey.due_date_enabled and survey.due_date:
-            due_date = survey.due_date.strftime('%b %d')
+            local_due_date = timezone.localtime(survey.due_date)
+            due_date = local_due_date.strftime('%b %d')
         else:
             due_date = '--'
         
@@ -332,6 +339,13 @@ def student_course_detail(request, course_id):
     # Get surveys assigned to this course (only active and closed, not draft or archived)
     surveys = Survey.objects.filter(courses=course).exclude(status='draft').exclude(status='archived').select_related('created_by').prefetch_related('questions', 'responses')
     
+    # Auto-close surveys that have passed their deadline
+    now = timezone.now()
+    for survey in surveys:
+        if survey.status == 'active' and survey.due_date_enabled and survey.due_date and survey.due_date <= now:
+            survey.status = 'closed'
+            survey.save(update_fields=['status'])
+    
     # Format surveys for template
     all_surveys = []
     for survey in surveys:
@@ -367,7 +381,8 @@ def student_course_detail(request, course_id):
         
         # Format due date
         if survey.due_date_enabled and survey.due_date:
-            due_date = survey.due_date.strftime('%b %d, %I:%M %p').lower()
+            local_due_date = timezone.localtime(survey.due_date)
+            due_date = local_due_date.strftime('%b %d, %I:%M %p').lower()
         else:
             due_date = '--'
         
@@ -468,11 +483,16 @@ def student_survey_board(request):
     
     all_surveys = surveys_query.all()
     
+    # Auto-close surveys that have passed their deadline
+    now = timezone.now()
+    for survey in all_surveys:
+        if survey.status == 'active' and survey.due_date_enabled and survey.due_date and survey.due_date <= now:
+            survey.status = 'closed'
+            survey.save(update_fields=['status'])
+    
     active_surveys = []
     closed_surveys = []
     completed_surveys = []
-    
-    now = timezone.now()
     
     for survey in all_surveys:
         # Get student's response for this survey
@@ -492,12 +512,13 @@ def student_survey_board(request):
                 progress = int((answered / total_questions * 100)) if total_questions > 0 else 0
         
         # Determine survey status based on database status and due date
-        is_past_deadline = survey.due_date_enabled and survey.due_date and survey.due_date < now
+        is_past_deadline = survey.due_date_enabled and survey.due_date and survey.due_date <= now
         is_closed = survey.status == 'closed' or is_past_deadline
         
         # Format due date
         if survey.due_date_enabled and survey.due_date:
-            due_date = survey.due_date.strftime('%b %d, %Y')
+            local_due_date = timezone.localtime(survey.due_date)
+            due_date = local_due_date.strftime('%b %d, %Y')
         else:
             due_date = 'No deadline'
         
@@ -521,12 +542,18 @@ def student_survey_board(request):
                                 correct_answers += 1
                 score = f"{correct_answers}/{total_questions}"
         
+        # Calculate due date timestamp for frontend monitoring
+        due_date_timestamp = None
+        if survey.due_date_enabled and survey.due_date:
+            due_date_timestamp = int(survey.due_date.timestamp() * 1000)  # Milliseconds for JavaScript
+        
         survey_data = {
             'id': survey.id,
             'title': survey.title,
             'type': survey.get_type_display(),
             'progress': progress,
             'due_date': due_date,
+            'due_date_timestamp': due_date_timestamp,
             'course': course_name,
             'score': score,
         }
@@ -587,7 +614,7 @@ def student_survey_detail(request, survey_id):
     
     # Check if survey has passed its due date (explicit check even if auto-close didn't run)
     is_past_due = False
-    if survey.due_date_enabled and survey.due_date and survey.due_date < timezone.now():
+    if survey.due_date_enabled and survey.due_date and survey.due_date <= timezone.now():
         is_past_due = True
         # Ensure survey is closed if due date has passed
         if survey.status == 'active':
@@ -639,7 +666,8 @@ def student_survey_detail(request, survey_id):
     
     # Format due date
     if survey.due_date_enabled and survey.due_date:
-        due_date = survey.due_date.strftime('%b %d, %I:%M %p')
+        local_due_date = timezone.localtime(survey.due_date)
+        due_date = local_due_date.strftime('%b %d, %I:%M %p')
     else:
         due_date = '--'
     
@@ -768,7 +796,7 @@ def student_take_survey(request, survey_id):
     
     # Check if survey has due date and if it's passed (explicit check even if auto-close didn't run)
     # This must happen before any response creation or form rendering
-    if survey.due_date_enabled and survey.due_date and survey.due_date < timezone.now():
+    if survey.due_date_enabled and survey.due_date and survey.due_date <= timezone.now():
         # Ensure survey is closed if due date has passed
         if survey.status == 'active':
             survey.status = 'closed'
@@ -1047,7 +1075,7 @@ def student_submit_survey(request, survey_id):
         survey.save()
     
     # Check if survey has passed its due date (explicit check even if auto-close didn't run)
-    if survey.due_date_enabled and survey.due_date and survey.due_date < timezone.now():
+    if survey.due_date_enabled and survey.due_date and survey.due_date <= timezone.now():
         # Ensure survey is closed if due date has passed
         if survey.status == 'active':
             survey.status = 'closed'
@@ -1175,7 +1203,7 @@ def api_save_survey_draft(request, survey_id, response_id):
         survey.save()
     
     # Check if survey has passed its due date (explicit check even if auto-close didn't run)
-    if survey.due_date_enabled and survey.due_date and survey.due_date < timezone.now():
+    if survey.due_date_enabled and survey.due_date and survey.due_date <= timezone.now():
         # Ensure survey is closed if due date has passed
         if survey.status == 'active':
             survey.status = 'closed'
@@ -1320,6 +1348,13 @@ def teacher_home(request):
     
     # Get all surveys created by this teacher
     all_surveys = Survey.objects.filter(created_by=request.user)
+    
+    # Auto-close surveys that have passed their deadline
+    from django.utils import timezone
+    now = timezone.now()
+    expired_surveys = all_surveys.filter(status='active', due_date_enabled=True, due_date__isnull=False, due_date__lte=now)
+    expired_surveys.update(status='closed')
+    
     active_surveys_qs = all_surveys.filter(status='active')
     
     # Calculate current statistics
@@ -1467,10 +1502,13 @@ def teacher_home(request):
         time_until = survey.due_date - timezone.now()
         hours_until = int(time_until.total_seconds() / 3600)
         
+        # Convert UTC time to local timezone for display
+        local_due_date = timezone.localtime(survey.due_date)
+        
         recent_activity.append({
             'type': 'warning',
             'title': 'Survey closing soon',
-            'description': f"{survey.title} - {survey.due_date.strftime('%I:%M%p')}",
+            'description': f"{survey.title} - {local_due_date.strftime('%I:%M%p')}",
             'course_code': survey.courses.first().code if survey.courses.exists() else 'N/A',
             'time': f"{hours_until} hours",
             'icon': 'warning',
@@ -1729,6 +1767,13 @@ def teacher_course_detail(request, course_id):
     # Get surveys assigned to this course (exclude archived)
     surveys = Survey.objects.filter(courses=course).exclude(status='archived').select_related('created_by').prefetch_related('responses', 'questions')
     
+    # Auto-close surveys that have passed their deadline
+    now = timezone.now()
+    for survey in surveys:
+        if survey.status == 'active' and survey.due_date_enabled and survey.due_date and survey.due_date <= now:
+            survey.status = 'closed'
+            survey.save(update_fields=['status'])
+    
     # Format surveys for template
     all_surveys = []
     for survey in surveys:
@@ -1742,7 +1787,8 @@ def teacher_course_detail(request, course_id):
         
         # Format due date
         if survey.due_date_enabled and survey.due_date:
-            due_date = survey.due_date.strftime('%b %d, %I:%M %p').lower()
+            local_due_date = timezone.localtime(survey.due_date)
+            due_date = local_due_date.strftime('%b %d, %I:%M %p').lower()
         else:
             due_date = '--'
         
@@ -1811,6 +1857,11 @@ def teacher_survey_board(request):
     # Get all surveys created by this teacher
     surveys = Survey.objects.filter(created_by=request.user).select_related('created_by').prefetch_related('courses', 'questions')
     
+    # Auto-close surveys that have passed their deadline
+    now = timezone.now()
+    expired_surveys = surveys.filter(status='active', due_date_enabled=True, due_date__isnull=False, due_date__lte=now)
+    expired_surveys.update(status='closed')
+    
     # Get filter parameters
     status_filter = request.GET.get('status', 'all')
     course_filter = request.GET.get('course', '')
@@ -1861,9 +1912,15 @@ def teacher_survey_board(request):
         
         # Format due date
         if survey.due_date_enabled and survey.due_date:
-            due_date = survey.due_date.strftime('%b %d, %I:%M %p')
+            local_due_date = timezone.localtime(survey.due_date)
+            due_date = local_due_date.strftime('%b %d, %I:%M %p')
         else:
             due_date = '---'
+        
+        # Calculate due date timestamp for frontend monitoring
+        due_date_timestamp = None
+        if survey.due_date_enabled and survey.due_date:
+            due_date_timestamp = int(survey.due_date.timestamp() * 1000)  # Milliseconds for JavaScript
         
         surveys_data.append({
             'id': survey.id,
@@ -1873,6 +1930,7 @@ def teacher_survey_board(request):
             'status': survey.get_status_display(),
             'status_code': survey.status,
             'due_date': due_date,
+            'due_date_timestamp': due_date_timestamp,
             'total_questions': survey.get_total_questions(),
             'progress': progress,
             'courses': course_names,
@@ -1997,7 +2055,8 @@ def teacher_preview_survey(request, survey_id):
     
     # Format due date
     if survey.due_date_enabled and survey.due_date:
-        due_date = survey.due_date.strftime('%b %d, %I:%M %p')
+        local_due_date = timezone.localtime(survey.due_date)
+        due_date = local_due_date.strftime('%b %d, %I:%M %p')
     else:
         due_date = None
     
@@ -2679,6 +2738,10 @@ def teacher_update_survey_parameters(request, survey_id):
                 from django.utils import timezone
                 new_due_date = parse_datetime(due_date_str)
                 
+                # Make sure the datetime is timezone-aware
+                if new_due_date and timezone.is_naive(new_due_date):
+                    new_due_date = timezone.make_aware(new_due_date)
+                
                 # If survey was closed due to past due date, and teacher extends/updates due date to future
                 # automatically reopen the survey
                 if survey.status == 'closed' and survey.due_date and new_due_date:
@@ -2907,7 +2970,8 @@ def teacher_student_submissions(request, course_id, student_id):
             
             # Format due date
             if survey.due_date_enabled and survey.due_date:
-                due_date = survey.due_date.strftime('%b %d, %I:%M %p').lower()
+                local_due_date = timezone.localtime(survey.due_date)
+                due_date = local_due_date.strftime('%b %d, %I:%M %p').lower()
             else:
                 due_date = '--'
             
@@ -2924,8 +2988,8 @@ def teacher_student_submissions(request, course_id, student_id):
                 'survey_title': survey.title,
                 'survey_type': survey.get_type_display(),
                 'due_date': due_date,
-                'submitted_at': response.submitted_at.strftime('%b %d, %I:%M %p').lower() if response.submitted_at else None,
-                'started_at': response.started_at.strftime('%b %d, %I:%M %p').lower(),
+                'submitted_at': timezone.localtime(response.submitted_at).strftime('%b %d, %I:%M %p').lower() if response.submitted_at else None,
+                'started_at': timezone.localtime(response.started_at).strftime('%b %d, %I:%M %p').lower(),
                 'is_complete': response.is_complete,
                 'score': score,
                 'total_points': total_points,
@@ -3461,7 +3525,7 @@ def api_response_detail(request, response_id):
     data = {
         'student_name': response.student.get_full_name() or response.student.username,
         'student_email': response.student.email,
-        'submitted_at': response.submitted_at.strftime('%b %d, %Y %I:%M %p') if response.submitted_at else None,
+        'submitted_at': timezone.localtime(response.submitted_at).strftime('%b %d, %Y %I:%M %p') if response.submitted_at else None,
         'attempt_number': response.attempt_number,
         'answers': answers,
         'is_exam': is_exam,
@@ -3499,7 +3563,7 @@ def api_export_survey_csv(request, survey_id):
         row = [
             survey_response.student.get_full_name() or survey_response.student.username,
             survey_response.student.email,
-            survey_response.submitted_at.strftime('%Y-%m-%d %H:%M:%S') if survey_response.submitted_at else '',
+            timezone.localtime(survey_response.submitted_at).strftime('%Y-%m-%d %H:%M:%S') if survey_response.submitted_at else '',
             survey_response.attempt_number
         ]
         

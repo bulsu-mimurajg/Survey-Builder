@@ -54,7 +54,7 @@
                 </thead>
                 <tbody>
                     {% for survey in active_surveys %}
-                    <tr class="bg-white border-b hover:bg-gray-50">
+                    <tr class="bg-white border-b hover:bg-gray-50" data-survey-id="{{ survey.id }}" data-due-timestamp="{{ survey.due_date_timestamp|default:'' }}">
                         <th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{{ survey.title }}</th>
                         <td class="px-6 py-4">{{ survey.type }}</td>
                         <td class="px-6 py-4">
@@ -182,4 +182,41 @@
         </div>
     </div>
 </div>
+
+<script>
+// Real-time deadline monitoring
+function checkDeadlines() {
+    const now = Date.now();
+    let hasExpiredSurveys = false;
+    
+    // Check all active survey rows
+    const activeRows = document.querySelectorAll('#active tbody tr[data-due-timestamp]');
+    activeRows.forEach(row => {
+        const dueTimestamp = row.getAttribute('data-due-timestamp');
+        if (dueTimestamp && dueTimestamp !== '') {
+            const deadline = parseInt(dueTimestamp);
+            
+            // If deadline has passed, mark for reload
+            if (now >= deadline) {
+                hasExpiredSurveys = true;
+            }
+        }
+    });
+    
+    // Reload page if any surveys have expired
+    if (hasExpiredSurveys) {
+        window.location.reload();
+    }
+}
+
+// Check deadlines every 10 seconds
+setInterval(checkDeadlines, 10000);
+
+// Also check on page visibility change (when user returns to tab)
+document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) {
+        checkDeadlines();
+    }
+});
+</script>
 {% endblock %}

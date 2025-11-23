@@ -104,7 +104,7 @@
     <!-- Dynamic Survey List Container (Scrollable) -->
     <div id="survey-container" class="space-y-4 overflow-y-auto max-h-[65vh] pr-2 custom-scrollbar">
         {% for survey in surveys %}
-        <div class="relative bg-white border border-gray-200 rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow border-l-4 border-l-indigo-600 flex flex-col md:flex-row justify-between gap-4">
+        <div class="relative bg-white border border-gray-200 rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow border-l-4 border-l-indigo-600 flex flex-col md:flex-row justify-between gap-4" data-survey-id="{{ survey.id }}" data-due-timestamp="{{ survey.due_date_timestamp|default:'' }}" data-status="{{ survey.status_code }}">
             
             <!-- Left Section: Info -->
             <div class="flex-1">
@@ -454,6 +454,41 @@ document.getElementById('archive-survey-modal')?.addEventListener('click', funct
 document.getElementById('unarchive-survey-modal')?.addEventListener('click', function(e) {
     if (e.target === this) {
         closeUnarchiveModal();
+    }
+});
+
+// Real-time deadline monitoring
+function checkDeadlines() {
+    const now = Date.now();
+    let hasExpiredSurveys = false;
+    
+    // Check all active survey cards
+    const surveyCards = document.querySelectorAll('#survey-container > div[data-due-timestamp][data-status="active"]');
+    surveyCards.forEach(card => {
+        const dueTimestamp = card.getAttribute('data-due-timestamp');
+        if (dueTimestamp && dueTimestamp !== '') {
+            const deadline = parseInt(dueTimestamp);
+            
+            // If deadline has passed, mark for reload
+            if (now >= deadline) {
+                hasExpiredSurveys = true;
+            }
+        }
+    });
+    
+    // Reload page if any surveys have expired
+    if (hasExpiredSurveys) {
+        window.location.reload();
+    }
+}
+
+// Check deadlines every 10 seconds
+setInterval(checkDeadlines, 10000);
+
+// Also check on page visibility change (when user returns to tab)
+document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) {
+        checkDeadlines();
     }
 });
 </script>
