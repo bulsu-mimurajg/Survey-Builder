@@ -428,6 +428,13 @@ def student_survey_detail(request, survey_id):
         is_complete=True
     ).count()
     
+    # Check if modifications are allowed
+    can_modify = False
+    if survey.allow_modifications and survey.status == 'active':
+        # Student can modify if they have a completed response
+        if response and response.is_complete:
+            can_modify = True
+    
     if survey.attempts_enabled:
         if survey.single_attempt:
             attempts_remaining = 0 if attempts_used > 0 else 1
@@ -456,6 +463,8 @@ def student_survey_detail(request, survey_id):
         'total_questions': survey.questions.count(),
         'attempts_enabled': survey.attempts_enabled,
         'attempts_remaining': attempts_remaining,
+        'allow_modifications': survey.allow_modifications,
+        'can_modify': can_modify,
         'description': survey.description or 'No description provided.',
         'instructions': survey.instructions if survey.instructions else [],
         'require_completion_in_one_sitting': survey.require_completion_in_one_sitting,
@@ -622,8 +631,17 @@ def student_take_survey(request, survey_id):
     
     # Check if already completed
     if response and response.is_complete:
+        # Check if modifications are allowed and survey is still active
+        if survey.allow_modifications and survey.status == 'active':
+            # Allow student to modify their existing response
+            # Don't create a new attempt, reuse the existing response
+            # Mark it as incomplete again so they can edit
+            response.is_complete = False
+            response.submitted_at = None
+            response.save()
+            messages.info(request, 'You can now modify your response.')
         # Check if multiple attempts are allowed
-        if survey.attempts_enabled:
+        elif survey.attempts_enabled:
             if survey.single_attempt:
                 messages.info(request, 'You have already completed this survey.')
                 return redirect('student-survey-detail', survey_id=survey.id)
@@ -2291,6 +2309,21 @@ def teacher_update_survey_parameters(request, survey_id):
                     max_attempts = request.POST.get('max_attempts')
                     if max_attempts:
                         survey.max_attempts = int(max_attempts)
+                
+                # If attempts are enabled, disable modifications (mutual exclusivity)
+                survey.allow_modifications = False
+            
+            # Check if allow_modifications is enabled
+            allow_modifications = request.POST.get('allow_modifications') == 'on'
+            if allow_modifications:
+                # If modifications are enabled, disable attempts (mutual exclusivity)
+                survey.allow_modifications = True
+                survey.attempts_enabled = False
+                survey.single_attempt = False
+                survey.max_attempts = None
+            elif not survey.attempts_enabled:
+                # If neither is enabled, make sure modifications is off
+                survey.allow_modifications = False
             
             survey.require_completion_in_one_sitting = request.POST.get('require_completion_in_one_sitting') == 'on'
         

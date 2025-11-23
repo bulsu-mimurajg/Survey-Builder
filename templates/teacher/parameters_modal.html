@@ -164,7 +164,7 @@
                         <div class="flex items-center justify-between mb-4">
                             <label class="text-sm font-medium text-gray-900">Number of Attempts</label>
                             <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" name="attempts_enabled" id="attempts_toggle" class="sr-only peer" {% if survey.attempts_enabled %}checked{% endif %}>
+                                <input type="checkbox" name="attempts_enabled" id="attempts_toggle" class="sr-only peer" {% if survey.attempts_enabled %}checked{% endif %} onchange="handleAttemptsToggle()">
                                 <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                             </label>
                         </div>
@@ -217,6 +217,33 @@
                                     </label>
                                 </div>
                                 <p class="text-sm text-gray-600">Students must complete the survey in one session. Saving and continuation is disabled.</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Allow Modifications Section -->
+                        <div class="mt-6 pt-6 border-t border-gray-200">
+                            <div class="flex items-center justify-between mb-4">
+                                <label class="text-sm font-medium text-gray-900">Allow Response Modifications</label>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" name="allow_modifications" id="modifications_toggle" class="sr-only peer" {% if survey.allow_modifications %}checked{% endif %} onchange="handleModificationsToggle()">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                </label>
+                            </div>
+                            
+                            <div id="modifications-info" class="{% if not survey.allow_modifications %}hidden{% endif %}">
+                                <p class="text-sm text-gray-600 mb-3">Students can edit their submitted response while the survey is still open.</p>
+                                
+                                <div class="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                                    <div class="flex items-start space-x-2">
+                                        <svg class="w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <div class="text-sm text-orange-700">
+                                            <p class="font-medium mb-1">Mutual Exclusivity:</p>
+                                            <p>Enabling "Allow Modifications" will automatically <strong>disable</strong> "Number of Attempts". Students will have <strong>one submission</strong> that they can <strong>edit</strong> instead of multiple attempts.</p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -332,6 +359,10 @@ function hasParameterChanges() {
     const oneSitting = document.getElementById('one_sitting_toggle')?.checked || false;
     if (oneSitting !== originalParameterStates.require_completion_in_one_sitting) return true;
     
+    // Check modifications
+    const allowModifications = document.getElementById('modifications_toggle')?.checked || false;
+    if (allowModifications !== originalParameterStates.allow_modifications) return true;
+    
     // Check due date
     const dueDateEnabled = document.getElementById('due_date_toggle')?.checked || false;
     if (dueDateEnabled !== originalParameterStates.due_date_enabled) return true;
@@ -380,6 +411,7 @@ function storeOriginalParameterStates() {
         max_attempts: document.getElementById('max_attempts')?.value || null,
         single_attempt: document.getElementById('attempt_single')?.checked || false,
         require_completion_in_one_sitting: document.getElementById('one_sitting_toggle')?.checked || false,
+        allow_modifications: document.getElementById('modifications_toggle')?.checked || false,
         due_date_enabled: document.getElementById('due_date_toggle')?.checked || false,
         due_date: document.getElementById('due_date_input')?.value || null,
         description: document.getElementById('survey_description')?.value || '',
@@ -422,6 +454,13 @@ function restoreOriginalParameterStates() {
     const oneSittingToggle = document.getElementById('one_sitting_toggle');
     if (oneSittingToggle) {
         oneSittingToggle.checked = originalParameterStates.require_completion_in_one_sitting;
+    }
+    
+    // Restore modifications
+    const modificationsToggle = document.getElementById('modifications_toggle');
+    if (modificationsToggle) {
+        modificationsToggle.checked = originalParameterStates.allow_modifications;
+        document.getElementById('modifications-info').classList.toggle('hidden', !originalParameterStates.allow_modifications);
     }
     
     // Restore due date
@@ -532,6 +571,33 @@ document.getElementById('instructions_toggle')?.addEventListener('change', funct
 document.getElementById('attempts_toggle')?.addEventListener('change', function() {
     document.getElementById('attempts-settings').classList.toggle('hidden', !this.checked);
 });
+
+// Mutual exclusivity handlers
+function handleAttemptsToggle() {
+    const attemptsEnabled = document.getElementById('attempts_toggle').checked;
+    const modificationsToggle = document.getElementById('modifications_toggle');
+    
+    if (attemptsEnabled) {
+        // Disable modifications when attempts is enabled
+        modificationsToggle.checked = false;
+        document.getElementById('modifications-info').classList.add('hidden');
+    }
+    
+    document.getElementById('attempts-settings').classList.toggle('hidden', !attemptsEnabled);
+}
+
+function handleModificationsToggle() {
+    const modificationsEnabled = document.getElementById('modifications_toggle').checked;
+    const attemptsToggle = document.getElementById('attempts_toggle');
+    
+    if (modificationsEnabled) {
+        // Disable attempts when modifications is enabled
+        attemptsToggle.checked = false;
+        document.getElementById('attempts-settings').classList.add('hidden');
+    }
+    
+    document.getElementById('modifications-info').classList.toggle('hidden', !modificationsEnabled);
+}
 
 // Save parameters (similar to saveCourseAssignments)
 function saveParameters() {

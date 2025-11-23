@@ -120,6 +120,9 @@ class Survey(models.Model):
     single_attempt = models.BooleanField(default=False)
     require_completion_in_one_sitting = models.BooleanField(default=False)
     
+    # Modification settings (mutually exclusive with attempts)
+    allow_modifications = models.BooleanField(default=False)
+    
     # Status and metadata
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='draft')
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_surveys', limit_choices_to={'role': 'teacher'})
