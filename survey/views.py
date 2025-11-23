@@ -1419,16 +1419,29 @@ def teacher_home(request):
         pending_reviews_change = '+0'
     
     # Store today's metrics (update if exists, create if not)
-    DashboardMetrics.objects.update_or_create(
-        teacher=request.user,
-        date=today,
-        defaults={
-            'active_surveys': current_active_surveys,
-            'total_responses': current_total_responses,
-            'completion_rate': current_completion_rate,
-            'pending_reviews': current_pending_reviews,
-        }
-    )
+    try:
+        DashboardMetrics.objects.update_or_create(
+            teacher=request.user,
+            date=today,
+            defaults={
+                'date': today,  # Explicitly set date in defaults for creation
+                'active_surveys': current_active_surveys,
+                'total_responses': current_total_responses,
+                'completion_rate': current_completion_rate,
+                'pending_reviews': current_pending_reviews,
+            }
+        )
+    except IntegrityError:
+        # Handle race condition: if another request created the record simultaneously, update it
+        DashboardMetrics.objects.filter(
+            teacher=request.user,
+            date=today
+        ).update(
+            active_surveys=current_active_surveys,
+            total_responses=current_total_responses,
+            completion_rate=current_completion_rate,
+            pending_reviews=current_pending_reviews,
+        )
     
     # Get courses created by this teacher
     courses = Course.objects.filter(teacher=request.user)

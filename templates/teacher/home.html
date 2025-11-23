@@ -106,12 +106,12 @@
         <div id="bar-chart" class="w-full h-64"></div>
     </div>
 
-    <!-- Students per Section (Pie Chart) -->
+    <!-- Students per Section (Bar Chart) -->
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 lg:col-span-1">
         <h3 class="text-gray-900 font-semibold mb-1">Number of Students per Section</h3>
         <p class="text-gray-500 text-xs mb-6">Shows total enrolled students in each section.</p>
 
-        <div id="pie-chart" class="flex justify-center w-full"></div>
+        <div id="students-bar-chart" class="w-full h-64"></div>
     </div>
 </div>
 
@@ -234,48 +234,79 @@
         barChart.render();
     }
 
-    // 2. Pie Chart Configuration
-    const pieOptions = {
-        series: [{% for course in students_per_course %}{{ course.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
-        labels: [{% for course in students_per_course %}'{{ course.code }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+    // 2. Students per Section Bar Chart Configuration
+    const studentsBarData = [
+        {% for course in students_per_course %}
+        { code: '{{ course.code }}', count: {{ course.count }}, color: '{{ course.color }}' }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    const studentsBarOptions = {
+        series: [{
+            name: 'Students',
+            data: studentsBarData.map(c => c.count)
+        }],
         chart: {
-            type: 'pie',
-            height: 320,
+            type: 'bar',
+            height: 250,
+            toolbar: { show: false },
             fontFamily: 'Inter, sans-serif',
         },
-        colors: [{% for course in students_per_course %}'{{ course.color }}'{% if not forloop.last %},{% endif %}{% endfor %}],
-        legend: {
-            position: 'bottom',
-            fontFamily: 'Inter, sans-serif',
-            itemMargin: {
-                horizontal: 10,
-                vertical: 5
-            },
-            markers: {
-                width: 8,
-                height: 8,
-                radius: 2
+        colors: studentsBarData.map(c => c.color),
+        plotOptions: {
+            bar: {
+                borderRadius: 6,
+                columnWidth: '50%',
+                distributed: true,
+                horizontal: false,
             }
         },
         dataLabels: {
-            enabled: false
+            enabled: true,
+            formatter: function(val) {
+                return val;
+            },
+            style: {
+                fontSize: '12px',
+                colors: ['#fff']
+            }
+        },
+        legend: { show: false },
+        xaxis: {
+            categories: studentsBarData.map(c => c.code),
+            labels: {
+                style: {
+                    colors: '#6b7280',
+                    fontSize: '12px'
+                }
+            },
+            axisBorder: { show: false },
+            axisTicks: { show: false }
+        },
+        yaxis: {
+            show: true,
+            labels: {
+                style: { colors: '#6b7280', fontSize: '12px' }
+            }
+        },
+        grid: {
+            strokeDashArray: 4,
+            borderColor: '#f3f4f6',
+            yaxis: { lines: { show: true } }
         },
         tooltip: {
             enabled: true,
             y: {
                 formatter: function(value) {
-                    return value + " Students"
+                    return value + " Students";
                 }
             }
-        },
-        stroke: {
-            show: false
         }
     };
 
-    if (document.querySelector("#pie-chart")) {
-        const pieChart = new ApexCharts(document.querySelector("#pie-chart"), pieOptions);
-        pieChart.render();
+    if (document.querySelector("#students-bar-chart")) {
+        const studentsBarChart = new ApexCharts(document.querySelector("#students-bar-chart"), studentsBarOptions);
+        studentsBarChart.render();
     }
 </script>
 

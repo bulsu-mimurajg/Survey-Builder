@@ -281,7 +281,7 @@ class QuestionResponse(models.Model):
 class DashboardMetrics(models.Model):
     """Model to store historical dashboard metrics for change tracking"""
     teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name='dashboard_metrics')
-    date = models.DateField(auto_now_add=True)
+    date = models.DateField()
     active_surveys = models.IntegerField(default=0)
     total_responses = models.IntegerField(default=0)
     completion_rate = models.IntegerField(default=0)
