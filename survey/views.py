@@ -234,10 +234,10 @@ def student_home(request):
     # Get recent surveys from enrolled courses
     enrolled_course_ids = [e.course.id for e in enrollments]
     
-    # Get surveys assigned to enrolled courses (only active and closed, not draft)
+    # Get surveys assigned to enrolled courses (only active and closed, not draft or archived)
     recent_surveys_qs = Survey.objects.filter(
         courses__id__in=enrolled_course_ids
-    ).exclude(status='draft').distinct().select_related('created_by').prefetch_related('courses', 'questions', 'responses')[:5]
+    ).exclude(status='draft').exclude(status='archived').distinct().select_related('created_by').prefetch_related('courses', 'questions', 'responses')[:5]
     
     recent_surveys = []
     now = timezone.now()
@@ -327,8 +327,8 @@ def student_course_detail(request, course_id):
         messages.error(request, 'You are not enrolled in this course.')
         return redirect('student-courses')
     
-    # Get surveys assigned to this course (only active and closed, not draft)
-    surveys = Survey.objects.filter(courses=course).exclude(status='draft').select_related('created_by').prefetch_related('questions', 'responses')
+    # Get surveys assigned to this course (only active and closed, not draft or archived)
+    surveys = Survey.objects.filter(courses=course).exclude(status='draft').exclude(status='archived').select_related('created_by').prefetch_related('questions', 'responses')
     
     # Format surveys for template
     all_surveys = []
@@ -449,10 +449,10 @@ def student_survey_board(request):
     courses = [{'id': e.course.id, 'name': e.course.name, 'code': e.course.code} for e in enrollments]
     course_ids = [c['id'] for c in courses]
     
-    # Base query for surveys - only surveys for student's courses (exclude draft)
+    # Base query for surveys - only surveys for student's courses (exclude draft and archived)
     surveys_query = Survey.objects.filter(
         courses__id__in=course_ids
-    ).exclude(status='draft').distinct().select_related('created_by').prefetch_related('courses', 'questions', 'responses')
+    ).exclude(status='draft').exclude(status='archived').distinct().select_related('created_by').prefetch_related('courses', 'questions', 'responses')
     
     # Apply course filter if selected
     if selected_course:
@@ -1805,8 +1805,8 @@ def teacher_course_detail(request, course_id):
         'joined_at': e.joined_at
     } for e in enrollments]
     
-    # Get surveys assigned to this course
-    surveys = Survey.objects.filter(courses=course).select_related('created_by').prefetch_related('responses', 'questions')
+    # Get surveys assigned to this course (exclude archived)
+    surveys = Survey.objects.filter(courses=course).exclude(status='archived').select_related('created_by').prefetch_related('responses', 'questions')
     
     # Format surveys for template
     all_surveys = []
@@ -1899,7 +1899,10 @@ def teacher_survey_board(request):
         surveys = surveys.filter(status='active')
     elif status_filter == 'closed':
         surveys = surveys.filter(status='closed')
-    # 'all' shows everything
+    elif status_filter == 'archived':
+        surveys = surveys.filter(status='archived')
+    else:  # 'all' shows everything except archived
+        surveys = surveys.exclude(status='archived')
     
     # Filter by course
     if course_filter:
@@ -1962,10 +1965,11 @@ def teacher_survey_board(request):
             'assigned_courses': assigned_courses,
         })
     
-    # Count surveys by status
-    all_count = Survey.objects.filter(created_by=request.user).count()
+    # Count surveys by status (excluding archived from all_count)
+    all_count = Survey.objects.filter(created_by=request.user).exclude(status='archived').count()
     active_count = Survey.objects.filter(created_by=request.user, status='active').count()
     closed_count = Survey.objects.filter(created_by=request.user, status='closed').count()
+    archived_count = Survey.objects.filter(created_by=request.user, status='archived').count()
     
     context = {
         'surveys': surveys_data,
@@ -1975,6 +1979,7 @@ def teacher_survey_board(request):
         'all_count': all_count,
         'active_count': active_count,
         'closed_count': closed_count,
+        'archived_count': archived_count,
         'unread_count': 6,
     }
     return render(request, 'teacher/survey_board.html', context)
@@ -2042,6 +2047,12 @@ def teacher_survey_builder(request, survey_id):
         return redirect('student-home')
     
     survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
+    
+    # Prevent editing archived surveys
+    if survey.status == 'archived':
+        messages.warning(request, 'This survey is archived and cannot be edited. Please unarchive it first to make changes.')
+        return redirect('teacher-survey-builder')
+    
     questions = survey.questions.all().order_by('order')
     all_courses = Course.objects.filter(teacher=request.user).order_by('code')
     assigned_course_ids = set(survey.courses.values_list('id', flat=True))
@@ -2148,6 +2159,13 @@ def api_add_question(request, survey_id):
     
     survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
     
+    # Block editing archived surveys
+    if survey.status == 'archived':
+        return JsonResponse({
+            'success': False,
+            'error': 'Cannot edit archived surveys. Please unarchive the survey first.'
+        }, status=400)
+    
     # REINFORCED: Block adding questions if survey is active (regardless of responses)
     # OR if survey was ever activated (not draft) AND has responses
     if survey.status == 'active':
@@ -2238,10 +2256,17 @@ def api_update_question(request, question_id):
         return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
     
     question = get_object_or_404(Question, id=question_id, survey__created_by=request.user)
+    survey = question.survey
+    
+    # Block editing archived surveys
+    if survey.status == 'archived':
+        return JsonResponse({
+            'success': False,
+            'error': 'Cannot edit archived surveys. Please unarchive the survey first.'
+        }, status=400)
     
     if request.method == 'GET':
         # Return form HTML for editing
-        survey = question.survey
         form_html = render_to_string('includes/question_edit_form.html', {
             'question': question,
             'survey': survey,
@@ -2503,6 +2528,13 @@ def api_delete_question(request, question_id):
     question = get_object_or_404(Question, id=question_id, survey__created_by=request.user)
     survey = question.survey
     
+    # Block editing archived surveys
+    if survey.status == 'archived':
+        return JsonResponse({
+            'success': False,
+            'error': 'Cannot edit archived surveys. Please unarchive the survey first.'
+        }, status=400)
+    
     # REINFORCED: Block deletion if survey is active (regardless of responses)
     # OR if survey was ever activated (not draft) AND has responses
     if survey.status == 'active':
@@ -2542,6 +2574,13 @@ def api_reorder_questions(request, survey_id):
         return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
     
     survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
+    
+    # Block editing archived surveys
+    if survey.status == 'archived':
+        return JsonResponse({
+            'success': False,
+            'error': 'Cannot edit archived surveys. Please unarchive the survey first.'
+        }, status=400)
     
     # REINFORCED: Block reordering if survey is active (regardless of responses)
     # OR if survey was ever activated (not draft) AND has responses
@@ -2583,6 +2622,14 @@ def api_save_survey(request, survey_id):
             return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
         
         survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
+        
+        # Block editing archived surveys
+        if survey.status == 'archived':
+            return JsonResponse({
+                'success': False,
+                'error': 'Cannot edit archived surveys. Please unarchive the survey first.'
+            }, status=400)
+        
         # Just update the updated_at timestamp
         survey.save()
         
@@ -2605,6 +2652,13 @@ def api_update_course_assignments(request, survey_id):
         return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
     
     survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
+    
+    # Block editing archived surveys
+    if survey.status == 'archived':
+        return JsonResponse({
+            'success': False,
+            'error': 'Cannot edit archived surveys. Please unarchive the survey first.'
+        }, status=400)
     
     try:
         data = json.loads(request.body)
@@ -2665,6 +2719,11 @@ def teacher_edit_survey(request, survey_id):
     
     survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
     
+    # Block editing archived surveys
+    if survey.status == 'archived':
+        messages.warning(request, 'This survey is archived and cannot be edited. Please unarchive it first.')
+        return redirect('teacher-survey-builder')
+    
     if request.method == 'POST':
         title = request.POST.get('title', '').strip()
         if title:
@@ -2684,6 +2743,13 @@ def teacher_update_survey_parameters(request, survey_id):
         return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
     
     survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
+    
+    # Block editing archived surveys
+    if survey.status == 'archived':
+        return JsonResponse({
+            'success': False,
+            'error': 'Cannot edit archived surveys. Please unarchive the survey first.'
+        }, status=400)
     
     # Check if survey is active - parameters are locked when active
     if survey.status == 'active':
@@ -2885,6 +2951,50 @@ def api_confirm_activate_survey(request, survey_id):
             'success': True,
             'message': 'Survey activated successfully',
             'status': 'active'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_archive_survey(request, survey_id):
+    """API endpoint to archive a survey"""
+    if request.user.role != 'teacher':
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+    
+    survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
+    
+    try:
+        survey.status = 'archived'
+        survey.save()
+        return JsonResponse({
+            'success': True,
+            'message': 'Survey archived successfully',
+            'status': 'archived'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def api_unarchive_survey(request, survey_id):
+    """API endpoint to unarchive a survey"""
+    if request.user.role != 'teacher':
+        return JsonResponse({'success': False, 'error': 'Access denied'}, status=403)
+    
+    survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
+    
+    try:
+        # Unarchive to 'closed' status (can be changed to 'active' or 'draft' if needed)
+        # Defaulting to 'closed' to be safe
+        survey.status = 'closed'
+        survey.save()
+        return JsonResponse({
+            'success': True,
+            'message': 'Survey unarchived successfully',
+            'status': 'closed'
         })
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)

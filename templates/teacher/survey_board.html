@@ -58,6 +58,10 @@
                    class="px-4 py-1.5 text-sm font-medium {% if selected_status == 'closed' %}text-gray-900 bg-white rounded shadow-sm{% else %}text-gray-500 hover:text-gray-900{% endif %} transition-all">
                     Closed
                 </a>
+                <a href="?status=archived{% if selected_course %}&course={{ selected_course }}{% endif %}" 
+                   class="px-4 py-1.5 text-sm font-medium {% if selected_status == 'archived' %}text-gray-900 bg-white rounded shadow-sm{% else %}text-gray-500 hover:text-gray-900{% endif %} transition-all">
+                    Archived
+                </a>
             </div>
         </div>
 
@@ -113,6 +117,8 @@
                     <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Active</span>
                     {% elif survey.status_code == 'closed' %}
                     <span class="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded">Closed</span>
+                    {% elif survey.status_code == 'archived' %}
+                    <span class="bg-gray-200 text-gray-700 text-xs font-medium px-2.5 py-0.5 rounded">Archived</span>
                     {% endif %}
                 </div>
 
@@ -163,6 +169,17 @@
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                         View Submissions
                     </a>
+                    {% if survey.status_code != 'archived' %}
+                    <button onclick="archiveSurvey({{ survey.id }})" class="text-gray-700 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 font-medium rounded-lg text-xs px-4 py-2 flex items-center gap-2 transition-colors">
+                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                        Archive
+                    </button>
+                    {% else %}
+                    <button onclick="unarchiveSurvey({{ survey.id }})" class="text-gray-700 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 font-medium rounded-lg text-xs px-4 py-2 flex items-center gap-2 transition-colors">
+                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        Unarchive
+                    </button>
+                    {% endif %}
                 </div>
 
                 <div class="w-full">
@@ -187,6 +204,81 @@
         {% endfor %}
     </div>
 
+</div>
+
+<!-- Archive Survey Modal -->
+<div id="archive-survey-modal" tabindex="-1" aria-hidden="true" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 overflow-y-auto">
+    <div class="relative p-4 w-full max-w-md max-h-full">
+        <div class="relative bg-white rounded-lg shadow">
+            <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t">
+                <h3 class="text-xl font-semibold text-gray-900">Archive Survey</h3>
+            </div>
+            <div class="p-4 md:p-5">
+                <div class="flex items-center mb-4">
+                    <div class="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <h4 class="text-base font-medium text-gray-900">Archive this survey?</h4>
+                        <p class="text-sm text-gray-500 mt-1">This survey will be hidden from default views but all submissions will be preserved.</p>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end space-x-3 pt-4 border-t">
+                    <button type="button" onclick="closeArchiveModal()" class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900">
+                        Cancel
+                    </button>
+                    <button type="button" onclick="confirmArchiveSurvey()" class="text-white bg-gray-600 hover:bg-gray-700 focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">
+                        Archive Survey
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Unarchive Survey Modal -->
+<div id="unarchive-survey-modal" tabindex="-1" aria-hidden="true" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 overflow-y-auto">
+    <div class="relative p-4 w-full max-w-md max-h-full">
+        <div class="relative bg-white rounded-lg shadow">
+            <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t">
+                <h3 class="text-xl font-semibold text-gray-900">Unarchive Survey</h3>
+                <button type="button" onclick="closeUnarchiveModal()" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center">
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 14 14">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                    </svg>
+                    <span class="sr-only">Close modal</span>
+                </button>
+            </div>
+            <div class="p-4 md:p-5">
+                <div class="flex items-center mb-4">
+                    <div class="flex-shrink-0 w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <h4 class="text-base font-medium text-gray-900">Unarchive this survey?</h4>
+                        <p class="text-sm text-gray-500 mt-1">This survey will be restored to closed status and will appear in your survey list.</p>
+                    </div>
+                </div>
+                <div class="bg-indigo-50 rounded-lg p-3 mb-4">
+                    <p class="text-xs text-indigo-700">
+                        <strong>Note:</strong> The survey will be set to "Closed" status. You can activate it again if needed.
+                    </p>
+                </div>
+                <div class="flex items-center justify-end space-x-3 pt-4 border-t">
+                    <button type="button" onclick="closeUnarchiveModal()" class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900">
+                        Cancel
+                    </button>
+                    <button type="button" onclick="confirmUnarchiveSurvey()" class="text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:outline-none focus:ring-indigo-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">
+                        Unarchive Survey
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Create Survey Modal -->
@@ -265,6 +357,103 @@ function updateDropdownText(text) {
 document.getElementById('create-survey-modal')?.addEventListener('click', function(e) {
     if (e.target === this) {
         closeCreateSurveyModal();
+    }
+});
+
+let currentArchiveSurveyId = null;
+
+function archiveSurvey(surveyId) {
+    currentArchiveSurveyId = surveyId;
+    document.getElementById('archive-survey-modal').classList.remove('hidden');
+}
+
+function closeArchiveModal() {
+    document.getElementById('archive-survey-modal').classList.add('hidden');
+    currentArchiveSurveyId = null;
+}
+
+function confirmArchiveSurvey() {
+    if (!currentArchiveSurveyId) return;
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', csrfToken);
+    
+    fetch(`/api/survey/${currentArchiveSurveyId}/archive/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': csrfToken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeArchiveModal();
+            // Reload the page to show updated status
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Failed to archive survey'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while archiving the survey');
+    });
+}
+
+let currentUnarchiveSurveyId = null;
+
+function unarchiveSurvey(surveyId) {
+    currentUnarchiveSurveyId = surveyId;
+    document.getElementById('unarchive-survey-modal').classList.remove('hidden');
+}
+
+function closeUnarchiveModal() {
+    document.getElementById('unarchive-survey-modal').classList.add('hidden');
+    currentUnarchiveSurveyId = null;
+}
+
+function confirmUnarchiveSurvey() {
+    if (!currentUnarchiveSurveyId) return;
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', csrfToken);
+    
+    fetch(`/api/survey/${currentUnarchiveSurveyId}/unarchive/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': csrfToken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeUnarchiveModal();
+            // Reload the page to show updated status
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Failed to unarchive survey'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while unarchiving the survey');
+    });
+}
+
+// Close modals on outside click
+document.getElementById('archive-survey-modal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeArchiveModal();
+    }
+});
+
+document.getElementById('unarchive-survey-modal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeUnarchiveModal();
     }
 });
 </script>

@@ -3649,6 +3649,22 @@ function closeActivationWarningModal() {
 
 // Edit Restrictions When Survey is Active or Has Responses
 function applyEditRestrictions() {
+    // Block all editing if survey is archived
+    if (typeof surveyStatus !== 'undefined' && surveyStatus === 'archived') {
+        // Disable all editing controls
+        document.querySelectorAll('[onclick*="deleteQuestion"], [onclick*="editQuestion"], [onclick*="addQuestion"]').forEach(btn => {
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+            btn.title = 'Cannot edit archived surveys';
+        });
+        // Disable drag and drop
+        document.querySelectorAll('.draggable-question').forEach(el => {
+            el.draggable = false;
+            el.classList.add('cursor-not-allowed');
+        });
+        return; // Exit early - no editing allowed for archived surveys
+    }
+    
     // Apply restrictions if survey is active (regardless of responses)
     // OR if survey was ever activated (not draft) AND has responses
     // If survey is draft, no restrictions
