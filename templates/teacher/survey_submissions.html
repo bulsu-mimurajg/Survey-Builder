@@ -1075,10 +1075,19 @@ function renderAnalyticsChart(questionData, container) {
     // Create canvas element
     const canvas = document.createElement('canvas');
     container.innerHTML = '';
-    container.appendChild(canvas);
     
     if (questionType === 'multiple_choice' || questionType === 'dropdown') {
         // Pie chart for single-choice questions
+        // Add wrapper with max height constraint
+        const wrapper = document.createElement('div');
+        wrapper.className = 'flex items-center justify-center';
+        wrapper.style.maxHeight = '400px';
+        wrapper.style.position = 'relative';
+        canvas.style.maxHeight = '400px';
+        canvas.style.maxWidth = '400px';
+        wrapper.appendChild(canvas);
+        container.appendChild(wrapper);
+        
         analyticsCharts[questionId] = new Chart(canvas, {
             type: 'pie',
             data: {
@@ -1094,15 +1103,37 @@ function renderAnalyticsChart(questionData, container) {
             options: {
                 responsive: true,
                 maintainAspectRatio: true,
+                aspectRatio: 1,
                 plugins: {
                     legend: {
-                        position: 'right'
+                        position: 'right',
+                        labels: {
+                            boxWidth: 12,
+                            padding: 10,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
                     }
                 }
             }
         });
     } else if (questionType === 'checkboxes') {
         // Bar chart for checkboxes
+        canvas.style.maxHeight = '300px';
+        container.appendChild(canvas);
+        
         analyticsCharts[questionId] = new Chart(canvas, {
             type: 'bar',
             data: {
@@ -1133,6 +1164,9 @@ function renderAnalyticsChart(questionData, container) {
         });
     } else if (questionType === 'rating' || questionType === 'scale') {
         // Bar chart for Likert scales
+        canvas.style.maxHeight = '300px';
+        container.appendChild(canvas);
+        
         analyticsCharts[questionId] = new Chart(canvas, {
             type: 'bar',
             data: {
