@@ -2334,6 +2334,10 @@ let changeTracker = {
         
         // Check if questions changed
         const currentState = this.getCurrentQuestionState();
+        // Check if originalQuestionState is initialized
+        if (!this.originalQuestionState || !this.originalQuestionState.ids || !this.originalQuestionState.order) {
+            return; // Can't compare if original state isn't set yet
+        }
         const originalIds = this.originalQuestionState.ids.map(id => String(id)).sort();
         const currentIds = currentState.ids.map(id => String(id)).sort();
         
@@ -2591,6 +2595,11 @@ function saveSurvey() {
     
     // Check if there are any question changes (additions, deletions, edits, or reordering)
     const currentState = changeTracker.getCurrentQuestionState();
+    // Check if originalQuestionState is initialized
+    if (!changeTracker.originalQuestionState || !changeTracker.originalQuestionState.order) {
+        // If not initialized, treat as no changes
+        return Promise.resolve();
+    }
     const originalOrder = changeTracker.originalQuestionState.order.map(o => String(o.questionId));
     const currentOrder = currentState.order.map(o => String(o.questionId));
     const hasReordering = JSON.stringify(originalOrder) !== JSON.stringify(currentOrder);
@@ -2999,9 +3008,21 @@ function saveQuestionChanges() {
     // Always reorder if there are added questions OR if order changed
     const hasAddedQuestions = changeTracker.pendingQuestionChanges.added.length > 0;
     const currentState = changeTracker.getCurrentQuestionState();
-    const originalOrder = changeTracker.originalQuestionState.order.map(o => String(o.questionId));
-    const currentOrder = currentState.order.map(o => String(o.questionId));
-    const hasReordering = JSON.stringify(originalOrder) !== JSON.stringify(currentOrder);
+    
+    // Check if originalQuestionState is initialized
+    let hasReordering = false;
+    if (!changeTracker.originalQuestionState || !changeTracker.originalQuestionState.order) {
+        // If not initialized, only proceed if there are added questions that need reordering
+        if (!hasAddedQuestions) {
+            return Promise.resolve();
+        }
+        // If there are added questions, assume reordering is needed
+        hasReordering = true;
+    } else {
+        const originalOrder = changeTracker.originalQuestionState.order.map(o => String(o.questionId));
+        const currentOrder = currentState.order.map(o => String(o.questionId));
+        hasReordering = JSON.stringify(originalOrder) !== JSON.stringify(currentOrder);
+    }
     
     if (hasAddedQuestions || hasReordering) {
         // Check if restrictions apply

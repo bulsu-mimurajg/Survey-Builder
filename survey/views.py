@@ -3700,6 +3700,9 @@ def api_grade_response(request, question_response_id):
         is_correct = data.get('is_correct')
         awarded_points = data.get('awarded_points')
         
+        # Always update needs_review to False when grading
+        question_response.needs_review = False
+        
         if awarded_points is not None:
             question_response.awarded_points = float(awarded_points)
             
@@ -3715,8 +3718,11 @@ def api_grade_response(request, question_response_id):
                     question_response.is_correct = False
                 else:
                     question_response.is_correct = None  # Partial
+        elif is_correct is not None:
+            # If only is_correct is provided without points, still update it
+            question_response.is_correct = is_correct
         
-        question_response.needs_review = False
+        # Save the question response with updated review status
         question_response.save()
         
         return JsonResponse({'success': True, 'message': 'Response graded successfully'})

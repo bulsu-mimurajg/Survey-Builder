@@ -21,19 +21,12 @@
 </div>
 
 <!-- Top Stats Row -->
-<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-6">
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-6">
     <!-- Card 1: Active Surveys -->
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 flex justify-between items-center">
         <div>
             <p class="text-gray-500 text-sm font-medium mb-1">Active Surveys</p>
-            <div class="flex items-center gap-2">
-                <h2 class="text-3xl font-bold text-gray-900">{{ active_surveys }}</h2>
-                {% if active_surveys_change %}
-                <span class="{% if active_surveys_change|slice:':1' == '+' %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %} text-xs font-semibold px-2 py-0.5 rounded-full">
-                    {{ active_surveys_change }}%
-                </span>
-                {% endif %}
-            </div>
+            <h2 class="text-3xl font-bold text-gray-900">{{ active_surveys }}</h2>
         </div>
         <div class="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
@@ -44,14 +37,7 @@
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 flex justify-between items-center">
         <div>
             <p class="text-gray-500 text-sm font-medium mb-1">Total Responses</p>
-            <div class="flex items-center gap-2">
-                <h2 class="text-3xl font-bold text-gray-900">{{ total_responses }}</h2>
-                {% if total_responses_change %}
-                <span class="{% if total_responses_change|slice:':1' == '+' %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %} text-xs font-semibold px-2 py-0.5 rounded-full">
-                    {{ total_responses_change }}%
-                </span>
-                {% endif %}
-            </div>
+            <h2 class="text-3xl font-bold text-gray-900">{{ total_responses }}</h2>
         </div>
         <div class="w-12 h-12 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -62,35 +48,10 @@
     <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 flex justify-between items-center">
         <div>
             <p class="text-gray-500 text-sm font-medium mb-1">Average Completion Rate</p>
-            <div class="flex items-center gap-2">
-                <h2 class="text-3xl font-bold text-gray-900">{{ completion_rate }}%</h2>
-                {% if completion_rate_change %}
-                <span class="{% if completion_rate_change|slice:':1' == '+' %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %} text-xs font-semibold px-2 py-0.5 rounded-full">
-                    {{ completion_rate_change }}%
-                </span>
-                {% endif %}
-            </div>
+            <h2 class="text-3xl font-bold text-gray-900">{{ completion_rate }}%</h2>
         </div>
         <div class="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-        </div>
-    </div>
-
-    <!-- Card 4: Pending Reviews -->
-    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100 flex justify-between items-center">
-        <div>
-            <p class="text-gray-500 text-sm font-medium mb-1">Pending Reviews</p>
-            <div class="flex items-center gap-2">
-                <h2 class="text-3xl font-bold text-gray-900">{{ pending_reviews }}</h2>
-                {% if pending_reviews_change %}
-                <span class="{% if pending_reviews_change|slice:':1' == '+' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %} text-xs font-semibold px-2 py-0.5 rounded-full">
-                    {{ pending_reviews_change }}%
-                </span>
-                {% endif %}
-            </div>
-        </div>
-        <div class="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
         </div>
     </div>
 </div>
@@ -241,6 +202,10 @@
         {% endfor %}
     ];
 
+    // Calculate max value for y-axis
+    const maxStudents = Math.max(...studentsBarData.map(c => c.count), 0);
+    const yAxisMax = Math.max(maxStudents, 1);
+
     const studentsBarOptions = {
         series: [{
             name: 'Students',
@@ -264,7 +229,7 @@
         dataLabels: {
             enabled: true,
             formatter: function(val) {
-                return val;
+                return Math.round(val);
             },
             style: {
                 fontSize: '12px',
@@ -285,9 +250,25 @@
         },
         yaxis: {
             show: true,
+            min: 0,
+            max: yAxisMax,
+            tickAmount: 2,
+            decimalsInFloat: 0,
             labels: {
-                style: { colors: '#6b7280', fontSize: '12px' }
-            }
+                style: { colors: '#6b7280', fontSize: '12px' },
+                formatter: function(val) {
+                    // Use exact value comparison with small tolerance for floating point
+                    const tolerance = 0.01;
+                    // Only show if value is exactly at min (0) or max
+                    if (Math.abs(val - 0) < tolerance) {
+                        return '0';
+                    } else if (Math.abs(val - yAxisMax) < tolerance) {
+                        return String(yAxisMax);
+                    }
+                    return '';
+                }
+            },
+            forceNiceScale: false
         },
         grid: {
             strokeDashArray: 4,
@@ -298,7 +279,7 @@
             enabled: true,
             y: {
                 formatter: function(value) {
-                    return value + " Students";
+                    return Math.round(value) + " Students";
                 }
             }
         }

@@ -273,7 +273,6 @@
                                             {% endif %}
                                         </button>
                                     </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attempt</th>
                                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
@@ -307,9 +306,6 @@
                                         {% else %}
                                         -
                                         {% endif %}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {{ response.attempt_number }}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         {% if response.id %}
@@ -844,19 +840,30 @@ function renderQuestionResponse(answer, questionNumber) {
     
     // Grading status badge
     let gradingBadge = '';
-    if (isExam && isCorrect !== null && isCorrect !== undefined) {
-        if (isCorrect) {
+    // Check if question has been graded (awarded_points is not null)
+    const isGraded = isExam && awardedPoints !== null && awardedPoints !== undefined;
+    
+    if (isGraded) {
+        // Question has been graded - show appropriate badge
+        if (isCorrect === true) {
             gradingBadge = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
                 <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
                 Correct
             </span>`;
-        } else {
+        } else if (isCorrect === false) {
             gradingBadge = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
                 <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
                 Incorrect
             </span>`;
+        } else {
+            // Partial credit (isCorrect is null but awarded_points is set)
+            gradingBadge = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 text-orange-800">
+                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z" clip-rule="evenodd"/></svg>
+                Partial Credit
+            </span>`;
         }
     } else if (isExam && needsReview) {
+        // Question needs review and hasn't been graded yet
         gradingBadge = `<span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
             <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
             Needs Review
@@ -1052,7 +1059,10 @@ function renderQuestionResponse(answer, questionNumber) {
     
     // Add grading controls for subjective questions that need review
     let gradingControls = '';
-    if (isExam && needsReview && (questionType === 'short_text' || questionType === 'long_text' || questionType === 'file_upload')) {
+    // isGraded is already declared above at line 844, reuse it here
+    
+    if (isExam && needsReview && !isGraded && (questionType === 'short_text' || questionType === 'long_text' || questionType === 'file_upload')) {
+        // Show grading buttons only if question needs review and hasn't been graded yet
         const halfPoints = maxPoints / 2;
         gradingControls = `
             <div class="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -1073,12 +1083,13 @@ function renderQuestionResponse(answer, questionNumber) {
                 </div>
             </div>
         `;
-    } else if (isExam && awardedPoints !== null) {
+    } else if (isGraded) {
         // Show awarded points if already graded
+        const pointsColor = isCorrect === true ? 'text-green-600' : (isCorrect === false ? 'text-red-600' : 'text-orange-600');
         gradingControls = `
             <div class="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
                 <p class="text-sm font-medium text-gray-700">
-                    Points Awarded: <span class="text-lg font-bold ${isCorrect ? 'text-green-600' : 'text-red-600'}">${awardedPoints} / ${maxPoints}</span>
+                    Points Awarded: <span class="text-lg font-bold ${pointsColor}">${awardedPoints} / ${maxPoints}</span>
                 </p>
             </div>
         `;
@@ -1663,6 +1674,15 @@ function gradeQuestion(questionResponseId, isCorrect, points) {
             
             // Reload the response details to show updated grading
             viewResponse(responseId);
+            
+            // Reload grading queue if on grading tab to update the review status
+            {% if survey.type == 'exam' %}
+            if (currentTab === 'grading') {
+                const filterSelect = document.getElementById('grading-filter');
+                const filter = filterSelect ? filterSelect.value : 'needs_review';
+                loadGradingQueue(filter);
+            }
+            {% endif %}
         } else {
             alert('Error grading response: ' + data.error);
         }
@@ -1702,6 +1722,15 @@ function gradeQuestionPartial(questionResponseId, maxPoints) {
             
             // Reload the response details to show updated grading
             viewResponse(responseId);
+            
+            // Reload grading queue if on grading tab to update the review status
+            {% if survey.type == 'exam' %}
+            if (currentTab === 'grading') {
+                const filterSelect = document.getElementById('grading-filter');
+                const filter = filterSelect ? filterSelect.value : 'needs_review';
+                loadGradingQueue(filter);
+            }
+            {% endif %}
         } else {
             alert('Error grading response: ' + data.error);
         }
