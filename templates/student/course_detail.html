@@ -53,6 +53,7 @@
                         <th scope="col" class="px-6 py-4 font-bold">Survey Title</th>
                         <th scope="col" class="px-6 py-4 font-bold">Type</th>
                         <th scope="col" class="px-6 py-4 font-bold w-1/3">Progress</th>
+                        <th scope="col" class="px-6 py-4 font-bold">Status</th>
                         <th scope="col" class="px-6 py-4 font-bold">Due Date</th>
                         <th scope="col" class="px-6 py-4 text-right">
                             <span class="sr-only">Actions</span>
@@ -74,6 +75,15 @@
                                 <div class="bg-orange-500 h-1.5 rounded-full" style="width: {{ survey.progress }}%"></div>
                             </div>
                         </td>
+                        <td class="px-6 py-4">
+                            {% if survey.status_code == 'active' %}
+                            <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Active</span>
+                            {% elif survey.status_code == 'closed' %}
+                            <span class="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded">Closed</span>
+                            {% else %}
+                            <span class="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">{{ survey.status_code|title }}</span>
+                            {% endif %}
+                        </td>
                         <td class="px-6 py-4 text-gray-500">{{ survey.due_date }}</td>
                         <td class="px-6 py-4 text-right">
                             <a href="{% url 'student-survey-detail' survey.id %}" class="font-medium text-indigo-600 hover:underline">View Survey</a>
@@ -93,6 +103,15 @@
                             <div class="w-full bg-gray-100 rounded-full h-1.5 max-w-[200px]">
                                 <div class="bg-orange-500 h-1.5 rounded-full" style="width: {{ survey.progress }}%"></div>
                             </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            {% if survey.status_code == 'active' %}
+                            <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Active</span>
+                            {% elif survey.status_code == 'closed' %}
+                            <span class="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded">Closed</span>
+                            {% else %}
+                            <span class="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">{{ survey.status_code|title }}</span>
+                            {% endif %}
                         </td>
                         <td class="px-6 py-4 text-gray-500">{{ survey.due_date }}</td>
                         <td class="px-6 py-4 text-right">
@@ -114,6 +133,15 @@
                                 <div class="bg-green-500 h-1.5 rounded-full" style="width: 100%"></div>
                             </div>
                         </td>
+                        <td class="px-6 py-4">
+                            {% if survey.status_code == 'active' %}
+                            <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Active</span>
+                            {% elif survey.status_code == 'closed' %}
+                            <span class="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded">Closed</span>
+                            {% else %}
+                            <span class="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">{{ survey.status_code|title }}</span>
+                            {% endif %}
+                        </td>
                         <td class="px-6 py-4 text-gray-500">{{ survey.due_date }}</td>
                         <td class="px-6 py-4 text-right">
                             <a href="{% url 'student-survey-detail' survey.id %}" class="font-medium text-indigo-600 hover:underline">View Survey</a>
@@ -122,7 +150,7 @@
                     {% endfor %}
                     {% if not active_surveys and not closed_surveys and not completed_surveys %}
                     <tr>
-                        <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">
                             No surveys available.
                         </td>
                     </tr>

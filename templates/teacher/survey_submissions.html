@@ -167,25 +167,54 @@
                 <div class="bg-white rounded-lg border border-gray-200">
                     <!-- Search and Filter -->
                     <div class="p-4 border-b border-gray-200">
-                        <div class="flex items-center space-x-4">
-                            <div class="flex-1">
+                        <form method="get" id="filter-form" onsubmit="resetPage()" class="flex items-center gap-3 flex-wrap">
+                            <!-- Hidden input to preserve tab -->
+                            <input type="hidden" name="tab" value="individual" id="tab-preserve">
+                            <!-- Search -->
+                            <div class="flex-1 min-w-[200px]">
                                 <div class="relative">
                                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                         <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                                         </svg>
                                     </div>
-                                    <input type="text" id="search-input" onkeyup="filterResponses()" placeholder="Search by student name or email..." class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                    <input type="text" name="search" id="search-input" value="{{ request.GET.search }}" placeholder="Search by name or email..." class="block w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
                                 </div>
                             </div>
+                            <!-- Status Filter -->
                             <div>
-                                <select id="filter-status" onchange="filterResponses()" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                <select name="status" id="filter-status" class="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
                                     <option value="">All responses</option>
-                                    <option value="complete">Complete</option>
-                                    <option value="incomplete">Incomplete</option>
+                                    <option value="complete" {% if request.GET.status == 'complete' %}selected{% endif %}>Complete</option>
+                                    <option value="incomplete" {% if request.GET.status == 'incomplete' %}selected{% endif %}>Incomplete</option>
                                 </select>
                             </div>
-                        </div>
+                            <!-- Sort -->
+                            <div>
+                                <select name="sort" id="sort-by" class="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="name" {% if request.GET.sort == 'name' or not request.GET.sort %}selected{% endif %}>Sort by Name</option>
+                                    <option value="date" {% if request.GET.sort == 'date' %}selected{% endif %}>Sort by Date</option>
+                                    <option value="status" {% if request.GET.sort == 'status' %}selected{% endif %}>Sort by Status</option>
+                                </select>
+                            </div>
+                            <!-- Sort Order -->
+                            <div>
+                                <select name="order" id="sort-order" class="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                                    <option value="asc" {% if request.GET.order == 'asc' or not request.GET.order %}selected{% endif %}>Ascending</option>
+                                    <option value="desc" {% if request.GET.order == 'desc' %}selected{% endif %}>Descending</option>
+                                </select>
+                            </div>
+                            <!-- Submit Button -->
+                            <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                                Apply
+                            </button>
+                            <!-- Reset Button -->
+                            {% if request.GET.search or request.GET.status or request.GET.sort or request.GET.order %}
+                            <a href="?tab=individual&page=1" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                                Reset
+                            </a>
+                            {% endif %}
+                        </form>
                     </div>
                     
                     <!-- Responses Table -->
@@ -193,10 +222,49 @@
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <button onclick="sortTable('name')" class="flex items-center gap-1 hover:text-gray-700 focus:outline-none">
+                                            Student
+                                            {% if request.GET.sort == 'name' %}
+                                                {% if request.GET.order == 'desc' %}
+                                                    <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                                {% else %}
+                                                    <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+                                                {% endif %}
+                                            {% else %}
+                                                <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+                                            {% endif %}
+                                        </button>
+                                    </th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <button onclick="sortTable('status')" class="flex items-center gap-1 hover:text-gray-700 focus:outline-none">
+                                            Status
+                                            {% if request.GET.sort == 'status' %}
+                                                {% if request.GET.order == 'desc' %}
+                                                    <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                                {% else %}
+                                                    <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+                                                {% endif %}
+                                            {% else %}
+                                                <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+                                            {% endif %}
+                                        </button>
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        <button onclick="sortTable('date')" class="flex items-center gap-1 hover:text-gray-700 focus:outline-none">
+                                            Submitted
+                                            {% if request.GET.sort == 'date' %}
+                                                {% if request.GET.order == 'desc' %}
+                                                    <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                                {% else %}
+                                                    <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+                                                {% endif %}
+                                            {% else %}
+                                                <svg class="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
+                                            {% endif %}
+                                        </button>
+                                    </th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attempt</th>
                                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
@@ -267,10 +335,10 @@
                             </div>
                             <div class="flex space-x-2">
                                 {% if responses.has_previous %}
-                                <a href="?page={{ responses.previous_page_number }}" class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">Previous</a>
+                                <a href="?tab=individual&{% for key, value in request.GET.items %}{% if key != 'page' and key != 'tab' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ responses.previous_page_number }}" class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">Previous</a>
                                 {% endif %}
                                 {% if responses.has_next %}
-                                <a href="?page={{ responses.next_page_number }}" class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">Next</a>
+                                <a href="?tab=individual&{% for key, value in request.GET.items %}{% if key != 'page' and key != 'tab' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ responses.next_page_number }}" class="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">Next</a>
                                 {% endif %}
                             </div>
                         </div>
@@ -313,6 +381,11 @@ let analyticsPollingInterval = null;
 // Tab switching
 function switchTab(tab) {
     currentTab = tab;
+    
+    // Update URL without reloading page
+    const url = new URL(window.location);
+    url.searchParams.set('tab', tab);
+    window.history.pushState({}, '', url);
     
     // Hide all content
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -412,7 +485,15 @@ function renderChart(questionId, questionType, data, container) {
 // Pie chart for single-choice questions
 function renderPieChart(questionId, data, container) {
     const canvas = document.createElement('canvas');
-    container.appendChild(canvas);
+    // Add wrapper with max height constraint (matching analytics tab)
+    const wrapper = document.createElement('div');
+    wrapper.className = 'flex items-center justify-center';
+    wrapper.style.maxHeight = '400px';
+    wrapper.style.position = 'relative';
+    canvas.style.maxHeight = '400px';
+    canvas.style.maxWidth = '400px';
+    wrapper.appendChild(canvas);
+    container.appendChild(wrapper);
     
     charts[questionId] = new Chart(canvas, {
         type: 'pie',
@@ -428,9 +509,18 @@ function renderPieChart(questionId, data, container) {
         },
         options: {
             responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 1,
             plugins: {
                 legend: {
                     position: 'right',
+                    labels: {
+                        boxWidth: 12,
+                        padding: 10,
+                        font: {
+                            size: 12
+                        }
+                    }
                 },
                 tooltip: {
                     callbacks: {
@@ -451,6 +541,7 @@ function renderPieChart(questionId, data, container) {
 // Bar chart for multiple-choice questions
 function renderBarChart(questionId, data, container) {
     const canvas = document.createElement('canvas');
+    canvas.style.maxHeight = '300px';
     container.appendChild(canvas);
     
     charts[questionId] = new Chart(canvas, {
@@ -465,6 +556,7 @@ function renderBarChart(questionId, data, container) {
         },
         options: {
             responsive: true,
+            maintainAspectRatio: true,
             scales: {
                 y: {
                     beginAtZero: true,
@@ -485,6 +577,7 @@ function renderBarChart(questionId, data, container) {
 // Rating/Scale chart
 function renderRatingChart(questionId, data, container) {
     const canvas = document.createElement('canvas');
+    canvas.style.maxHeight = '300px';
     container.appendChild(canvas);
     
     const avgDiv = document.createElement('div');
@@ -507,6 +600,7 @@ function renderRatingChart(questionId, data, container) {
         },
         options: {
             responsive: true,
+            maintainAspectRatio: true,
             scales: {
                 y: {
                     beginAtZero: true,
@@ -553,6 +647,7 @@ function renderTextResponses(data, container) {
 // Timeline chart for date/time
 function renderTimelineChart(questionId, data, container) {
     const canvas = document.createElement('canvas');
+    canvas.style.maxHeight = '300px';
     container.appendChild(canvas);
     
     charts[questionId] = new Chart(canvas, {
@@ -570,6 +665,7 @@ function renderTimelineChart(questionId, data, container) {
         },
         options: {
             responsive: true,
+            maintainAspectRatio: true,
             scales: {
                 y: {
                     beginAtZero: true,
@@ -644,20 +740,44 @@ function loadQuestionAnalytics(questionId) {
         });
 }
 
-// Filter responses
-function filterResponses() {
-    const searchTerm = document.getElementById('search-input').value.toLowerCase();
-    const statusFilter = document.getElementById('filter-status').value;
+// Reset page to 1 when filters change
+function resetPage() {
+    const form = document.getElementById('filter-form');
+    // Remove existing page input if any
+    const existingPage = form.querySelector('input[name="page"]');
+    if (existingPage) {
+        existingPage.remove();
+    }
+    // Add page=1
+    const pageInput = document.createElement('input');
+    pageInput.type = 'hidden';
+    pageInput.name = 'page';
+    pageInput.value = '1';
+    form.appendChild(pageInput);
+}
+
+// Sort table by column (clickable headers)
+function sortTable(sortBy) {
+    const form = document.getElementById('filter-form');
+    const currentSort = '{{ request.GET.sort|default:"name" }}';
+    const currentOrder = '{{ request.GET.order|default:"asc" }}';
     
-    document.querySelectorAll('.response-row').forEach(row => {
-        const studentText = row.dataset.student.toLowerCase();
-        const status = row.dataset.status;
-        
-        const matchesSearch = studentText.includes(searchTerm);
-        const matchesStatus = !statusFilter || status === statusFilter;
-        
-        row.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
-    });
+    // Set sort field
+    document.getElementById('sort-by').value = sortBy;
+    
+    // Ensure tab is preserved
+    document.getElementById('tab-preserve').value = 'individual';
+    
+    // Toggle order if clicking same column, otherwise default to asc
+    if (currentSort === sortBy) {
+        document.getElementById('sort-order').value = currentOrder === 'asc' ? 'desc' : 'asc';
+    } else {
+        document.getElementById('sort-order').value = 'asc';
+    }
+    
+    // Reset to page 1 and submit
+    resetPage();
+    form.submit();
 }
 
 // View response detail
@@ -1311,8 +1431,10 @@ function stopAnalyticsPolling() {
 
 // Load charts on page load
 document.addEventListener('DOMContentLoaded', function() {
-    // Default to analytics tab
-    switchTab('analytics');
+    // Check for tab parameter in URL, default to analytics
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab') || 'analytics';
+    switchTab(tabParam);
     
     setTimeout(() => {
         loadAllCharts();

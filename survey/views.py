@@ -369,12 +369,14 @@ def student_course_detail(request, course_id):
         
         # Map survey type
         survey_type = survey.get_type_display()
+        status_code = survey.status  # Database status: 'active' or 'closed'
         
         all_surveys.append({
             'id': survey.id,
             'title': survey.title,
             'type': survey_type,
-            'status': status,
+            'status': status,  # Student-specific status: 'Not Started', 'In Progress', 'Closed', 'Completed'
+            'status_code': status_code,  # Survey database status: 'active' or 'closed'
             'progress': progress,
             'due_date': due_date,
         })
@@ -1449,12 +1451,18 @@ def teacher_home(request):
     
     for response in recent_responses:
         time_ago = timezone.now() - response.submitted_at
-        if time_ago.seconds < 3600:
-            time_str = f"{time_ago.seconds // 60} min ago"
-        elif time_ago.seconds < 86400:
-            time_str = f"{time_ago.seconds // 3600} hours ago"
+        total_seconds = int(time_ago.total_seconds())
+        
+        if total_seconds < 60:
+            time_str = f"{total_seconds} sec ago" if total_seconds == 1 else f"{total_seconds} secs ago"
+        elif total_seconds < 3600:
+            minutes = total_seconds // 60
+            time_str = f"{minutes} min ago" if minutes == 1 else f"{minutes} mins ago"
+        elif total_seconds < 86400:
+            hours = total_seconds // 3600
+            time_str = f"{hours} hour ago" if hours == 1 else f"{hours} hours ago"
         else:
-            time_str = f"{time_ago.days} days ago"
+            time_str = f"{time_ago.days} day ago" if time_ago.days == 1 else f"{time_ago.days} days ago"
         
         recent_activity.append({
             'type': 'response',
@@ -1820,12 +1828,14 @@ def teacher_course_detail(request, course_id):
         # Map survey type and status
         survey_type = survey.get_type_display()
         status = survey.get_status_display()
+        status_code = survey.status
         
         all_surveys.append({
             'id': survey.id,
             'title': survey.title,
             'type': survey_type,
             'status': status,
+            'status_code': status_code,
             'progress': progress,
             'due_date': due_date,
         })
@@ -3067,12 +3077,44 @@ def teacher_survey_submissions(request, survey_id):
             # Student has no response - create an incomplete response placeholder
             student_responses.append(IncompleteResponse(student))
     
-    # Sort by student name (last name, first name), then by completion status
-    student_responses.sort(key=lambda r: (
-        r.student.last_name or r.student.email or '',
-        r.student.first_name or '',
-        not (r.is_complete if hasattr(r, 'is_complete') else False)  # Complete first
-    ))
+    # Get sort and search parameters
+    sort_by = request.GET.get('sort', 'name')  # name, date, status
+    sort_order = request.GET.get('order', 'asc')  # asc, desc
+    search_query = request.GET.get('search', '').strip().lower()
+    status_filter = request.GET.get('status', '')  # complete, incomplete, or empty for all
+    
+    # Filter by search query (student name or email)
+    if search_query:
+        student_responses = [
+            r for r in student_responses
+            if search_query in (r.student.get_full_name() or '').lower() or
+               search_query in (r.student.email or '').lower()
+        ]
+    
+    # Filter by status
+    if status_filter:
+        if status_filter == 'complete':
+            student_responses = [r for r in student_responses if hasattr(r, 'is_complete') and r.is_complete]
+        elif status_filter == 'incomplete':
+            student_responses = [r for r in student_responses if not (hasattr(r, 'is_complete') and r.is_complete)]
+    
+    # Sort responses
+    if sort_by == 'name':
+        student_responses.sort(key=lambda r: (
+            (r.student.last_name or r.student.email or '').lower(),
+            (r.student.first_name or '').lower()
+        ), reverse=(sort_order == 'desc'))
+    elif sort_by == 'date':
+        # Sort by submitted_at, with None values always at the end
+        # Use a tuple: (not_has_date, date) so items without dates go to end
+        student_responses.sort(key=lambda r: (
+            not (hasattr(r, 'submitted_at') and r.submitted_at),  # False for items with date (comes first)
+            r.submitted_at if (hasattr(r, 'submitted_at') and r.submitted_at) else timezone.now()
+        ), reverse=(sort_order == 'desc'))
+    elif sort_by == 'status':
+        student_responses.sort(key=lambda r: (
+            hasattr(r, 'is_complete') and r.is_complete
+        ), reverse=(sort_order == 'desc'))
     
     total_responses = len(student_responses)
     
