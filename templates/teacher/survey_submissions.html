@@ -205,7 +205,7 @@
                                 {% for response in responses %}
                                 <tr class="response-row hover:bg-gray-50" data-student="{{ response.student.email }}" data-status="{% if response.is_complete %}complete{% else %}incomplete{% endif %}">
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm font-medium text-gray-900">{{ response.student.first_name }} {{ response.student.last_name }}</div>
+                                        <div class="text-sm font-medium text-gray-900">{{ response.student.get_full_name }}</div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="text-sm text-gray-500">{{ response.student.email }}</div>
@@ -215,9 +215,13 @@
                                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
                                             Complete
                                         </span>
-                                        {% else %}
+                                        {% elif response.id %}
                                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
                                             In Progress
+                                        </span>
+                                        {% else %}
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                            Incomplete
                                         </span>
                                         {% endif %}
                                     </td>
@@ -232,7 +236,11 @@
                                         {{ response.attempt_number }}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        {% if response.id %}
                                         <button onclick="viewResponse({{ response.id }})" class="text-indigo-600 hover:text-indigo-900">View</button>
+                                        {% else %}
+                                        <span class="text-gray-400">No response</span>
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 {% empty %}
@@ -1028,7 +1036,7 @@ function loadAnalytics() {
             let html = '';
             data.questions.forEach((question, index) => {
                 html += `
-                    <div class="bg-white rounded-lg border border-gray-200 p-6">
+                    <div class="bg-white rounded-lg border border-gray-200 p-6 mb-4">
                         <div class="mb-4">
                             <div class="flex items-start justify-between mb-2">
                                 <h3 class="text-lg font-medium text-gray-900">${question.question_text}</h3>

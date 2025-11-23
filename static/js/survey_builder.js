@@ -1373,18 +1373,21 @@ function updateExamFieldsForType(questionType) {
     
     let examFieldsHtml = '';
     
-    // Always show points field for exams
-    examFieldsHtml = `
-        <div class="mb-4">
-            <label for="points" class="block mb-2 text-sm font-medium text-gray-900">Points</label>
-            <input type="number" name="points" id="points" min="1" step="0.5" value="1" 
-                   class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" 
-                   placeholder="1" required>
-            <p class="text-xs text-gray-500 mt-1">Points awarded for correct answer (minimum: 1 pt)</p>
-        </div>
-    `;
+    // Don't show points field for section breaks
+    if (questionType !== 'section') {
+        // Show points field for exams (except section breaks)
+        examFieldsHtml = `
+            <div class="mb-4">
+                <label for="points" class="block mb-2 text-sm font-medium text-gray-900">Points</label>
+                <input type="number" name="points" id="points" min="1" step="0.5" value="1" 
+                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" 
+                       placeholder="1" required>
+                <p class="text-xs text-gray-500 mt-1">Points awarded for correct answer (minimum: 1 pt)</p>
+            </div>
+        `;
+    }
     
-    // Add type-specific exam fields
+    // Add type-specific exam fields (only for non-section questions)
     if (['multiple_choice', 'checkboxes', 'dropdown'].includes(questionType)) {
         examFieldsHtml += `
             <div class="mb-4" id="correct-answers-section">
@@ -1693,8 +1696,8 @@ function saveQuestion(questionId) {
                 addedQuestion.settings = {};
             }
             
-            // Save exam-specific data
-            if (typeof surveyType !== 'undefined' && surveyType === 'exam') {
+            // Save exam-specific data (exclude section breaks)
+            if (typeof surveyType !== 'undefined' && surveyType === 'exam' && newType !== 'section') {
                 // Validate and save points (must be at least 1 for exam surveys)
                 const pointsValue = parseFloat(questionData.points) || 1;
                 if (pointsValue < 1) {
@@ -2889,9 +2892,9 @@ function saveQuestionChanges() {
                 updateFormData.append('section_description', addedQuestion.settings.description || '');
             }
             
-            // Add exam-specific fields if this is an exam
-            if (typeof surveyType !== 'undefined' && surveyType === 'exam') {
-                // Add points
+            // Add exam-specific fields if this is an exam (exclude section breaks)
+            if (typeof surveyType !== 'undefined' && surveyType === 'exam' && addedQuestion.type !== 'section') {
+                // Add points (not for section breaks)
                 updateFormData.append('points', addedQuestion.points || 1);
                 
                 // Add correct answers for choice-based questions

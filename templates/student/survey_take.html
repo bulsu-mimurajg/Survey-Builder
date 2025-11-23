@@ -495,6 +495,7 @@
     const csrfToken = '{{ csrf_token }}';
     const surveyId = {{ survey.id }};
     const responseId = {{ response.id }};
+    const dueDateTimestamp = {% if due_date_timestamp %}{{ due_date_timestamp }}{% else %}null{% endif %};
     const requireCompletion = {% if survey.require_completion_in_one_sitting %}true{% else %}false{% endif %};
     const durationEnabled = {% if survey.duration_enabled %}true{% else %}false{% endif %};
     const totalQuestions = {{ total_questions }};
@@ -544,14 +545,66 @@
         });
     }
     
+    // Check if due date has passed and disable form
+    function checkDueDate() {
+        if (dueDateTimestamp && Date.now() > dueDateTimestamp) {
+            // Disable all form inputs
+            const form = document.getElementById('survey-form');
+            const inputs = form.querySelectorAll('input, textarea, select, button');
+            inputs.forEach(input => {
+                input.disabled = true;
+            });
+            
+            // Hide submit and save draft buttons
+            const submitButton = form.querySelector('button[type="submit"]');
+            const saveDraftButton = form.querySelector('button[onclick="saveDraft()"]');
+            if (submitButton) submitButton.style.display = 'none';
+            if (saveDraftButton) saveDraftButton.style.display = 'none';
+            
+            // Show warning message
+            const warningDiv = document.createElement('div');
+            warningDiv.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+            warningDiv.innerHTML = '<div class="flex items-center space-x-2"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg><span class="font-medium">This survey has passed its due date and can no longer be modified.</span></div>';
+            document.body.appendChild(warningDiv);
+            
+            // Stop checking
+            clearInterval(dueDateCheckInterval);
+            return true;
+        }
+        return false;
+    }
+    
+    // Check due date periodically (every 10 seconds)
+    let dueDateCheckInterval = null;
+    if (dueDateTimestamp) {
+        // Check immediately
+        if (checkDueDate()) {
+            // Due date already passed, form is disabled
+        } else {
+            // Check every 10 seconds
+            dueDateCheckInterval = setInterval(checkDueDate, 10000);
+        }
+    }
+    
     // Auto-save draft (if not require completion in one sitting)
     if (!requireCompletion) {
         setInterval(function() {
-            saveDraft(true); // silent save
+            // Only save if due date hasn't passed
+            if (!dueDateTimestamp || Date.now() <= dueDateTimestamp) {
+                saveDraft(true); // silent save
+            }
         }, 60000); // every minute
     }
     
     function saveDraft(silent = false) {
+        // Check if due date has passed
+        if (dueDateTimestamp && Date.now() > dueDateTimestamp) {
+            if (!silent) {
+                showToast('This survey has passed its due date and can no longer be modified.', 'error');
+            }
+            return;
+        }
+        
         const formData = new FormData(document.getElementById('survey-form'));
         formData.append('is_draft', 'true');
         
@@ -566,6 +619,8 @@
         .then(data => {
             if (data.success && !silent) {
                 showToast('Draft saved successfully', 'success');
+            } else if (!data.success && !silent) {
+                showToast(data.error || 'Failed to save draft', 'error');
             }
         })
         .catch(error => {
@@ -578,6 +633,12 @@
     // Handle form submission
     document.getElementById('survey-form').addEventListener('submit', function(e) {
         e.preventDefault();
+        
+        // Check if due date has passed
+        if (dueDateTimestamp && Date.now() > dueDateTimestamp) {
+            showToast('This survey has passed its due date and can no longer be submitted.', 'error');
+            return;
+        }
         
         // Count unanswered required questions
         const requiredInputs = document.querySelectorAll('[required]');
@@ -620,6 +681,13 @@
     }
     
     function confirmSubmit() {
+        // Check if due date has passed before submitting
+        if (dueDateTimestamp && Date.now() > dueDateTimestamp) {
+            showToast('This survey has passed its due date and can no longer be submitted.', 'error');
+            closeSubmitModal();
+            return;
+        }
+        
         // Disable beforeunload warning
         window.onbeforeunload = null;
         document.getElementById('survey-form').submit();

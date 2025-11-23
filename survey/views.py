@@ -979,6 +979,11 @@ def student_take_survey(request, survey_id):
     # Count answered questions
     answered_count = response.question_responses.count()
     
+    # Calculate due date timestamp for frontend validation
+    due_date_timestamp = None
+    if survey.due_date_enabled and survey.due_date:
+        due_date_timestamp = int(survey.due_date.timestamp() * 1000)  # Convert to milliseconds for JavaScript
+    
     context = {
         'survey': survey,
         'response': response,
@@ -991,6 +996,7 @@ def student_take_survey(request, survey_id):
         'answered_count': answered_count,
         'time_remaining_seconds': int(time_remaining_seconds) if time_remaining_seconds else 0,
         'duration_remaining': duration_remaining,
+        'due_date_timestamp': due_date_timestamp,
         'unread_count': 6,
     }
     
@@ -1141,6 +1147,11 @@ def student_submit_survey(request, survey_id):
     
     response = get_object_or_404(SurveyResponse, id=response_id, survey=survey, student=request.user)
     
+    # Check if survey has passed its due date
+    if survey.due_date_enabled and survey.due_date and survey.due_date < timezone.now():
+        messages.error(request, 'This survey has passed its due date and can no longer be submitted.')
+        return redirect('student-survey-detail', survey_id=survey.id)
+    
     # Check if already completed
     if response.is_complete:
         messages.info(request, 'This survey has already been submitted.')
@@ -1222,9 +1233,20 @@ def api_save_survey_draft(request, survey_id, response_id):
     survey = get_object_or_404(Survey, id=survey_id, status='active')
     response = get_object_or_404(SurveyResponse, id=response_id, survey=survey, student=request.user)
     
-    # Check if already completed
+    # Check if survey has passed its due date - prevent saving drafts after due date
+    if survey.due_date_enabled and survey.due_date and survey.due_date < timezone.now():
+        return JsonResponse({
+            'success': False,
+            'error': 'This survey has passed its due date and can no longer be modified.'
+        }, status=400)
+    
+    # IMPORTANT: Explicitly ensure is_complete is False for draft saves
+    # Even if the survey was somehow marked as complete, a draft save should reset it
+    # This prevents accidental completion when saving drafts
     if response.is_complete:
-        return JsonResponse({'success': False, 'error': 'Survey already submitted'}, status=400)
+        response.is_complete = False
+        response.submitted_at = None
+        response.save()
     
     # Process each question (same as submit but don't mark as complete)
     # Only save responses that have actual answers
@@ -1295,6 +1317,13 @@ def api_save_survey_draft(request, survey_id, response_id):
                 survey_response=response,
                 question=question
             ).delete()
+    
+    # IMPORTANT: Ensure is_complete is False for draft saves
+    # Even if all questions are answered, a draft save should never mark the survey as complete
+    if response.is_complete:
+        response.is_complete = False
+        response.submitted_at = None
+        response.save()
     
     return JsonResponse({'success': True, 'message': 'Draft saved successfully'})
 
@@ -2769,8 +2798,12 @@ def api_toggle_survey_status(request, survey_id):
                     'error': '. '.join(validation_errors)
                 }, status=400)
             
-            # Check if survey has questions
-            question_count = survey.questions.count()
+            # Check if survey has questions (exclude section breaks for exams)
+            if survey.type == 'exam':
+                question_count = survey.questions.exclude(question_type='section').count()
+            else:
+                question_count = survey.questions.count()
+            
             if question_count == 0:
                 return JsonResponse({
                     'success': False,
@@ -2824,8 +2857,12 @@ def api_confirm_activate_survey(request, survey_id):
     survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
     
     try:
-        # Check if survey has questions before confirming activation
-        question_count = survey.questions.count()
+        # Check if survey has questions before confirming activation (exclude section breaks for exams)
+        if survey.type == 'exam':
+            question_count = survey.questions.exclude(question_type='section').count()
+        else:
+            question_count = survey.questions.count()
+        
         if question_count == 0:
             return JsonResponse({
                 'success': False,
@@ -2988,13 +3025,60 @@ def teacher_survey_submissions(request, survey_id):
     survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
     questions = survey.questions.exclude(question_type='section').order_by('order')
     
-    # Get all complete responses
-    all_responses = survey.responses.filter(is_complete=True).select_related('student').order_by('-submitted_at')
-    total_responses = all_responses.count()
+    # Get all students enrolled in courses assigned to this survey
+    enrolled_students = User.objects.filter(
+        enrolled_courses__course__in=survey.courses.all(),
+        role='student'
+    ).distinct().order_by('last_name', 'first_name', 'email')
+    
+    # Get all responses (both complete and incomplete) for these students
+    all_responses_dict = {}
+    for response in survey.responses.filter(student__in=enrolled_students).select_related('student'):
+        student_id = response.student.id
+        # Keep the most recent response for each student
+        if student_id not in all_responses_dict:
+            all_responses_dict[student_id] = response
+        elif response.started_at > all_responses_dict[student_id].started_at:
+            all_responses_dict[student_id] = response
+    
+    # Create a list of response-like objects for all enrolled students
+    # Use a simple class to mimic SurveyResponse for students without responses
+    class IncompleteResponse:
+        def __init__(self, student):
+            self.id = None  # No response ID for incomplete
+            self.student = student
+            self.is_complete = False
+            self.submitted_at = None
+            self.started_at = None
+            self.attempt_number = 0
+            self.question_responses = type('QuerySet', (), {
+                'count': lambda: 0,
+                'all': lambda: [],
+                'exclude': lambda *args, **kwargs: type('QuerySet', (), {'count': lambda: 0})()
+            })()
+    
+    # Create response objects for all enrolled students
+    student_responses = []
+    for student in enrolled_students:
+        if student.id in all_responses_dict:
+            # Student has a response (complete or incomplete)
+            student_responses.append(all_responses_dict[student.id])
+        else:
+            # Student has no response - create an incomplete response placeholder
+            student_responses.append(IncompleteResponse(student))
+    
+    # Sort by student name (last name, first name), then by completion status
+    student_responses.sort(key=lambda r: (
+        r.student.last_name or r.student.email or '',
+        r.student.first_name or '',
+        not (r.is_complete if hasattr(r, 'is_complete') else False)  # Complete first
+    ))
+    
+    total_responses = len(student_responses)
     
     # Paginate responses for Individual tab
     page = request.GET.get('page', 1)
-    paginator = Paginator(all_responses, 20)
+    paginator = Paginator(student_responses, 20)
     responses = paginator.get_page(page)
     
     # Add response count for each question

@@ -33,6 +33,14 @@ class User(AbstractUser):
         verbose_name='user permissions',
     )
     
+    def get_full_name(self):
+        """Return the full name, prioritizing full_name field, then first_name + last_name"""
+        if self.full_name:
+            return self.full_name
+        elif self.first_name or self.last_name:
+            return f"{self.first_name or ''} {self.last_name or ''}".strip()
+        return self.username or self.email
+    
     def __str__(self):
         return self.email or self.username
     
