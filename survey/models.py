@@ -176,7 +176,12 @@ class Question(models.Model):
     order = models.IntegerField(default=0)
     required = models.BooleanField(default=False)
     settings = models.JSONField(default=dict, blank=True)  # Type-specific settings (e.g., scale min/max, rating max)
-    points = models.DecimalField(max_digits=5, decimal_places=2, default=1.00)  # Points for exam questions
+    points = models.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        default=1.00,  # Changed from 0 to 1
+        help_text="Points awarded for correct answer (minimum: 1.0)"
+    )  # Points for exam questions
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

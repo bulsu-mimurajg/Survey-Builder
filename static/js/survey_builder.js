@@ -1060,10 +1060,10 @@ function editQuestion(questionId) {
                 examFields = `
                     <div class="mb-4">
                         <label for="points" class="block mb-2 text-sm font-medium text-gray-900">Points</label>
-                        <input type="number" name="points" id="points" min="0" step="0.5" value="${currentPoints}" 
+                        <input type="number" name="points" id="points" min="1" step="0.5" value="${currentPoints}" 
                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" 
                                placeholder="1" required>
-                        <p class="text-xs text-gray-500 mt-1">Points awarded for correct answer (default: 1 pt)</p>
+                        <p class="text-xs text-gray-500 mt-1">Points awarded for correct answer (minimum: 1 pt)</p>
                     </div>
                 `;
                 
@@ -1362,10 +1362,10 @@ function updateExamFieldsForType(questionType) {
     examFieldsHtml = `
         <div class="mb-4">
             <label for="points" class="block mb-2 text-sm font-medium text-gray-900">Points</label>
-            <input type="number" name="points" id="points" min="0" step="0.5" value="1" 
+            <input type="number" name="points" id="points" min="1" step="0.5" value="1" 
                    class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5" 
                    placeholder="1" required>
-            <p class="text-xs text-gray-500 mt-1">Points awarded for correct answer (default: 1 pt)</p>
+            <p class="text-xs text-gray-500 mt-1">Points awarded for correct answer (minimum: 1 pt)</p>
         </div>
     `;
     
@@ -1607,8 +1607,13 @@ function saveQuestion(questionId) {
             
             // Save exam-specific data
             if (typeof surveyType !== 'undefined' && surveyType === 'exam') {
-                // Save points
-                addedQuestion.points = parseFloat(questionData.points) || 1;
+                // Validate and save points (must be at least 1 for exam surveys)
+                const pointsValue = parseFloat(questionData.points) || 1;
+                if (pointsValue < 1) {
+                    showToast('Points must be at least 1 for exam questions', 'error');
+                    return;
+                }
+                addedQuestion.points = pointsValue;
                 
                 // Save correct answers for choice-based questions
                 if (['multiple_choice', 'dropdown'].includes(newType)) {
@@ -1802,6 +1807,15 @@ function saveQuestion(questionId) {
             }
         }
     } else {
+        // Validate points for exam surveys before saving existing questions
+        if (typeof surveyType !== 'undefined' && surveyType === 'exam' && questionData.question_type !== 'section') {
+            const pointsValue = parseFloat(questionData.points);
+            if (isNaN(pointsValue) || pointsValue < 1) {
+                showToast('Points must be at least 1 for exam questions', 'error');
+                return;
+            }
+        }
+        
         // Save snapshot for undo/redo before saving to backend
         undoRedoManager.saveSnapshot();
         

@@ -2349,11 +2349,17 @@ def api_update_question(request, question_id):
         
         # Handle exam-specific fields (points and correct answers)
         if survey.type == 'exam' and question.question_type != 'section':
-            # Update points
+            # Update points (must be at least 1 for exam surveys)
             points = request.POST.get('points')
             if points:
                 try:
-                    question.points = float(points)
+                    points_value = float(points)
+                    if points_value < 1:
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'Points must be at least 1 for exam questions'
+                        }, status=400)
+                    question.points = points_value
                 except ValueError:
                     question.points = 1.00
             
