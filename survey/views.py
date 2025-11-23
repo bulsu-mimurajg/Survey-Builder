@@ -2769,6 +2769,14 @@ def api_toggle_survey_status(request, survey_id):
                     'error': '. '.join(validation_errors)
                 }, status=400)
             
+            # Check if survey has questions
+            question_count = survey.questions.count()
+            if question_count == 0:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Cannot activate {survey.type}. The {survey.type} must have at least one question before activation.'
+                }, status=400)
+            
             # Check if survey has existing responses
             response_count = survey.responses.count()
             has_responses = response_count > 0
@@ -2816,6 +2824,14 @@ def api_confirm_activate_survey(request, survey_id):
     survey = get_object_or_404(Survey, id=survey_id, created_by=request.user)
     
     try:
+        # Check if survey has questions before confirming activation
+        question_count = survey.questions.count()
+        if question_count == 0:
+            return JsonResponse({
+                'success': False,
+                'error': f'Cannot activate {survey.type}. The {survey.type} must have at least one question before activation.'
+            }, status=400)
+        
         survey.status = 'active'
         survey.save()
         return JsonResponse({

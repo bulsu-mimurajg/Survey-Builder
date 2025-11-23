@@ -78,26 +78,7 @@
                         </td>
                         <td class="px-6 py-4">{{ survey.due_date }}</td>
                         <td class="px-6 py-4 text-right">
-                            <div class="relative inline-block">
-                                <button id="dropdown-button-{{ survey.id }}" data-dropdown-toggle="dropdown-{{ survey.id }}" data-dropdown-placement="bottom-end" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 inline-flex items-center justify-center p-2 text-sm font-medium text-center rounded-lg transition-colors" type="button">
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                        <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"/>
-                                    </svg>
-                                </button>
-                                <div id="dropdown-{{ survey.id }}" class="z-50 hidden bg-white border border-gray-200 rounded-lg shadow-lg w-48" data-popper-placement="bottom-end">
-                                    <ul class="py-1 text-sm text-gray-700">
-                                        <li>
-                                            <a href="{% url 'student-survey-detail' survey.id %}" class="flex items-center px-4 py-2.5 hover:bg-gray-50 text-gray-700 hover:text-gray-900 transition-colors">
-                                                <svg class="w-4 h-4 mr-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                                </svg>
-                                                View Details
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </div>
+                            <a href="{% url 'student-survey-detail' survey.id %}" class="font-medium text-indigo-600 hover:underline">View Details</a>
                         </td>
                     </tr>
                     {% empty %}

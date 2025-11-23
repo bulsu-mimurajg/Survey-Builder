@@ -157,155 +157,35 @@ function handleQuestionDragStart(event, questionId) {
     draggedQuestionId = String(questionId);
     draggedQuestionElement = event.currentTarget;
     event.dataTransfer.effectAllowed = 'move';
-    event.currentTarget.style.opacity = '0.5';
-    event.currentTarget.classList.add('border-indigo-500');
     
-    // Show drop zones between questions
-    showQuestionDropZonesForReorder();
+    // Visual feedback for dragged element
+    event.currentTarget.style.opacity = '0.5';
+    event.currentTarget.style.transition = 'opacity 0.2s';
+    event.currentTarget.classList.add('dragging');
+    
+    // Add dragging class to body for global styles
+    document.body.classList.add('dragging-question');
 }
 
 function handleQuestionDragEnd(event) {
+    // Reset visual feedback
     event.currentTarget.style.opacity = '1';
-    event.currentTarget.classList.remove('border-indigo-500');
+    event.currentTarget.classList.remove('dragging');
     
-    // Hide drop zones
-    hideQuestionDropZones();
+    // Remove dragging class from body
+    document.body.classList.remove('dragging-question');
     
-    // Clean up visual states
+    // Clean up visual states on all questions
     const questions = document.querySelectorAll('.draggable-question');
     questions.forEach(q => {
-        q.classList.remove('drop-zone', 'drag-over', 'border-indigo-400', 'bg-indigo-50');
+        q.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom');
     });
     
     draggedQuestionId = null;
     draggedQuestionElement = null;
 }
 
-// Show drop zones for reordering existing questions
-function showQuestionDropZonesForReorder() {
-    const container = document.getElementById('questions-container');
-    if (!container) return;
-    
-    // First, remove any existing drop zones to prevent duplication
-    hideQuestionDropZones();
-    
-    const questions = Array.from(document.querySelectorAll('.draggable-question'));
-    
-    // Find the dragged element to exclude its adjacent drop zones
-    const draggedElement = questions.find(q => String(q.dataset.questionId) === String(draggedQuestionId));
-    const draggedIndex = draggedElement ? questions.indexOf(draggedElement) : -1;
-    
-    // Add drop zone at the beginning (before first question)
-    // But not if it's right before the dragged question
-    if (questions.length > 0 && draggedIndex !== 0) {
-        const firstDropZone = createDropZoneForReorder(0);
-        container.insertBefore(firstDropZone, questions[0]);
-    }
-    
-    // Add drop zones between and after questions
-    questions.forEach((question, index) => {
-        // Skip drop zones immediately before and after the dragged question
-        if (draggedIndex !== -1 && (index === draggedIndex || index === draggedIndex - 1)) {
-            return;
-        }
-        
-        const dropZone = createDropZoneForReorder(index + 1);
-        if (question.nextSibling) {
-            container.insertBefore(dropZone, question.nextSibling);
-        } else {
-            container.appendChild(dropZone);
-        }
-    });
-}
-
-// Create a drop zone for reordering questions
-function createDropZoneForReorder(insertPosition) {
-    const dropZone = document.createElement('div');
-    dropZone.className = 'question-drop-zone-reorder my-2 h-4 bg-indigo-200 border-2 border-dashed border-indigo-400 rounded-lg transition-all duration-200';
-    dropZone.dataset.insertPosition = insertPosition;
-    dropZone.setAttribute('draggable', 'false');
-    
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dropZone.classList.remove('h-4', 'bg-indigo-200');
-        dropZone.classList.add('h-8', 'bg-indigo-300');
-    });
-    
-    dropZone.addEventListener('dragleave', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('h-8', 'bg-indigo-300');
-        dropZone.classList.add('h-4', 'bg-indigo-200');
-    });
-    
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        handleDropOnReorderZone(e);
-    });
-    
-    return dropZone;
-}
-
-// Handle drop on reorder zone
-function handleDropOnReorderZone(event) {
-    if (!draggedQuestionId) return;
-    
-    const dropZone = event.currentTarget;
-    const insertPosition = parseInt(dropZone.dataset.insertPosition);
-    const container = document.getElementById('questions-container');
-    
-    if (!container || !draggedQuestionElement) return;
-    
-    // Get all questions
-    const questions = Array.from(document.querySelectorAll('.draggable-question'));
-    const draggedIndex = questions.indexOf(draggedQuestionElement);
-    
-    if (draggedIndex === -1) return;
-    
-    // Don't move if dropping in the same position (before or after the dragged element)
-    if (insertPosition === draggedIndex || insertPosition === draggedIndex + 1) {
-        hideQuestionDropZones();
-        return;
-    }
-    
-    // Save snapshot for undo/redo
-    undoRedoManager.saveSnapshot();
-    
-    // Remove the dragged element first
-    container.removeChild(draggedQuestionElement);
-    
-    // Get updated question list after removing dragged element
-    const updatedQuestions = Array.from(document.querySelectorAll('.draggable-question'));
-    
-    // Calculate actual insert position after removal
-    let actualInsertPosition = insertPosition;
-    if (draggedIndex < insertPosition) {
-        // If we're moving down, adjust for the removed element
-        actualInsertPosition--;
-    }
-    
-    // Insert at new position
-    if (actualInsertPosition >= updatedQuestions.length) {
-        // Append to end
-        container.appendChild(draggedQuestionElement);
-    } else {
-        // Insert before the element at actualInsertPosition
-        container.insertBefore(draggedQuestionElement, updatedQuestions[actualInsertPosition]);
-    }
-    
-    // Update order numbers
-    renumberQuestions();
-    
-    // Track changes
-    changeTracker.updateChangeStatus();
-    if (changeTracker.hasUnsavedChanges) {
-        updateSaveStatus('Unsaved changes', 'unsaved');
-    }
-    
-    // Hide drop zones
-    hideQuestionDropZones();
-}
+// Removed drop zones approach - now using direct card highlighting
 
 // Show drop zones between questions when dragging new question type
 function showQuestionDropZones() {
@@ -585,28 +465,143 @@ document.addEventListener('DOMContentLoaded', function() {
 function handleQuestionDragOver(event) {
     if (!draggedQuestionId) return;
     
-    // Don't allow dropping on questions directly
-    return;
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const targetQuestion = event.currentTarget;
+    const targetQuestionId = String(targetQuestion.dataset.questionId);
+    
+    // Don't highlight if it's the dragged question itself
+    if (targetQuestionId === draggedQuestionId) {
+        return;
+    }
+    
+    // Determine if we're in the top or bottom half of the question card
+    const rect = targetQuestion.getBoundingClientRect();
+    const mouseY = event.clientY;
+    const questionMiddle = rect.top + rect.height / 2;
+    
+    // Remove all drag-over classes first
+    targetQuestion.classList.remove('drag-over-top', 'drag-over-bottom');
+    
+    // Add appropriate class based on mouse position
+    if (mouseY < questionMiddle) {
+        targetQuestion.classList.add('drag-over-top');
+    } else {
+        targetQuestion.classList.add('drag-over-bottom');
+    }
 }
 
 // Handle leaving a question during drag
 function handleQuestionDragLeave(event) {
-    event.currentTarget.classList.remove('drag-over', 'border-indigo-400', 'bg-indigo-50');
+    // Only remove classes if we're actually leaving the question (not just moving to a child)
+    if (!event.currentTarget.contains(event.relatedTarget)) {
+        event.currentTarget.classList.remove('drag-over', 'drag-over-top', 'drag-over-bottom');
+    }
 }
 
-// Handle dropping a question on another question (disabled - only drop on zones)
+// Handle dropping a question on another question
 function handleQuestionDrop(event) {
+    if (!draggedQuestionId) return;
+    
     event.preventDefault();
     event.stopPropagation();
     
-    // Don't allow direct dropping on questions, only on drop zones
-    return;
+    const targetQuestion = event.currentTarget;
+    const targetQuestionId = String(targetQuestion.dataset.questionId);
+    const container = document.getElementById('questions-container') || document.getElementById('survey-canvas');
+    
+    if (!container || !draggedQuestionElement) return;
+    
+    // Don't move if dropping on itself
+    if (targetQuestionId === draggedQuestionId) {
+        targetQuestion.classList.remove('drag-over-top', 'drag-over-bottom');
+        return;
+    }
+    
+    // Get all questions
+    const questions = Array.from(document.querySelectorAll('.draggable-question'));
+    const draggedIndex = questions.indexOf(draggedQuestionElement);
+    const targetIndex = questions.indexOf(targetQuestion);
+    
+    if (draggedIndex === -1 || targetIndex === -1) return;
+    
+    // Determine insert position based on which half of the card was hovered
+    const rect = targetQuestion.getBoundingClientRect();
+    const mouseY = event.clientY;
+    const questionMiddle = rect.top + rect.height / 2;
+    const insertBefore = mouseY < questionMiddle;
+    
+    // Calculate the actual insert position
+    let insertPosition = targetIndex;
+    if (!insertBefore) {
+        insertPosition = targetIndex + 1;
+    }
+    
+    // Adjust if dragging from before the target
+    if (draggedIndex < targetIndex && insertBefore) {
+        insertPosition = targetIndex;
+    } else if (draggedIndex < targetIndex && !insertBefore) {
+        insertPosition = targetIndex + 1;
+    }
+    
+    // Don't move if already in the correct position
+    if (draggedIndex === insertPosition - (insertBefore ? 0 : 1)) {
+        targetQuestion.classList.remove('drag-over-top', 'drag-over-bottom');
+        return;
+    }
+    
+    // Save snapshot for undo/redo
+    undoRedoManager.saveSnapshot();
+    
+    // Remove the dragged element
+    container.removeChild(draggedQuestionElement);
+    
+    // Get updated question list after removal
+    const updatedQuestions = Array.from(document.querySelectorAll('.draggable-question'));
+    
+    // Adjust insert position after removal
+    let actualInsertPosition = insertPosition;
+    if (draggedIndex < insertPosition) {
+        actualInsertPosition--;
+    }
+    
+    // Insert at new position - handle edge cases properly (fixes "stuck" issue)
+    if (actualInsertPosition >= updatedQuestions.length) {
+        // Append to end
+        container.appendChild(draggedQuestionElement);
+    } else if (actualInsertPosition <= 0) {
+        // Insert at beginning
+        if (updatedQuestions.length > 0) {
+            container.insertBefore(draggedQuestionElement, updatedQuestions[0]);
+        } else {
+            container.appendChild(draggedQuestionElement);
+        }
+    } else {
+        // Insert before the element at actualInsertPosition
+        container.insertBefore(draggedQuestionElement, updatedQuestions[actualInsertPosition]);
+    }
+    
+    // Update order numbers
+    renumberQuestions();
+    
+    // Update original question state after reordering
+    changeTracker.storeOriginalQuestionState();
+    
+    // Track changes
+    changeTracker.updateChangeStatus();
+    if (changeTracker.hasUnsavedChanges) {
+        updateSaveStatus('Unsaved changes', 'unsaved');
+    }
     
     // Clean up visual states
-    const questions = document.querySelectorAll('.draggable-question');
-    questions.forEach(q => {
-        q.classList.remove('drag-over', 'border-indigo-400', 'bg-indigo-50');
+    const allQuestions = document.querySelectorAll('.draggable-question');
+    allQuestions.forEach(q => {
+        q.classList.remove('drag-over-top', 'drag-over-bottom');
     });
+    
+    // Update undo/redo buttons
+    undoRedoManager.updateButtons();
 }
 
 // Reorder questions (temporary, not saved to backend)
@@ -756,6 +751,9 @@ function addQuestion(questionType, insertOrder = null) {
     // Add to pending changes
     changeTracker.pendingQuestionChanges.added.push(questionData);
     
+    // Update original question state to include the new temp question for proper reordering detection
+    changeTracker.storeOriginalQuestionState();
+    
     // Create question HTML (simplified - you may want to load from template)
     const typeLabels = {
         'short_text': 'Short Text',
@@ -902,6 +900,9 @@ function addQuestion(questionType, insertOrder = null) {
     if (changeTracker.hasUnsavedChanges) {
         updateSaveStatus('Unsaved changes', 'unsaved');
     }
+    
+    // Ensure undo/redo buttons are updated after adding question
+    undoRedoManager.updateButtons();
 }
 
 // Edit question
@@ -2007,7 +2008,7 @@ let undoRedoManager = {
     },
     
     createSnapshot: function() {
-        const container = document.getElementById('questions-container');
+        const container = document.getElementById('questions-container') || document.getElementById('survey-canvas');
         const titleInput = document.getElementById('survey-title');
         const courseCheckboxes = document.querySelectorAll('input[name="course-assignment"]:checked');
         
@@ -2054,7 +2055,7 @@ let undoRedoManager = {
         this.isRestoring = true;
         
         // Restore questions HTML
-        const container = document.getElementById('questions-container');
+        const container = document.getElementById('questions-container') || document.getElementById('survey-canvas');
         if (container) {
             container.innerHTML = snapshot.questionsHtml;
             
@@ -2080,44 +2081,76 @@ let undoRedoManager = {
             cb.checked = snapshot.courseIds.includes(cb.value);
         });
         
-        // Don't restore pendingQuestionChanges from snapshot
-        // Instead, recalculate by comparing current DOM to original saved state
-        // Clear all pending changes and let updateChangeStatus recalculate
-        changeTracker.pendingQuestionChanges = {
-            added: [],
-            deleted: [],
-            edited: {},
-            reordered: null
-        };
-        
-        // Recalculate pending changes based on current DOM vs original state
-        // First, get current question IDs from DOM
-        const currentQuestions = Array.from(document.querySelectorAll('.draggable-question'));
-        const currentQuestionIds = currentQuestions.map(q => {
-            const id = q.dataset.questionId;
-            return id.startsWith('temp-') ? id : parseInt(id);
-        });
-        
-        // Get original question IDs (saved state)
-        const originalQuestionIds = changeTracker.originalQuestionState.ids;
-        
-        // Find added questions (in current but not in original)
-        currentQuestionIds.forEach(currentId => {
-            if (String(currentId).startsWith('temp-') || !originalQuestionIds.includes(currentId)) {
-                // This is a new/temp question, but we can't reconstruct full data
-                // So we'll just mark that there are added questions
-                // The actual data should come from the DOM or be rebuilt
-            }
-        });
-        
-        // Find deleted questions (in original but not in current)
-        originalQuestionIds.forEach(originalId => {
-            if (!currentQuestionIds.includes(originalId) && !currentQuestionIds.includes(String(originalId))) {
-                changeTracker.pendingQuestionChanges.deleted.push(originalId);
-            }
-        });
+        // Restore pendingQuestionChanges from snapshot if available, otherwise recalculate
+        // The snapshot contains the changeTrackerState which has the correct structure
+        if (snapshot.changeTrackerState && snapshot.changeTrackerState.pendingQuestionChanges) {
+            // Restore from snapshot - this preserves the correct data structure
+            changeTracker.pendingQuestionChanges = JSON.parse(JSON.stringify(snapshot.changeTrackerState.pendingQuestionChanges));
+        } else {
+            // Fallback: recalculate by comparing current DOM to original saved state
+            changeTracker.pendingQuestionChanges = {
+                added: [],
+                deleted: [],
+                edited: {},
+                reordered: null
+            };
+            
+            // Recalculate pending changes based on current DOM vs original state
+            // First, get current question IDs from DOM
+            const currentQuestions = Array.from(document.querySelectorAll('.draggable-question'));
+            const currentQuestionIds = currentQuestions.map(q => {
+                const id = q.dataset.questionId;
+                return id.startsWith('temp-') ? id : parseInt(id);
+            });
+            
+            // Get original question IDs (saved state)
+            const originalQuestionIds = changeTracker.originalQuestionState ? changeTracker.originalQuestionState.ids : [];
+            
+            // Find added questions (in current but not in original)
+            currentQuestionIds.forEach(currentId => {
+                const idStr = String(currentId);
+                if (idStr.startsWith('temp-') || !originalQuestionIds.includes(parseInt(idStr))) {
+                    // This is a new/temp question
+                    // Try to extract question data from the DOM element
+                    const questionElement = currentQuestions.find(q => {
+                        const qId = q.dataset.questionId;
+                        return qId === idStr || qId === String(currentId);
+                    });
+                    
+                    if (questionElement) {
+                        const questionType = questionElement.dataset.questionType || 'short_text';
+                        const questionTextEl = questionElement.querySelector('.question-text');
+                        const questionText = questionTextEl ? questionTextEl.textContent.trim() : 'New Question';
+                        const order = Array.from(currentQuestions).indexOf(questionElement);
+                        
+                        // Check if required
+                        const requiredEl = questionElement.querySelector('input[type="checkbox"][name*="required"]');
+                        const required = requiredEl ? requiredEl.checked : false;
+                        
+                        // Rebuild added question data structure to match what saveQuestionChanges expects
+                        changeTracker.pendingQuestionChanges.added.push({
+                            tempId: idStr.startsWith('temp-') ? idStr : `temp-${currentId}`,
+                            type: questionType,
+                            order: order,
+                            text: questionText,
+                            required: required,
+                            settings: {},
+                            options: []
+                        });
+                    }
+                }
+            });
+            
+            // Find deleted questions (in original but not in current)
+            originalQuestionIds.forEach(originalId => {
+                if (!currentQuestionIds.includes(originalId) && !currentQuestionIds.includes(String(originalId))) {
+                    changeTracker.pendingQuestionChanges.deleted.push(originalId);
+                }
+            });
+        }
         
         // Update change status to recalculate if there are actual changes
+        // This will also detect title and course changes
         changeTracker.updateChangeStatus();
         
         // Hide any drop zones that might have been restored
@@ -2152,6 +2185,11 @@ let undoRedoManager = {
         });
         questionElement.addEventListener('dragend', handleQuestionDragEnd);
         
+        // Reattach drag over/drop listeners for reordering
+        questionElement.addEventListener('dragover', handleQuestionDragOver);
+        questionElement.addEventListener('dragleave', handleQuestionDragLeave);
+        questionElement.addEventListener('drop', handleQuestionDrop);
+        
         // Reattach edit button listener
         const editBtn = questionElement.querySelector('.edit-question-btn');
         if (editBtn) {
@@ -2170,12 +2208,10 @@ let undoRedoManager = {
     updateButtons: function() {
         const undoBtn = document.getElementById('undo-button');
         const redoBtn = document.getElementById('redo-button');
-        const container = document.getElementById('questions-container');
-        const hasQuestions = container && container.querySelectorAll('.draggable-question').length > 0;
         
         if (undoBtn) {
-            // Only enable undo if there are questions AND history exists
-            if (hasQuestions && this.undoStack.length > 0) {
+            // Enable undo if history exists (regardless of whether there are questions)
+            if (this.undoStack.length > 0) {
                 undoBtn.disabled = false;
                 undoBtn.classList.remove('opacity-50', 'cursor-not-allowed');
             } else {
@@ -2185,8 +2221,8 @@ let undoRedoManager = {
         }
         
         if (redoBtn) {
-            // Only enable redo if there are questions AND redo history exists
-            if (hasQuestions && this.redoStack.length > 0) {
+            // Enable redo if redo history exists (regardless of whether there are questions)
+            if (this.redoStack.length > 0) {
                 redoBtn.disabled = false;
                 redoBtn.classList.remove('opacity-50', 'cursor-not-allowed');
             } else {
@@ -2240,11 +2276,18 @@ let changeTracker = {
     storeOriginalQuestionState: function() {
         const questions = Array.from(document.querySelectorAll('.draggable-question'));
         this.originalQuestionState = {
-            ids: questions.map(q => parseInt(q.dataset.questionId)),
-            order: questions.map((q, index) => ({
-                questionId: parseInt(q.dataset.questionId),
-                order: index
-            }))
+            ids: questions.map(q => {
+                const id = q.dataset.questionId;
+                // Handle both temp IDs and numeric IDs
+                return id.startsWith('temp-') ? id : parseInt(id);
+            }),
+            order: questions.map((q, index) => {
+                const id = q.dataset.questionId;
+                return {
+                    questionId: id.startsWith('temp-') ? id : parseInt(id),
+                    order: index
+                };
+            })
         };
     },
     
